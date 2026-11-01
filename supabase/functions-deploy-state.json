@@ -1,0 +1,21 @@
+{
+  "projectId": "72547894",
+  "functions": {
+    "admin-actions": {
+      "hasChanged": false,
+      "hash": "b87c2dbc3e287107e34659a97ab2623a421f615db5aa354ed5d36ee8f053a1d7"
+    },
+    "google-workspace": {
+      "hasChanged": false,
+      "hash": "eb22e6360c07c9565d0ae43804399c18b2fa0f1cd6e6fbdceb80f6c03cc99ba2"
+    },
+    "owner-setup": {
+      "hasChanged": false,
+      "hash": "465042a9e96717ba6d33d4c9a5c5f50eb8d7dd7b74736cd285225758910d871f"
+    },
+    "staff-auth": {
+      "hasChanged": false,
+      "hash": "5befcff18ee7d1d071d72bc94629a877094523ea38811e87f7ccc54671030b19"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+[functions.staff-auth]
+verify_jwt = false
+
+[functions.admin-actions]
+verify_jwt = false
+
+[functions.owner-setup]
+verify_jwt = false
+
+[functions.google-workspace]
+verify_jwt = false

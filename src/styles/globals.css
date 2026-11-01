@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-plw-ivory font-sans text-plw-ink antialiased;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    line-height: 1.2;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-plw-gold ring-offset-2 ring-offset-plw-ivory;
+  }
+
+  ::selection {
+    @apply bg-plw-gold-soft/40 text-plw-ink;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd2da transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
