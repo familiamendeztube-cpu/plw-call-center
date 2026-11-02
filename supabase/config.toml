@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.google-workspace]
 verify_jwt = false
+
+[functions.telephony]
+verify_jwt = false

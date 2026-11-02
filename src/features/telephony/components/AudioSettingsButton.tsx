@@ -20,7 +20,7 @@ export function AudioSettingsButton() {
       <Dialog
         open={open}
         title="Ajustes de audio"
-        description="Los dispositivos se seleccionarán cuando la telefonía esté configurada."
+        description="Las llamadas usan el micrófono y el altavoz predeterminados de este equipo."
         onClose={() => setOpen(false)}
         footer={
           <Button variant="secondary" onClick={() => setOpen(false)}>
@@ -43,13 +43,13 @@ export function AudioSettingsButton() {
                 className="h-10 w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 text-sm text-neutral-500"
                 defaultValue="pending"
               >
-                <option value="pending">Pendiente de configuración</option>
+                <option value="pending">Predeterminado del equipo</option>
               </select>
             </div>
           ))}
           <p className="flex items-start gap-2 rounded-lg bg-plw-ivory px-3 py-2.5 text-xs leading-relaxed text-neutral-600">
             <AudioLines size={14} className="mt-0.5 shrink-0 text-plw-gold" aria-hidden="true" />
-            Sin conexión de telefonía no hay dispositivos de audio que seleccionar.
+            Para usar otro dispositivo, cámbialo en los ajustes de sonido del equipo.
           </p>
         </div>
       </Dialog>

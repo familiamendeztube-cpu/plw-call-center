@@ -30,6 +30,14 @@ export const CALL_STATE_LABELS: Record<CallState, string> = {
   ended: 'Finalizada',
 };
 
+// Eight digits starting with 2-8, with or without 506. Asterisk enforces the same
+// rule. This copy only lets the agent see why a number can't be dialed.
+const COSTA_RICA_NUMBER = /^(?:\+?506)?([2-8]\d{7})$/;
+
+export function toCostaRicaNumber(input: string): string | null {
+  return COSTA_RICA_NUMBER.exec(input.replace(/[\s()-]/g, ''))?.[1] ?? null;
+}
+
 export function formatCallDuration(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);

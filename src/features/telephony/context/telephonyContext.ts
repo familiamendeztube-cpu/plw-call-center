@@ -12,6 +12,7 @@ export interface TelephonyContextValue {
   deleteDigit: () => void;
   clearDialNumber: () => void;
   placeCall: () => Promise<void>;
+  answerCall: () => Promise<void>;
   hangUp: () => Promise<void>;
   toggleMute: () => Promise<void>;
   toggleHold: () => Promise<void>;

@@ -1,4 +1,4 @@
-import { KeyRound, Power, UserRound } from 'lucide-react';
+import { KeyRound, Phone, Power, UserRound } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Panel } from '@/components/ui/Panel';
@@ -6,15 +6,19 @@ import type { AdminAgent } from '@/features/admin/models/adminAgents';
 
 interface AgentManagementCardProps {
   agent: AdminAgent;
+  hasPhone: boolean;
   onEditProfile: () => void;
   onChangePin: () => void;
+  onSetPhone: () => void;
   onRevokeSessions: () => void;
 }
 
 export function AgentManagementCard({
   agent,
+  hasPhone,
   onEditProfile,
   onChangePin,
+  onSetPhone,
   onRevokeSessions,
 }: AgentManagementCardProps) {
   const capacity =
@@ -45,9 +49,14 @@ export function AgentManagementCard({
         ) : (
           <Badge tone="warning">Sin PIN</Badge>
         )}
+        {hasPhone ? (
+          <Badge tone="navy">Teléfono asignado</Badge>
+        ) : (
+          <Badge tone="warning">Sin teléfono</Badge>
+        )}
       </div>
 
-      <div className="mt-auto grid grid-cols-1 gap-2 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
+      <div className="mt-auto grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
         <Button variant="secondary" size="sm" onClick={onEditProfile}>
           <UserRound size={14} aria-hidden="true" />
           Editar
@@ -55,6 +64,10 @@ export function AgentManagementCard({
         <Button variant="secondary" size="sm" onClick={onChangePin}>
           <KeyRound size={14} aria-hidden="true" />
           {agent.hasPin ? 'Cambiar PIN' : 'Crear PIN'}
+        </Button>
+        <Button variant="secondary" size="sm" onClick={onSetPhone}>
+          <Phone size={14} aria-hidden="true" />
+          Teléfono
         </Button>
         <Button variant="ghost" size="sm" onClick={onRevokeSessions}>
           <Power size={14} aria-hidden="true" />

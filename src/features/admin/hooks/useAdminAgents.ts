@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminAgent } from '@/features/admin/models/adminAgents';
 import { listAdminAgents } from '@/features/admin/services/adminAgentService';
+import {
+  listAgentSipAccounts,
+  type AgentSipAccount,
+} from '@/features/admin/services/sipAccountService';
 
 export type AdminAgentsState =
   | { status: 'loading' }
-  | { status: 'ready'; agents: AdminAgent[] }
+  | { status: 'ready'; agents: AdminAgent[]; sipAccounts: AgentSipAccount[] }
   | { status: 'error'; message: string };
 
 const LOAD_FAILURE = 'No se pudieron cargar los agentes. Intente de nuevo.';
@@ -15,8 +19,12 @@ export function useAdminAgents() {
   const load = useCallback(async () => {
     setState({ status: 'loading' });
     try {
-      const agents = await listAdminAgents();
-      setState({ status: 'ready', agents });
+      // Agent management keeps working even if the phone service is down.
+      const [agents, sipAccounts] = await Promise.all([
+        listAdminAgents(),
+        listAgentSipAccounts().catch(() => []),
+      ]);
+      setState({ status: 'ready', agents, sipAccounts });
     } catch (error) {
       setState({
         status: 'error',

@@ -66,9 +66,11 @@ Status is tracked per stage. Nothing below is marked live-tested.
 
 ## 4. Calling
 
-- Open: Vocex SIP line configuration (owner).
-- Open: live call testing.
-- Note: the telephony screens exist; no real calls are placed.
+- Done: Asterisk server with one Vocex line. Incoming and outgoing echo tests passed on 2026-11-02.
+- Done in the repository: browser phone, agent logins and call routing (`infra/asterisk/README.md`).
+- Open: deploy the agent logins to the server, then run the validation table in that README.
+- Tested in a local lab on 2026-11-02: Asterisk 22.11.0, a stand-in for Vocex and headless Chromium with a fake microphone. Calls, two-way audio, hangup, refused numbers and rollback all passed.
+- Not tested: browser registration, browser calls and browser audio against the live server, real Vocex, a real microphone prompt and networks behind NAT.
 
 ## 5. Sales materials
 

@@ -1,6 +1,6 @@
 import type { AppServices } from '@/app/appServices';
 import { createPendingEmailConnector } from '@/integrations/email/pendingEmailConnector';
-import { createPendingTelephonyConnector } from '@/integrations/telephony/pendingTelephonyConnector';
+import { createSipTelephonyConnector } from '@/integrations/telephony/sipTelephonyConnector';
 import { createProductionAssignmentService } from '@/production/adapters/productionAssignmentService';
 import { createProductionAuthService } from '@/production/adapters/productionAuthService';
 import {
@@ -25,6 +25,6 @@ export function createProductionServices(): AppServices {
     materials: createProductionMaterialService(),
     assignments: createProductionAssignmentService(),
     email: createPendingEmailConnector(),
-    telephony: createPendingTelephonyConnector(),
+    telephony: createSipTelephonyConnector(),
   };
 }

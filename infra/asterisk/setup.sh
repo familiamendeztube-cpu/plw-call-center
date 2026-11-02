@@ -3,10 +3,11 @@
 #
 # Run as root on a new Ubuntu 24.04 LTS server:  bash setup.sh
 # It asks for the line, the domain and the line password. The password goes
-# only into /etc/asterisk/pjsip.conf on the server. Safe to run again.
+# only into /etc/asterisk/pjsip.conf on the server. Safe to run again until
+# plw-agents has added agent logins. After that it refuses to run.
 #
-# ponytail: one line and no agent logins yet. Calls only reach a voice echo
-# test. Agent logins and the other lines come with the in-app phone.
+# ponytail: one line. Calls only reach a voice echo test until plw-agents.sh
+# adds agent logins and call routing. The other lines come later.
 set -euo pipefail
 
 readonly ASTERISK_URL=https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-22-current.tar.gz
@@ -39,6 +40,9 @@ ask_settings() {
 
 check_server() {
   [[ $EUID -eq 0 ]] || die "Run this as root."
+  # This script replaces pjsip.conf and extensions.conf, which would drop the agents.
+  [[ ! -e /etc/asterisk/pjsip_agents.conf ]] ||
+    die "This server already has agent logins. Use plw-agents instead."
   # Asterisk 22 failed to compile on Ubuntu 26.04, so stop before a long build.
   grep -q '^VERSION_ID="24.04"' /etc/os-release || die "This script needs Ubuntu 24.04 LTS."
 

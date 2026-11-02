@@ -2,18 +2,22 @@ import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { AgentManagementCard } from '@/features/admin/components/AgentManagementCard';
+import { AgentPhoneDialog } from '@/features/admin/components/AgentPhoneDialog';
 import { AgentPinDialog } from '@/features/admin/components/AgentPinDialog';
 import { AgentProfileDialog } from '@/features/admin/components/AgentProfileDialog';
 import { AgentSessionsDialog } from '@/features/admin/components/AgentSessionsDialog';
 import { useAdminAgents } from '@/features/admin/hooks/useAdminAgents';
 import type { AdminAgent } from '@/features/admin/models/adminAgents';
 
-type AgentDialog = { kind: 'profile' | 'pin' | 'sessions'; agent: AdminAgent } | null;
+type AgentDialog = { kind: 'profile' | 'pin' | 'phone' | 'sessions'; agent: AdminAgent } | null;
 
 export function AgentManagementSection() {
   const { state, reload } = useAdminAgents();
   const [dialog, setDialog] = useState<AgentDialog>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const sipAccounts = state.status === 'ready' ? state.sipAccounts : [];
+  const sipAccountOf = (agent: AdminAgent) =>
+    sipAccounts.find((account) => account.staffId === agent.id) ?? null;
 
   const handleSaved = async (message: string) => {
     setDialog(null);
@@ -67,6 +71,7 @@ export function AgentManagementSection() {
             <AgentManagementCard
               key={agent.id}
               agent={agent}
+              hasPhone={sipAccountOf(agent) !== null}
               onEditProfile={() => {
                 setNotice(null);
                 setDialog({ kind: 'profile', agent });
@@ -74,6 +79,10 @@ export function AgentManagementSection() {
               onChangePin={() => {
                 setNotice(null);
                 setDialog({ kind: 'pin', agent });
+              }}
+              onSetPhone={() => {
+                setNotice(null);
+                setDialog({ kind: 'phone', agent });
               }}
               onRevokeSessions={() => {
                 setNotice(null);
@@ -94,6 +103,14 @@ export function AgentManagementSection() {
       {dialog?.kind === 'pin' ? (
         <AgentPinDialog
           agent={dialog.agent}
+          onClose={() => setDialog(null)}
+          onSaved={handleSaved}
+        />
+      ) : null}
+      {dialog?.kind === 'phone' ? (
+        <AgentPhoneDialog
+          agent={dialog.agent}
+          account={sipAccountOf(dialog.agent)}
           onClose={() => setDialog(null)}
           onSaved={handleSaved}
         />

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useAuth } from '@/features/auth/context/useAuth';
 import type { CallSnapshot, RecentCall } from '@/features/telephony/models/call';
 import {
   TelephonyContext,
@@ -24,6 +25,8 @@ function durationSeconds(startedAt: string | null): number {
 }
 
 export function TelephonyProvider({ connector, children }: TelephonyProviderProps) {
+  const { session } = useAuth();
+  const agentId = session?.role === 'agent' ? session.agentId : null;
   const [connectorStatus, setConnectorStatus] = useState<TelephonyConnectorStatus>(
     connector.status
   );
@@ -36,9 +39,12 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
     return connector.subscribe((event) => {
       if (event.type === 'status') {
         setConnectorStatus(event.status);
+        if (event.message) setCommandError(event.message);
+        else if (event.status === 'registered') setCommandError(null);
         return;
       }
       setCall(event.call);
+      if (event.message) setCommandError(event.message);
       if (event.call?.state === 'ended') {
         const finished = event.call;
         setRecentCalls((current) => [
@@ -54,6 +60,12 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       }
     });
   }, [connector]);
+
+  useEffect(() => {
+    if (!agentId) return undefined;
+    void connector.start();
+    return () => connector.stop();
+  }, [connector, agentId]);
 
   const runCommand = useCallback(
     async (command: () => Promise<{ ok: boolean; message: string }>) => {
@@ -74,6 +86,11 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
   const placeCall = useCallback(
     () => runCommand(() => connector.dial(dialNumber)),
     [connector, dialNumber, runCommand]
+  );
+
+  const answerCall = useCallback(
+    () => runCommand(() => connector.answer()),
+    [connector, runCommand]
   );
 
   const hangUp = useCallback(() => runCommand(() => connector.hangup()), [connector, runCommand]);
@@ -104,6 +121,7 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       deleteDigit,
       clearDialNumber,
       placeCall,
+      answerCall,
       hangUp,
       toggleMute,
       toggleHold,
@@ -119,6 +137,7 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       deleteDigit,
       clearDialNumber,
       placeCall,
+      answerCall,
       hangUp,
       toggleMute,
       toggleHold,

@@ -21,7 +21,11 @@ export function PhoneScreen() {
         {displayNumber || <span className="text-white/30">Introduce un número</span>}
       </p>
       <p className="mt-1 h-4 text-center text-xs text-plw-gold-soft">
-        {call && isCallLive(call.state) && call.direction === 'outbound' ? 'Llamada saliente' : ''}
+        {call && isCallLive(call.state)
+          ? call.direction === 'outbound'
+            ? 'Llamada saliente'
+            : 'Llamada entrante'
+          : ''}
       </p>
     </div>
   );

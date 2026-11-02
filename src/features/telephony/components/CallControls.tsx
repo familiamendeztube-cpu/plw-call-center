@@ -45,12 +45,14 @@ export function CallControls() {
     dialNumber,
     connectorStatus,
     placeCall,
+    answerCall,
     hangUp,
     toggleMute,
     toggleHold,
     transferCall,
   } = useTelephony();
   const live = call !== null && isCallLive(call.state);
+  const incoming = call?.direction === 'inbound' && call.state === 'ringing';
   const canHold = call?.state === 'active' || call?.state === 'on_hold';
   const canDial = connectorStatus === 'registered' && dialNumber.length > 0 && !live;
   const onHold = call?.state === 'on_hold';
@@ -61,12 +63,12 @@ export function CallControls() {
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
-          onClick={placeCall}
-          disabled={!canDial}
+          onClick={incoming ? answerCall : placeCall}
+          disabled={!incoming && !canDial}
           className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-success-600 text-base font-semibold text-white shadow-sm transition-all hover:bg-success-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 disabled:shadow-none"
         >
           <Phone size={20} aria-hidden="true" />
-          Llamar
+          {incoming ? 'Contestar' : 'Llamar'}
         </button>
         <button
           type="button"
@@ -75,14 +77,14 @@ export function CallControls() {
           className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-danger-600 text-base font-semibold text-white shadow-sm transition-all hover:bg-danger-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 disabled:shadow-none"
         >
           <PhoneOff size={20} aria-hidden="true" />
-          Colgar
+          {incoming ? 'Rechazar' : 'Colgar'}
         </button>
       </div>
       <div className="grid grid-cols-3 gap-2">
         <SecondaryButton
           label={muted ? 'Reactivar' : 'Silenciar'}
           onClick={toggleMute}
-          disabled={!live}
+          disabled={call?.state !== 'active'}
           active={muted}
         >
           {muted ? <MicOff size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
