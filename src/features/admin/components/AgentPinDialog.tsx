@@ -15,6 +15,11 @@ interface AgentPinDialogProps {
 const PIN_MISMATCH = 'Los dos PIN no coinciden. Escríbelos de nuevo.';
 const PIN_INVALID = `El PIN debe tener exactamente ${PIN_LENGTH} dígitos.`;
 
+// maxLength only limits keystrokes. A password manager can fill in any length.
+function cleanPin(value: string): string {
+  return value.replace(/\D/g, '').slice(0, PIN_LENGTH);
+}
+
 export function AgentPinDialog({ agent, onClose, onSaved }: AgentPinDialogProps) {
   const [pin, setPin] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -80,7 +85,7 @@ export function AgentPinDialog({ agent, onClose, onSaved }: AgentPinDialogProps)
           autoComplete="new-password"
           maxLength={PIN_LENGTH}
           value={pin}
-          onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
+          onChange={(event) => setPin(cleanPin(event.target.value))}
           disabled={submitting}
         />
         <TextField
@@ -90,7 +95,7 @@ export function AgentPinDialog({ agent, onClose, onSaved }: AgentPinDialogProps)
           autoComplete="new-password"
           maxLength={PIN_LENGTH}
           value={confirmation}
-          onChange={(event) => setConfirmation(event.target.value.replace(/\D/g, ''))}
+          onChange={(event) => setConfirmation(cleanPin(event.target.value))}
           disabled={submitting}
         />
         <p className="text-sm text-neutral-500">

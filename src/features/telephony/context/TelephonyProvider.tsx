@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/context/useAuth';
-import type { CallSnapshot, RecentCall } from '@/features/telephony/models/call';
+import { toDialNumber, type CallSnapshot, type RecentCall } from '@/features/telephony/models/call';
 import {
   TelephonyContext,
   type TelephonyContextValue,
@@ -9,8 +9,6 @@ import type {
   TelephonyConnector,
   TelephonyConnectorStatus,
 } from '@/integrations/telephony/telephonyContract';
-
-const MAX_DIAL_LENGTH = 20;
 
 interface TelephonyProviderProps {
   connector: TelephonyConnector;
@@ -67,6 +65,17 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
     return () => connector.stop();
   }, [connector, agentId]);
 
+  // This provider outlives logout, so the next person on this computer would inherit the phone.
+  useEffect(
+    () => () => {
+      setCall(null);
+      setDialNumber('');
+      setRecentCalls([]);
+      setCommandError(null);
+    },
+    [agentId]
+  );
+
   const runCommand = useCallback(
     async (command: () => Promise<{ ok: boolean; message: string }>) => {
       const result = await command();
@@ -75,8 +84,10 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
     []
   );
 
+  const changeDialNumber = useCallback((value: string) => setDialNumber(toDialNumber(value)), []);
+
   const appendDigit = useCallback((digit: string) => {
-    setDialNumber((current) => (current.length < MAX_DIAL_LENGTH ? `${current}${digit}` : current));
+    setDialNumber((current) => toDialNumber(`${current}${digit}`));
   }, []);
 
   const deleteDigit = useCallback(() => setDialNumber((current) => current.slice(0, -1)), []);
@@ -117,6 +128,7 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       dialNumber,
       recentCalls,
       commandError,
+      changeDialNumber,
       appendDigit,
       deleteDigit,
       clearDialNumber,
@@ -133,6 +145,7 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       dialNumber,
       recentCalls,
       commandError,
+      changeDialNumber,
       appendDigit,
       deleteDigit,
       clearDialNumber,

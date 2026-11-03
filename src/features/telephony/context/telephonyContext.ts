@@ -8,6 +8,7 @@ export interface TelephonyContextValue {
   dialNumber: string;
   recentCalls: RecentCall[];
   commandError: string | null;
+  changeDialNumber: (value: string) => void;
   appendDigit: (digit: string) => void;
   deleteDigit: () => void;
   clearDialNumber: () => void;

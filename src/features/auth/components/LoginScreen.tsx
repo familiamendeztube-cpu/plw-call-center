@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, FlaskConical, LockKeyhole } from 'lucide-react';
+import { ArrowRight, FlaskConical } from 'lucide-react';
 import { IS_DEMO_MODE } from '@/app/appConfig';
 import type { Agent, AgentId } from '@/features/auth/models/agent';
 import { DEMO_AGENT_PIN, PIN_LENGTH } from '@/features/auth/models/demoAccess';
@@ -40,18 +40,25 @@ export function LoginScreen({
     setPin((current) => current.slice(0, -1));
   }, []);
 
-  const submit = async (agentId: AgentId, enteredPin: string) => {
-    setSubmitting(true);
-    setError(null);
-    const message = await onSignIn(agentId, enteredPin);
-    setSubmitting(false);
-    if (message) {
+  const submit = useCallback(
+    async (agentId: AgentId, enteredPin: string) => {
+      setSubmitting(true);
+      setError(null);
+      const message = await onSignIn(agentId, enteredPin);
+      setSubmitting(false);
       setError(message);
       setPin('');
-    }
-  };
+    },
+    [onSignIn]
+  );
 
-  const canSubmit = selectedId !== null && pin.length === PIN_LENGTH && !submitting;
+  // Works in either order: the last digit or the agent can come second.
+  useEffect(() => {
+    if (selectedId !== null && pin.length === PIN_LENGTH && !submitting) {
+      void submit(selectedId, pin);
+    }
+  }, [selectedId, pin, submitting, submit]);
+
   const selectedAgent = agents.find((agent) => agent.id === selectedId);
   const shownError = error ?? (deviceRequired ? null : notice);
 
@@ -91,15 +98,6 @@ export function LoginScreen({
                   {shownError}
                 </p>
               ) : null}
-              <Button
-                size="lg"
-                className="w-full max-w-xs"
-                disabled={!canSubmit}
-                onClick={() => selectedId && submit(selectedId, pin)}
-              >
-                <LockKeyhole size={18} aria-hidden="true" />
-                Ingresar
-              </Button>
             </div>
 
             {deviceRequired ? (

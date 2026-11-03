@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { toCostaRicaNumber } from '../../src/features/telephony/models/call.ts';
+import { toCostaRicaNumber, toDialNumber } from '../../src/features/telephony/models/call.ts';
 
 function asteriskPatternToRegExp(pattern) {
   const body = pattern.slice(1).replaceAll('X', '[0-9]');
@@ -55,6 +55,13 @@ test('Costa Rican numbers pass in the browser and in Asterisk, with or without 5
 test('written formats are cleaned up before the check', () => {
   assert.equal(toCostaRicaNumber('+506 4010-6199'), '40106199');
   assert.equal(toCostaRicaNumber('(506) 8888 8888'), '88888888');
+});
+
+test('the phone screen keeps only dialable characters, up to twenty', () => {
+  assert.equal(toDialNumber('+506 4010-6199'), '+50640106199');
+  assert.equal(toDialNumber('abc*12#'), '*12#');
+  assert.equal(toDialNumber('1'.repeat(25)), '1'.repeat(20));
+  assert.equal(toCostaRicaNumber(toDialNumber('+506 4010-6199')), '40106199');
 });
 
 test('everything else is refused in the browser and in Asterisk', () => {

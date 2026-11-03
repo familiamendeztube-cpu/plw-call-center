@@ -1,4 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
+import { useAuth } from '@/features/auth/context/useAuth';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { ConnectionStatus } from '@/features/telephony/components/ConnectionStatus';
 import { PhoneScreen } from '@/features/telephony/components/PhoneScreen';
@@ -10,6 +11,7 @@ import { AudioSettingsButton } from '@/features/telephony/components/AudioSettin
 import { PhoneAvailabilityToggle } from '@/features/presence/components/PhoneAvailabilityToggle';
 
 export function PhonePanel() {
+  const { session } = useAuth();
   const { connectorStatus, commandError } = useTelephony();
 
   return (
@@ -35,7 +37,7 @@ export function PhonePanel() {
             </div>
           ) : null}
 
-          <PhoneAvailabilityToggle />
+          {session?.role === 'agent' ? <PhoneAvailabilityToggle /> : null}
           <PhoneScreen />
           <CallControls />
 

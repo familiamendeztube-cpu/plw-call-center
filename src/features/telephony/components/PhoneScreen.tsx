@@ -3,30 +3,32 @@ import { CALL_STATE_LABELS, isCallLive } from '@/features/telephony/models/call'
 import { CallTimer } from '@/features/telephony/components/CallTimer';
 
 export function PhoneScreen() {
-  const { call, dialNumber } = useTelephony();
-  const displayNumber = call?.remoteNumber ?? dialNumber;
+  const { call, dialNumber, changeDialNumber, placeCall } = useTelephony();
+  const live = call !== null && isCallLive(call.state);
   const state = call?.state ?? 'idle';
 
   return (
-    <div className="rounded-2xl bg-plw-deep px-5 py-5 text-white shadow-inner">
-      <div className="flex items-center justify-between text-xs text-white/60">
+    <label className="block cursor-text rounded-2xl bg-plw-deep px-5 py-5 text-white shadow-inner focus-within:ring-2 focus-within:ring-plw-gold">
+      <span className="flex items-center justify-between text-xs text-white/60">
         <span>{CALL_STATE_LABELS[state]}</span>
         <CallTimer startedAt={call?.startedAt ?? null} running={call?.state === 'active'} />
-      </div>
-      <p
-        className="mt-3 min-h-[2.25rem] truncate text-center font-light tabular-nums text-3xl tracking-wide"
-        aria-live="polite"
+      </span>
+      <input
+        type="tel"
         aria-label="Número marcado"
-      >
-        {displayNumber || <span className="text-white/30">Introduce un número</span>}
-      </p>
-      <p className="mt-1 h-4 text-center text-xs text-plw-gold-soft">
-        {call && isCallLive(call.state)
-          ? call.direction === 'outbound'
-            ? 'Llamada saliente'
-            : 'Llamada entrante'
-          : ''}
-      </p>
-    </div>
+        autoComplete="off"
+        placeholder="Introduce un número"
+        readOnly={live}
+        value={live ? call.remoteNumber : dialNumber}
+        onChange={(event) => changeDialNumber(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !live && dialNumber) void placeCall();
+        }}
+        className="mt-3 h-9 w-full truncate bg-transparent text-center text-3xl font-light tabular-nums tracking-wide placeholder:text-lg placeholder:text-white/30 focus-visible:ring-0 focus-visible:ring-offset-0"
+      />
+      <span aria-live="polite" className="mt-1 block h-4 text-center text-xs text-plw-gold-soft">
+        {live ? (call.direction === 'outbound' ? 'Llamada saliente' : 'Llamada entrante') : ''}
+      </span>
+    </label>
   );
 }

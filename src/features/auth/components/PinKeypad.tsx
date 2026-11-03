@@ -21,6 +21,10 @@ export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKey
       return undefined;
     }
     const handleKey = (event: KeyboardEvent) => {
+      // A code typed into the device registration fields must not count as a PIN.
+      if (event.target instanceof HTMLInputElement) {
+        return;
+      }
       if (/^\d$/.test(event.key)) {
         onDigit(event.key);
       } else if (event.key === 'Backspace') {
