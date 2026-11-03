@@ -15,6 +15,7 @@ const CLIENT_OF_2 = id(2);
 const UNASSIGNED = id(3);
 
 const OWNED_TABLES = [
+  'ai_call_requests',
   'prospects',
   'conversations',
   'messages',
@@ -27,7 +28,12 @@ const PERSONAL_TABLES = [
   ['notifications', 'id'],
   ['gmail_outbox', 'id'],
 ];
-const ADMIN_ONLY_TABLES = ['assignment_queue', 'assignment_history', 'admin_audit_events'];
+const ADMIN_ONLY_TABLES = [
+  'assignment_queue',
+  'assignment_history',
+  'admin_audit_events',
+  'ai_webhook_failures',
+];
 const SHARED_TABLES = ['sales_materials', 'settings'];
 
 // Any new entry here is a new way for a browser to reach data, so it needs its own
@@ -66,6 +72,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'request_reply_send',
   'save_draft',
   'schedule_followup',
+  'set_ai_call_status',
   'set_availability',
   'set_followup_completed',
   'set_next_action',
@@ -82,6 +89,7 @@ const OWNER_ACTIONS = [
   ['complete a follow-up', 'SELECT public.set_followup_completed($1, true)'],
   ['mark the conversation read', 'SELECT public.mark_conversation_read($1)'],
   ['save a reply draft', `SELECT public.save_draft($1, 'Borrador', 1)`],
+  ['change an AI call status', `SELECT public.set_ai_call_status($1, 'completed')`],
 ];
 
 const ASSIGNED_AGENT_ONLY_ACTIONS = [
@@ -119,6 +127,11 @@ async function seedClient(clientId, ownerId) {
   await db.query(
     `INSERT INTO public.messages (id, conversation_id, author, body) VALUES ($1, $1, 'customer', 'Hola')`,
     [clientId]
+  );
+  await db.query(
+    `INSERT INTO public.ai_call_requests (id, conversation_id, prospect_id, call_started_at)
+     VALUES ($1, $2, $1, now())`,
+    [clientId, `conv_${clientId.slice(-4)}`]
   );
   if (!ownerId) return;
 
@@ -173,6 +186,7 @@ async function seed() {
     [CLIENT_OF_1]
   );
   await db.query(`INSERT INTO public.admin_audit_events (action) VALUES ('prueba')`);
+  await db.query(`INSERT INTO public.ai_webhook_failures (reason) VALUES ('prueba')`);
 }
 
 async function become(tx, person) {

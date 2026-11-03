@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { DemoDataNote } from '@/components/ui/DemoDataNote';
+import { AiCallAlerts } from '@/features/ai-calls/components/AiCallSections';
 
 export function CustomersPage() {
   const { agentId } = useAgentSession();
@@ -116,6 +117,8 @@ export function CustomersPage() {
           </Button>
         </div>
       ) : null}
+
+      <AiCallAlerts onSelect={handleSelect} />
 
       <div className="grid min-h-[38rem] grid-cols-1 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-panel lg:grid-cols-[20rem_minmax(0,1fr)]">
         <div className="hidden min-h-0 border-r border-neutral-200 lg:flex lg:flex-col">

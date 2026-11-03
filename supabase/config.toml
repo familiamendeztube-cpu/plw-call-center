@@ -16,3 +16,7 @@ verify_jwt = false
 [functions.asterisk-bridge]
 # Dedicated server-only token is checked inside the handler. No browser access.
 verify_jwt = false
+
+[functions.elevenlabs-webhook]
+# ElevenLabs HMAC signature is checked inside the handler. No browser access.
+verify_jwt = false

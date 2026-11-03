@@ -15,6 +15,7 @@ import type { CustomerEntry } from '@/features/customers/models/customerEntries'
 import type { AgentId } from '@/features/auth/models/agent';
 import { cx } from '@/components/ui/cx';
 import { StatusMessage } from '@/components/ui/StatusMessage';
+import { AiCallPanel } from '@/features/ai-calls/components/AiCallSections';
 
 const TABS: { id: CustomerTab; label: string }[] = [
   { id: 'correo', label: 'Correo' },
@@ -93,6 +94,8 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
           })}
         </div>
       </header>
+
+      <AiCallPanel prospectId={prospect.id} agentNames={agentNames} />
 
       <div
         role="tabpanel"
