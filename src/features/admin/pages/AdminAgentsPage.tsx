@@ -5,7 +5,6 @@ import { StatusMessage } from '@/components/ui/StatusMessage';
 import { AdminSnapshotBoundary } from '@/features/admin/components/AdminSnapshotBoundary';
 import { AgentManagementSection } from '@/features/admin/components/AgentManagementSection';
 import { AgentWorkloadCard } from '@/features/admin/components/AgentWorkloadCard';
-import { OfficeEnrollmentPanel } from '@/features/admin/components/OfficeEnrollmentPanel';
 import { useAdminSnapshot } from '@/features/admin/hooks/useAdminSnapshot';
 import { computeAgentWorkloads, type AdminSnapshot } from '@/features/admin/models/overview';
 
@@ -16,7 +15,7 @@ export function AdminAgentsPage() {
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Agentes"
-        description="Carga de trabajo, cuentas de acceso y equipos de oficina."
+        description="Carga de trabajo y cuentas de acceso."
         actions={<DemoDataNote />}
       />
       <AdminSnapshotBoundary state={state} reload={reload}>
@@ -42,10 +41,7 @@ function AgentsContent({ snapshot }: { snapshot: AdminSnapshot }) {
           title="La gestión de cuentas está disponible con la cuenta del administrador conectada."
         />
       ) : (
-        <>
-          <AgentManagementSection />
-          <OfficeEnrollmentPanel />
-        </>
+        <AgentManagementSection />
       )}
     </>
   );
