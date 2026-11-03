@@ -1,0 +1,24 @@
+[Unit]
+Description=PLW queue availability and server call records
+After=network-online.target asterisk.service
+Wants=network-online.target asterisk.service
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/etc/plw-bridge.env
+ExecStart=/usr/bin/python3 /opt/plw-bridge/worker.py
+ExecStopPost=/usr/bin/python3 /opt/plw-bridge/worker.py --pause-all
+Restart=always
+RestartSec=3
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/plw-bridge /run/asterisk
+StateDirectory=plw-bridge
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

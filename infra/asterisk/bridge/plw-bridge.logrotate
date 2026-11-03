@@ -1,0 +1,12 @@
+/var/log/asterisk/cdr-custom/plw.csv {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    nocompress
+    create 0640 asterisk asterisk
+    sharedscripts
+    postrotate
+        /usr/sbin/asterisk -rx 'module reload cdr_custom.so' >/dev/null
+    endscript
+}

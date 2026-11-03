@@ -188,6 +188,9 @@ setup_agents() {
   [[ $# -ge 1 ]] || die "Name at least one agent, for example: plw-agents setup agent-1"
   local agent
   for agent in "$@"; do check_agent_name "$agent"; done
+  if [[ -f /etc/plw-bridge.env ]]; then
+    die "Queue bridge is installed. setup would overwrite routing; use the bridge runbook to add agents."
+  fi
   check_server
   backup_config
 

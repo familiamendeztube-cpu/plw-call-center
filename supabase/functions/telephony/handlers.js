@@ -118,6 +118,15 @@ async function handleSetAccount(admin, actorId, body, encryptionKey) {
 
 export async function handleTelephonyAction({ admin, staff, body, encryptionKey }) {
   switch (body.action) {
+    case 'call_report': {
+      if (staff.role !== 'admin') return fail(403, 'No autorizado.');
+      const since = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { data, error, count } = await admin.from('asterisk_calls')
+        .select('unique_id,linked_id,staff_id,sip_username,direction,disposition,talk_seconds,started_at,ended_at', { count: 'exact' })
+        .gte('started_at', since).order('started_at', { ascending: false }).limit(10000);
+      if (error) throw error;
+      return { status: 200, body: { calls: data, truncated: count > data.length } };
+    }
     case 'get_my_account':
       if (staff.role !== 'agent') return fail(403, 'No autorizado.');
       return handleGetMyAccount(admin, staff.staffId, encryptionKey);

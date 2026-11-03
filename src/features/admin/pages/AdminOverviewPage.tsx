@@ -1,3 +1,4 @@
+import { PhoneCallReport } from '@/features/admin/components/PhoneCallReport';
 import {
   Activity,
   CalendarClock,
@@ -47,7 +48,7 @@ function OverviewContent({ snapshot }: { snapshot: AdminSnapshot }) {
   return (
     <>
       <p className="text-sm text-neutral-600">
-        Todas las cifras de esta pantalla son datos de demostración.
+        Las métricas comerciales son datos de demostración. El reporte de llamadas muestra registros del servidor.
       </p>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
@@ -87,6 +88,7 @@ function OverviewContent({ snapshot }: { snapshot: AdminSnapshot }) {
           icon={<FileText size={18} aria-hidden="true" />}
         />
       </div>
+      <PhoneCallReport agentNames={agentNames} />
       <section aria-labelledby="workload-heading" className="flex flex-col gap-4">
         <h2 id="workload-heading" className="text-lg font-semibold text-plw-ink">
           Carga de trabajo por agente
