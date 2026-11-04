@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Mail, StickyNote } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Mail, MessageCircle, StickyNote } from 'lucide-react';
 import { cx } from '@/components/ui/cx';
 import type { AgentId } from '@/features/auth/models/agent';
 import type { Draft } from '@/features/inbox/models/conversation';
@@ -8,7 +8,7 @@ import type { Prospect } from '@/features/leads/models/prospect';
 import { PrivateNoteComposer } from '@/features/leads/components/PrivateNoteComposer';
 import { EmailReplyComposer } from '@/features/inbox/components/EmailReplyComposer';
 
-type ReplyTab = 'email' | 'note';
+type ReplyTab = 'chat' | 'email' | 'note';
 
 interface ReplyPanelProps {
   conversationId: string;
@@ -19,12 +19,15 @@ interface ReplyPanelProps {
   onNoteSaved: () => void;
   /** False for customers who came by phone: only private notes, no email reply. */
   emailEnabled?: boolean;
+  /** A chat channel's reply box (WhatsApp), offered first. */
+  chatReply?: { label: string; content: ReactNode };
 }
 
-const TAB_LABELS: Record<ReplyTab, string> = {
+const TAB_LABELS: Record<Exclude<ReplyTab, 'chat'>, string> = {
   email: 'Respuesta por correo',
   note: 'Nota privada',
 };
+const TAB_ICONS = { chat: MessageCircle, email: Mail, note: StickyNote };
 
 export function ReplyPanel({
   conversationId,
@@ -34,16 +37,25 @@ export function ReplyPanel({
   outbox,
   onNoteSaved,
   emailEnabled = true,
+  chatReply,
 }: ReplyPanelProps) {
-  const tabs: ReplyTab[] = emailEnabled ? ['email', 'note'] : ['note'];
+  const tabs: ReplyTab[] = [
+    ...(chatReply ? ['chat' as const] : []),
+    ...(emailEnabled ? ['email' as const] : []),
+    'note',
+  ];
   const [tab, setTab] = useState<ReplyTab>(tabs[0]);
 
   return (
-    <section aria-label="Redactar" className="border-t border-neutral-200 bg-white px-5 py-4">
-      <div role="tablist" aria-label="Tipo de mensaje" className="mb-4 flex gap-2">
+    // Never taller than about half the pane, so the messages above stay in view.
+    <section
+      aria-label="Redactar"
+      className="max-h-[55%] shrink-0 overflow-y-auto border-t border-neutral-200 bg-white px-5 py-3"
+    >
+      <div role="tablist" aria-label="Tipo de mensaje" className="mb-3 flex gap-2">
         {tabs.map((item) => {
           const selected = tab === item;
-          const Icon = item === 'email' ? Mail : StickyNote;
+          const Icon = TAB_ICONS[item];
           return (
             <button
               key={item}
@@ -54,7 +66,7 @@ export function ReplyPanel({
               aria-controls={`reply-panel-${item}`}
               onClick={() => setTab(item)}
               className={cx(
-                'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors',
+                'inline-flex h-8 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/50',
                 selected
                   ? 'bg-plw-navy text-white'
@@ -62,13 +74,17 @@ export function ReplyPanel({
               )}
             >
               <Icon size={14} aria-hidden="true" />
-              {TAB_LABELS[item]}
+              {item === 'chat' ? chatReply?.label : TAB_LABELS[item]}
             </button>
           );
         })}
       </div>
 
-      {tab === 'email' ? (
+      {tab === 'chat' ? (
+        <div role="tabpanel" id="reply-panel-chat" aria-labelledby="reply-tab-chat">
+          {chatReply?.content}
+        </div>
+      ) : tab === 'email' ? (
         <div role="tabpanel" id="reply-panel-email" aria-labelledby="reply-tab-email">
           <EmailReplyComposer
             key={conversationId}

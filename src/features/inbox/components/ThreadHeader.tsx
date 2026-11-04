@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { StageSelect } from '@/features/leads/components/StageSelect';
 import { CustomerDetailsDialog } from '@/features/leads/components/CustomerDetailsDialog';
 import type { Prospect } from '@/features/leads/models/prospect';
-import { SALES_STAGE_LABELS } from '@/features/leads/models/prospect';
 
 interface ThreadHeaderProps {
   prospect: Prospect;
@@ -15,28 +13,30 @@ interface ThreadHeaderProps {
 export function ThreadHeader({ prospect, ownerName, onProspectChange }: ThreadHeaderProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  // One row: the customer's name and contact are already in the page header right above,
+  // and every line here is a line less for the messages.
   return (
-    <header className="border-b border-neutral-200 bg-white px-5 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="truncate text-lg font-semibold text-plw-ink">{prospect.businessName}</h2>
-          <p className="mt-0.5 text-sm text-neutral-500">
-            {prospect.contactName} · {prospect.phone}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge tone="navy">{SALES_STAGE_LABELS[prospect.stage]}</Badge>
-            <span className="text-xs text-neutral-500">Agente: {ownerName}</span>
-          </div>
+    <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 bg-white px-5 py-2.5">
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor={`stage-${prospect.id}`}
+          className="whitespace-nowrap text-xs font-medium text-neutral-500"
+        >
+          Etapa de venta
+        </label>
+        <div className="w-48">
+          <StageSelect prospect={prospect} onChange={onProspectChange} compact />
         </div>
-        <Button variant="secondary" size="sm" onClick={() => setDetailsOpen(true)}>
-          Ver ficha
-        </Button>
       </div>
-
-      <div className="mt-4 flex flex-col gap-1.5 sm:w-64">
-        <p className="text-xs font-medium text-neutral-500">Etapa de venta</p>
-        <StageSelect prospect={prospect} onChange={onProspectChange} compact />
-      </div>
+      <span className="text-xs text-neutral-500">Agente: {ownerName}</span>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="ml-auto"
+        onClick={() => setDetailsOpen(true)}
+      >
+        Ver ficha
+      </Button>
 
       {detailsOpen ? (
         <CustomerDetailsDialog

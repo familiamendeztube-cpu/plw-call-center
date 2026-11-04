@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { IS_DEMO_MODE } from '@/app/appConfig';
 import { useAsync } from '@/app/useAsync';
 import {
   callStaffFunction,
@@ -53,6 +54,8 @@ export type WhatsAppThread =
 
 // Row level security returns a chat only to the customer's agent or an admin.
 async function loadChat(prospectId: string): Promise<{ unread: boolean } | null> {
+  // Demo customers are not in the database.
+  if (IS_DEMO_MODE) return null;
   const { data, error } = await getSupabaseClient()
     .from('whatsapp_chats')
     .select('unread')

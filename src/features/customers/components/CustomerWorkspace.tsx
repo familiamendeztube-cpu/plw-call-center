@@ -17,7 +17,7 @@ import { cx } from '@/components/ui/cx';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { AiCallPanel } from '@/features/ai-calls/components/AiCallSections';
-import { WhatsAppPanel } from '@/features/whatsapp/components/WhatsAppPanel';
+import { WhatsAppConversation } from '@/features/whatsapp/components/WhatsAppConversation';
 import { useWhatsAppChat } from '@/features/whatsapp/hooks/useWhatsApp';
 
 type TabItem = { id: CustomerTab; label: string };
@@ -51,11 +51,8 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
   const requested = parseCustomerTab(searchParams.get(CUSTOMER_TAB_PARAM));
   // A link to a tab this customer does not have (e.g. "correo" for a call) opens the first one.
   const tab = tabs.some((item) => item.id === requested) ? requested : firstTab;
-  const whatsApp = <WhatsAppPanel prospect={prospect} agentNames={agentNames} onRead={markRead} />;
-  const channelDetails = fromCall ? (
+  const callDetails = fromCall ? (
     <AiCallPanel prospectId={prospect.id} agentNames={agentNames} className="flex flex-col gap-3" />
-  ) : fromWhatsApp ? (
-    whatsApp
   ) : undefined;
 
   useEffect(() => {
@@ -84,10 +81,12 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
-      <header className="border-b border-neutral-200 px-5 pt-5">
-        <h2 className="text-lg font-semibold text-plw-ink">{prospect.businessName}</h2>
-        <p className="text-sm text-neutral-500">{prospect.contactName}</p>
-        <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+      <header className="border-b border-neutral-200 px-5 pt-4">
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <h2 className="text-lg font-semibold text-plw-ink">{prospect.businessName}</h2>
+          <p className="text-sm text-neutral-500">{prospect.contactName}</p>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm xl:grid-cols-4">
           {prospect.phone ? (
             <div>
               <dt className="text-xs text-neutral-500">Teléfono</dt>
@@ -100,22 +99,28 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
           {prospect.email ? (
             <div>
               <dt className="text-xs text-neutral-500">Correo</dt>
-              <dd className="break-all text-plw-ink">{prospect.email}</dd>
+              <dd className="line-clamp-2 break-all text-plw-ink" title={prospect.email}>
+                {prospect.email}
+              </dd>
             </div>
           ) : null}
           <div>
             <dt className="text-xs text-neutral-500">Giro del negocio</dt>
-            <dd className="text-plw-ink">{prospect.businessCategory || 'Sin definir'}</dd>
+            <dd className="line-clamp-2 text-plw-ink" title={prospect.businessCategory}>
+              {prospect.businessCategory || 'Sin definir'}
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-neutral-500">Qué quiere mejorar</dt>
-            <dd className="text-plw-ink">{prospect.serviceInterest || 'Sin definir'}</dd>
+            <dd className="line-clamp-2 text-plw-ink" title={prospect.serviceInterest}>
+              {prospect.serviceInterest || 'Sin definir'}
+            </dd>
           </div>
         </dl>
         <div
           role="tablist"
           aria-label="Información del cliente"
-          className="-mb-px mt-4 flex gap-1 overflow-x-auto"
+          className="-mb-px mt-3 flex gap-1 overflow-x-auto"
         >
           {tabs.map((item) => {
             const active = item.id === tab;
@@ -149,8 +154,11 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
         </div>
       </header>
 
-      {/* An email customer who later phoned the AI: show that call above the tabs. */}
-      {fromCall ? null : <AiCallPanel prospectId={prospect.id} agentNames={agentNames} />}
+      {/* An email customer who later phoned the AI: show that call above the tabs, except over
+          the WhatsApp chat, which needs the height. */}
+      {fromCall || tab === 'whatsapp' ? null : (
+        <AiCallPanel prospectId={prospect.id} agentNames={agentNames} />
+      )}
 
       <div
         role="tabpanel"
@@ -158,17 +166,33 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
         aria-labelledby={`customer-tab-${tab}`}
         className="min-h-0 flex-1 overflow-y-auto bg-plw-ivory/60"
       >
-        {tab === firstTab ? (
+        {tab === 'whatsapp' ? (
+          conversation ? (
+            <WhatsAppConversation
+              key={conversation.id}
+              conversationId={conversation.id}
+              prospect={prospect}
+              agentId={agentId}
+              agentNames={agentNames}
+              onRead={markRead}
+            />
+          ) : (
+            <div className="p-6">
+              <StatusMessage tone="error" title="No se encontró la conversación de este cliente." />
+            </div>
+          )
+        ) : null}
+        {tab === firstTab && tab !== 'whatsapp' ? (
           conversation ? (
             <ConversationPane
               key={conversation.id}
               conversationId={conversation.id}
               agentId={agentId}
               agentNames={agentNames}
-              channelDetails={channelDetails}
+              channelDetails={callDetails}
             />
-          ) : channelDetails ? (
-            <div className="p-5">{channelDetails}</div>
+          ) : callDetails ? (
+            <div className="p-5">{callDetails}</div>
           ) : (
             <div className="p-6">
               <StatusMessage
@@ -179,7 +203,6 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
             </div>
           )
         ) : null}
-        {tab === 'whatsapp' && !fromWhatsApp ? <div className="p-5 sm:p-6">{whatsApp}</div> : null}
         {tab === 'oferta' ? (
           <div className="p-5 sm:p-6">
             <CustomerOfferPanel prospect={prospect} agentId={agentId} />

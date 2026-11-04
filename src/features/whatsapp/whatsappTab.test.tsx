@@ -57,7 +57,7 @@ vi.mock('@/integrations/supabase/callStaffFunction', async (importOriginal) => (
             ? body.text
             : '¡Hola, María Fernanda Solís! Nos gustaría conocer más sobre su negocio de cafetería.';
         return {
-          message: { id: '3', author: 'agent', body: text, sentAt: '2026-11-04T18:00:00Z' },
+          message: { id: '3', author: 'agent', body: text, sentAt: new Date().toISOString() },
         };
       }
       default:
@@ -121,13 +121,13 @@ test('a WhatsApp customer opens on the chat, keeps notes, and the agent answers 
     'https://chat.example/nota.ogg'
   );
   expect(screen.getByText(/No se entregó/)).toBeTruthy();
-  expect(screen.getByText('Respondes en Chatwoot como Alejandro Ruiz.')).toBeTruthy();
+  expect(screen.getByText(/Respondes en Chatwoot como Alejandro Ruiz/)).toBeTruthy();
   // Stage and private notes still work for a WhatsApp customer; email replies do not apply.
   expect(screen.getByRole('tab', { name: /Nota privada/ })).toBeTruthy();
   expect(screen.queryByRole('tab', { name: /Respuesta por correo/ })).toBeNull();
 
   const user = userEvent.setup();
-  await user.type(screen.getByLabelText('Respuesta por WhatsApp'), 'Le paso la información');
+  await user.type(screen.getByLabelText('Mensaje de WhatsApp'), 'Le paso la información');
   await user.click(screen.getByRole('button', { name: 'Enviar por WhatsApp' }));
   expect(await screen.findByText('Le paso la información')).toBeTruthy();
   expect(requests[requests.length - 1]).toEqual({
@@ -157,7 +157,7 @@ test('after 24 hours the agent reviews a template filled from the customer and s
   const user = userEvent.setup();
 
   expect(await screen.findByText(/Pasaron más de 24 horas/)).toBeTruthy();
-  expect(screen.queryByLabelText('Respuesta por WhatsApp')).toBeNull();
+  expect(screen.queryByLabelText('Mensaje de WhatsApp')).toBeNull();
   await user.selectOptions(
     await screen.findByLabelText('Plantilla'),
     'plw seguimiento solicitud web (es)'
@@ -204,7 +204,7 @@ test('the agent sends a photo with a caption, and it shows in the chat', async (
   const photo = new File(['foto'], 'menu.jpg', { type: 'image/jpeg' });
   await user.upload(screen.getByLabelText('Archivo para enviar por WhatsApp'), photo);
   expect(screen.getByText('menu.jpg')).toBeTruthy();
-  await user.type(screen.getByLabelText('Respuesta por WhatsApp'), 'Así quedaría su menú');
+  await user.type(screen.getByLabelText('Mensaje de WhatsApp'), 'Así quedaría su menú');
   await user.click(screen.getByRole('button', { name: 'Enviar por WhatsApp' }));
 
   const image = await screen.findByAltText('Foto enviada por WhatsApp');
@@ -230,4 +230,23 @@ test('a file over WhatsApp’s limit is refused before uploading', async () => {
 
   expect(screen.getByText(/pesa más de 16 MB/).getAttribute('role')).toBe('alert');
   expect(screen.queryByText('demo.mp4')).toBeNull();
+});
+
+test('the chat reads like WhatsApp: the reply tab is pinned and a sent message glides into view', async () => {
+  const scrollTo = vi.fn();
+  Element.prototype.scrollTo = scrollTo;
+  await openWhatsAppCustomer();
+  const user = userEvent.setup();
+  await screen.findByText('Hola, ¿qué planes tienen?');
+
+  // WhatsApp and private notes share one timeline; their reply boxes are tabs below it.
+  expect(
+    screen.getByRole('tab', { name: 'Respuesta por WhatsApp' }).getAttribute('aria-selected')
+  ).toBe('true');
+  expect(screen.getByRole('tab', { name: /Nota privada/ })).toBeTruthy();
+
+  await user.type(screen.getByLabelText('Mensaje de WhatsApp'), 'Le escribo en un momento');
+  await user.click(screen.getByRole('button', { name: 'Enviar por WhatsApp' }));
+  await screen.findByText('Le escribo en un momento');
+  expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
 });

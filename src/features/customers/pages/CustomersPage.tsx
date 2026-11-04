@@ -82,7 +82,7 @@ export function CustomersPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div className="flex flex-col gap-4 p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Clientes"
         description="Tus clientes asignados, sus correos, lo que les ofreces y las presentaciones aprobadas."
@@ -120,7 +120,8 @@ export function CustomersPage() {
 
       <AiCallAlerts onSelect={handleSelect} />
 
-      <div className="grid min-h-[38rem] grid-cols-1 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-panel lg:grid-cols-[20rem_minmax(0,1fr)]">
+      {/* Fits the screen, so chats and lists scroll inside it instead of stretching the page. */}
+      <div className="grid h-[calc(100dvh-2rem)] min-h-[34rem] lg:h-[calc(100dvh-16rem)] lg:min-h-[40rem] grid-cols-1 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-panel lg:grid-cols-[20rem_minmax(0,1fr)]">
         <div className="hidden min-h-0 border-r border-neutral-200 lg:flex lg:flex-col">
           {listContent}
         </div>
