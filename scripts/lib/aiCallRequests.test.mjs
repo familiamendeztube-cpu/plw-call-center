@@ -128,6 +128,14 @@ test('a call not sent to an agent is kept without creating a customer', async ()
   });
 });
 
+test('consent false is stored as false, not as empty', async () => {
+  await inTransaction(async (q) => {
+    const id = await record(q, call({ consent: false }));
+    const [row] = await q(`SELECT consent FROM public.ai_call_requests WHERE id = $1`, [id]);
+    assert.equal(row.consent, false);
+  });
+});
+
 test('details the caller did not give stay empty', async () => {
   await inTransaction(async (q) => {
     const id = await record(q, {

@@ -35,6 +35,7 @@ test('rejects bodies over the size limit without reading them whole', async () =
 
 test('maps a post-call event to the stored fields', () => {
   assert.deepEqual(callFromEvent(postCallEvent()), {
+    fieldsIssue: null,
     call: {
       conversation_id: 'conv_plwfixture0001',
       caller_phone: '+50600000000',
@@ -72,6 +73,78 @@ test('falls back to the caller ID variable and rejects unknown contact methods',
   assert.equal(call.caller_phone, '+50600000000');
   assert.equal(call.preferred_contact, null);
   assert.equal(call.consent, null);
+});
+
+const COLLECTED = {
+  customer_name: 'Cliente Prueba',
+  business_name: 'Negocio Prueba',
+  call_reason: 'Automatizar su negocio',
+  preferred_contact: 'WhatsApp',
+  callback_time: 'Cualquier hora',
+  callback_phone: '60000000',
+  callback_consent: true,
+};
+const EXPECTED = {
+  customer_name: 'Cliente Prueba',
+  business_name: 'Negocio Prueba',
+  reason: 'Automatizar su negocio',
+  preferred_contact: 'whatsapp',
+  preferred_time: 'Cualquier hora',
+  callback_phone: '60000000',
+  consent: true,
+};
+const pick = (call) => Object.fromEntries(Object.keys(EXPECTED).map((key) => [key, call[key]]));
+
+function withAnalysis(analysis) {
+  const event = postCallEvent();
+  event.data.analysis = { transcript_summary: 'Resumen', ...analysis };
+  return callFromEvent(event);
+}
+
+test('reads entries keyed by an internal ID with the identifier in name', () => {
+  const map = Object.fromEntries(
+    Object.entries(COLLECTED).map(([name, value], index) => [
+      `dc_${index}`,
+      { data_collection_id: `dc_${index}`, name, value, rationale: '' },
+    ])
+  );
+  const result = withAnalysis({ data_collection_results: map });
+  assert.deepEqual(pick(result.call), EXPECTED);
+  assert.equal(result.fieldsIssue, null);
+});
+
+test('reads data_collection_results_list when the map is empty', () => {
+  const list = Object.entries(COLLECTED).map(([id, value]) => ({ data_collection_id: id, value }));
+  const result = withAnalysis({ data_collection_results: {}, data_collection_results_list: list });
+  assert.deepEqual(pick(result.call), EXPECTED);
+});
+
+test('matches identifiers regardless of case and spacing', () => {
+  const result = withAnalysis({
+    data_collection_results: { ' Customer_Name ': { value: 'Cliente Prueba' } },
+  });
+  assert.equal(result.call.customer_name, 'Cliente Prueba');
+});
+
+test('keeps consent false, reads true/false text, and leaves anything else empty', () => {
+  const consent = (value) =>
+    withAnalysis({ data_collection_results: { callback_consent: { value } } }).call.consent;
+  assert.equal(consent(false), false);
+  assert.equal(consent(true), true);
+  assert.equal(consent('false'), false);
+  assert.equal(consent('TRUE'), true);
+  assert.equal(consent(null), null);
+  assert.equal(consent(undefined), null);
+  assert.equal(consent('sí'), null);
+});
+
+test('flags a saved call whose collected fields could not be read', () => {
+  assert.equal(withAnalysis({}).fieldsIssue, 'no_collected_fields');
+  assert.equal(withAnalysis({ data_collection_results: {} }).fieldsIssue, 'no_collected_fields');
+  assert.equal(
+    withAnalysis({ data_collection_results: { nombre: { value: 'Cliente' } } }).fieldsIssue,
+    'fields_not_matched'
+  );
 });
 
 test('ignores other event types and other agents, refuses malformed events', () => {

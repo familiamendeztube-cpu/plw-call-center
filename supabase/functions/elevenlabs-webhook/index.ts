@@ -56,6 +56,8 @@ Deno.serve(async req => {
     // 5xx: ElevenLabs retries the identical delivery, and record_ai_call is idempotent.
     return reply({ error: 'Save failed' }, 500);
   }
+  // Saved, but none of the agent's collected fields could be read: flag it for admins.
+  if (result.fieldsIssue) await logFailure(db, result.fieldsIssue, result.call.conversation_id);
   // 200 only after the database confirmed the write.
-  return reply({ id: data });
+  return reply({ id: data, fields: result.fieldsIssue ?? 'ok' });
 });

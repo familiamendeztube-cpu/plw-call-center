@@ -42,7 +42,7 @@ export function AdminAiCallsPage() {
       />
       {failures.state.status === 'ready' && failures.state.data > 0 ? (
         <p role="alert" className="text-sm text-danger-700">
-          Entregas de ElevenLabs que no se pudieron procesar en los últimos 7 días:{' '}
+          Entregas de ElevenLabs con errores o sin datos del cliente en los últimos 7 días:{' '}
           {failures.state.data}.
         </p>
       ) : null}

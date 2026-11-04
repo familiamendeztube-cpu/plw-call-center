@@ -68,6 +68,45 @@ function isoFromUnix(seconds) {
   return Number.isInteger(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString() : null;
 }
 
+export const FIELD_IDS = [
+  'customer_name',
+  'business_name',
+  'call_reason',
+  'preferred_contact',
+  'callback_time',
+  'callback_phone',
+  'callback_consent',
+];
+
+/**
+ * The schema allows entries keyed by identifier, keyed by an internal ID with the
+ * identifier in `name`, or listed in `data_collection_results_list`. Every entry is
+ * indexed by its key, `data_collection_id` and `name`, lowercased.
+ */
+function collectedValues(analysis) {
+  const map = analysis?.data_collection_results;
+  const list = analysis?.data_collection_results_list;
+  const entries = [
+    ...(map && typeof map === 'object' && !Array.isArray(map) ? Object.entries(map) : []),
+    ...[...(Array.isArray(map) ? map : []), ...(Array.isArray(list) ? list : [])].map((entry) => [null, entry]),
+  ];
+  const values = new Map();
+  for (const [key, entry] of entries) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    for (const id of [key, entry.data_collection_id, entry.name]) {
+      const name = typeof id === 'string' ? id.trim().toLowerCase() : '';
+      if (name && !values.has(name)) values.set(name, entry.value ?? null);
+    }
+  }
+  return { values, entryCount: entries.length };
+}
+
+function bool(value) {
+  if (typeof value === 'boolean') return value;
+  const clean = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return clean === 'true' ? true : clean === 'false' ? false : null;
+}
+
 /** Turns a verified webhook event into the fields PLW stores, or says why it is skipped. */
 export function callFromEvent(event) {
   if (typeof event !== 'object' || event === null) return { invalid: 'malformed' };
@@ -83,12 +122,16 @@ export function callFromEvent(event) {
   const startedAt = isoFromUnix(metadata.start_time_unix_secs) ?? isoFromUnix(event.event_timestamp);
   if (!startedAt) return { invalid: 'missing_start_time', conversationId };
 
-  const collected = data.analysis?.data_collection_results ?? {};
-  const value = (id) => collected[id]?.value;
+  const { values, entryCount } = collectedValues(data.analysis);
+  const value = (id) => values.get(id) ?? null;
   const contact = typeof value('preferred_contact') === 'string' ? value('preferred_contact').trim().toLowerCase() : '';
   const duration = metadata.call_duration_secs;
+  // Delivery and field persistence are separate outcomes; these codes flag the second.
+  const fieldsIssue =
+    entryCount === 0 ? 'no_collected_fields' : FIELD_IDS.some((id) => values.has(id)) ? null : 'fields_not_matched';
 
   return {
+    fieldsIssue,
     call: {
       conversation_id: conversationId,
       caller_phone:
@@ -100,7 +143,7 @@ export function callFromEvent(event) {
       reason: text(value('call_reason'), 500),
       preferred_contact: ['phone', 'whatsapp'].includes(contact) ? contact : null,
       preferred_time: text(value('callback_time'), 200),
-      consent: typeof value('callback_consent') === 'boolean' ? value('callback_consent') : null,
+      consent: bool(value('callback_consent')),
       summary: text(data.analysis?.transcript_summary, 4000),
       call_started_at: startedAt,
       call_duration_seconds: Number.isInteger(duration) && duration >= 0 ? duration : null,
@@ -115,7 +158,6 @@ export function callFromEvent(event) {
  */
 // Owner's choice for now: every AI call goes to an agent. Tighten here (no phone,
 // consent === false, very short calls) if agents start receiving noise.
-// eslint-disable-next-line no-unused-vars
 export function shouldRouteToAgent(call) {
   return true;
 }
