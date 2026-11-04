@@ -7,6 +7,7 @@ import {
   renderTemplate,
   sendableTemplates,
   verifySignature,
+  whatsAppFile,
 } from '../supabase/functions/chatwoot-webhook/rules.js';
 
 const SECRET = 'cw_test_secret_for_fixture_only';
@@ -172,4 +173,20 @@ test('fills every blank, flattens line breaks WhatsApp refuses, and needs all of
   assert.equal(renderTemplate(template, { 1: 'Ana' }), null);
   assert.equal(renderTemplate(template, { 1: 'Ana', 2: '   ' }), null);
   assert.equal(renderTemplate(template, { 1: 'Ana', 2: 7 }), null);
+});
+
+test('accepts the files WhatsApp takes, within its own size limits', () => {
+  const MB = 1024 * 1024;
+  assert.deepEqual(whatsAppFile('Foto.JPG', 2 * MB), { type: 'image/jpeg' });
+  assert.deepEqual(whatsAppFile('demo.mp4', 15 * MB), { type: 'video/mp4' });
+  assert.deepEqual(whatsAppFile('nota.ogg', MB), { type: 'audio/ogg' });
+  // The extension decides: Windows browsers often leave Office files without a type.
+  assert.deepEqual(whatsAppFile('propuesta.final.docx', MB), {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+  assert.match(whatsAppFile('captura.png', 6 * MB).error, /5 MB/);
+  assert.match(whatsAppFile('video.mp4', 17 * MB).error, /16 MB/);
+  assert.match(whatsAppFile('programa.exe', MB).error, /no acepta/);
+  assert.match(whatsAppFile('sin_extension', MB).error, /no acepta/);
+  assert.match(whatsAppFile('vacio.pdf', 0).error, /vacío/);
 });

@@ -6,8 +6,10 @@ import {
   chatMessage,
   chatwootIdentity,
   CONNECT_ERRORS,
+  MAX_CAPTION,
   renderTemplate,
   sendableTemplates,
+  whatsAppFile,
 } from '../chatwoot-webhook/rules.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -135,7 +137,7 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
   const post = async (message) => {
     const sent = await chatwoot(`${conversationPath}/messages`, token, {
       method: 'POST',
-      body: JSON.stringify(message),
+      body: message instanceof FormData ? message : JSON.stringify(message),
     });
     if (sent?.status === 401) return expired();
     if (!sent?.ok) {
@@ -206,6 +208,26 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
     }
     case 'send': {
       const text = typeof body.text === 'string' ? body.text.trim() : '';
+      if (body.file !== undefined && body.file !== null) {
+        const file = body.file;
+        if (typeof file !== 'object' || typeof file.arrayBuffer !== 'function') {
+          return reply(400, { error: 'Solicitud no válida.' });
+        }
+        const media = whatsAppFile(file.name, file.size);
+        if (media.error) return reply(400, { error: media.error });
+        if (text.length > MAX_CAPTION) {
+          return reply(400, {
+            error: `El texto que acompaña un archivo puede tener hasta ${MAX_CAPTION} caracteres.`,
+          });
+        }
+        // Chatwoot takes files as a multipart upload; the text goes out as the caption.
+        const form = new FormData();
+        if (text) form.append('content', text);
+        form.append('message_type', 'outgoing');
+        form.append('private', 'false');
+        form.append('attachments[]', new File([file], file.name, { type: media.type }));
+        return post(form);
+      }
       if (!text || text.length > MAX_TEXT) {
         return reply(400, { error: `Escribe un mensaje de hasta ${MAX_TEXT} caracteres.` });
       }

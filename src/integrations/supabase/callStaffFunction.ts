@@ -12,24 +12,27 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/** A FormData body is sent as a file upload; anything else as JSON. */
 export async function callStaffFunction(
   name: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown> | FormData
 ): Promise<Record<string, unknown>> {
   const { data } = await getSupabaseClient().auth.getSession();
   const accessToken = data.session?.access_token;
   if (!accessToken) throw new Error(SESSION_ENDED);
+  const upload = body instanceof FormData;
 
   let response: Response;
   try {
     response = await fetch(`${supabaseFunctionsUrl}/${name}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        // The browser sets the multipart Content-Type, with its boundary, for an upload.
+        ...(upload ? {} : { 'Content-Type': 'application/json' }),
         apikey: supabaseAnonKeyValue,
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(body),
+      body: upload ? body : JSON.stringify(body),
     });
   } catch {
     throw new Error(CONNECTION_FAILURE);

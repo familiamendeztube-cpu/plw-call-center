@@ -56,6 +56,54 @@ export function messageFromEvent(event, inboxId) {
   return { chat: { conversationId, phone, name: text(contact?.name, 120) ?? '' } };
 }
 
+const MB = 1024 * 1024;
+// What WhatsApp Cloud accepts, with WhatsApp's own size limits. Documents may be up to 100 MB in
+// WhatsApp, but each file passes through the function's memory.
+// ponytail: documents capped at 16 MB; send bigger ones from Chatwoot, or upload straight to storage if needed.
+const MEDIA = {
+  jpg: ['image/jpeg', 5],
+  jpeg: ['image/jpeg', 5],
+  png: ['image/png', 5],
+  mp4: ['video/mp4', 16],
+  '3gp': ['video/3gpp', 16],
+  mp3: ['audio/mpeg', 16],
+  m4a: ['audio/mp4', 16],
+  aac: ['audio/aac', 16],
+  amr: ['audio/amr', 16],
+  ogg: ['audio/ogg', 16],
+  pdf: ['application/pdf', 16],
+  txt: ['text/plain', 16],
+  doc: ['application/msword', 16],
+  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 16],
+  xls: ['application/vnd.ms-excel', 16],
+  xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 16],
+  ppt: ['application/vnd.ms-powerpoint', 16],
+  pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 16],
+};
+export const MAX_UPLOAD_BYTES = 16 * MB;
+export const MAX_CAPTION = 1024; // WhatsApp's limit for the text sent with a file.
+
+/**
+ * The type to send a file as, or why WhatsApp would refuse it. Decided by the extension: browsers on
+ * Windows often leave the type of Office files empty.
+ */
+export function whatsAppFile(name, size) {
+  const extension = String(name ?? '').toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? '';
+  const media = MEDIA[extension];
+  if (!media) {
+    return {
+      error:
+        'WhatsApp no acepta ese tipo de archivo. Envía una foto (JPG o PNG), un video MP4, un audio o un documento (PDF, Word, Excel o PowerPoint).',
+    };
+  }
+  const [type, limitMb] = media;
+  if (!Number.isFinite(size) || size <= 0) return { error: 'El archivo está vacío.' };
+  if (size > limitMb * MB) {
+    return { error: `Ese archivo pesa más de ${limitMb} MB, el máximo de WhatsApp para este tipo.` };
+  }
+  return { type };
+}
+
 export const CONNECT_ERRORS = {
   invalid: 'Ese token de Chatwoot no es válido. Cópialo de nuevo desde tu perfil.',
   other_account: 'Ese usuario de Chatwoot no pertenece a la cuenta de PLW.',

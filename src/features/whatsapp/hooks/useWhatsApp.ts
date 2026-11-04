@@ -9,10 +9,31 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { Message } from '@/features/inbox/models/message';
 import type { WhatsAppTemplate } from '@/features/whatsapp/models/templates';
 
-/** A free-text reply, or an approved template with its blanks filled. */
+/** A reply (text, or a file with optional caption), or an approved template with its blanks filled. */
 export type WhatsAppOutgoing =
-  | { text: string }
+  | { text: string; file?: File }
   | { template: { name: string; language: string; values: Record<string, string> } };
+
+/** What WhatsApp accepts, for the file picker. The server checks each type's size limit. */
+export const WHATSAPP_FILE_TYPES =
+  '.jpg,.jpeg,.png,.mp4,.3gp,.mp3,.m4a,.aac,.amr,.ogg,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx';
+export const MAX_FILE_BYTES = 16 * 1024 * 1024;
+
+function sendRequest(
+  prospectId: string,
+  outgoing: WhatsAppOutgoing
+): Record<string, unknown> | FormData {
+  if ('template' in outgoing) {
+    return { action: 'send_template', prospectId, template: outgoing.template };
+  }
+  if (!outgoing.file) return { action: 'send', prospectId, text: outgoing.text };
+  const form = new FormData();
+  form.append('action', 'send');
+  form.append('prospectId', prospectId);
+  form.append('text', outgoing.text);
+  form.append('file', outgoing.file);
+  return form;
+}
 
 const REFRESH_MS = 15_000;
 
@@ -128,11 +149,7 @@ export function useWhatsAppThread(prospectId: string) {
   const send = useCallback(
     async (outgoing: WhatsAppOutgoing) => {
       try {
-        const request =
-          'text' in outgoing
-            ? { action: 'send', text: outgoing.text }
-            : { action: 'send_template', template: outgoing.template };
-        const payload = await callStaffFunction('whatsapp', { prospectId, ...request });
+        const payload = await callStaffFunction('whatsapp', sendRequest(prospectId, outgoing));
         const message = toMessage(prospectId, payload.message);
         updateData((thread) =>
           thread.connected ? { ...thread, messages: [...thread.messages, message] } : thread

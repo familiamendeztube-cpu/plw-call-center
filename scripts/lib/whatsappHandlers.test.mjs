@@ -34,7 +34,8 @@ const response = (status, body) => ({ status, ok: status < 300, json: async () =
 function createChatwoot(revoked = new Set()) {
   const calls = [];
   const chatwoot = async (path, token, init = {}) => {
-    const body = init.body ? JSON.parse(init.body) : undefined;
+    const body =
+      init.body instanceof FormData ? init.body : init.body ? JSON.parse(init.body) : undefined;
     calls.push({ path, token, method: init.method ?? 'GET', body });
     const user = USERS[token];
     if (!user || revoked.has(token)) return response(401, {});
@@ -52,7 +53,15 @@ function createChatwoot(revoked = new Set()) {
     }
     if (path.includes('/message_templates')) return response(200, { payload: [TEMPLATE] });
     if (path.endsWith('/messages') && init.method === 'POST') {
-      return response(200, { id: 99, content: body.content, message_type: 1, created_at: NOW });
+      const content = body instanceof FormData ? (body.get('content') ?? '') : body.content;
+      const file = body instanceof FormData ? body.get('attachments[]') : null;
+      return response(200, {
+        id: 99,
+        content,
+        message_type: 1,
+        created_at: NOW,
+        attachments: file ? [{ file_type: 'image', data_url: 'https://chat.example/foto.jpg' }] : [],
+      });
     }
     if (path.endsWith('/messages')) {
       return response(200, { payload: [{ id: 1, content: 'Hola', message_type: 0, created_at: NOW }] });
@@ -282,4 +291,38 @@ test("a template's wording and category come from Chatwoot; every blank must be 
   const wrongLanguage = await send({ name: TEMPLATE.name, language: 'es_MX', values: { 1: 'A', 2: 'B' } });
   assert.equal(wrongLanguage.status, 400);
   assert.equal(chatwoot.calls.filter((call) => call.method === 'POST').length, 1);
+});
+
+test("a photo goes to Chatwoot as the agent's own upload, with the text as its caption", async () => {
+  const { chatwoot, act } = setup();
+  await act(AGENT_1, { action: 'connect', token: ALEJANDRO });
+  const photo = new File([new Uint8Array(2048)], 'Menú.JPG', { type: '' });
+
+  const result = await act(AGENT_1, { action: 'send', prospectId: CLIENT_OF_1, text: ' Así quedaría ', file: photo });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.message.attachments, [
+    { kind: 'image', url: 'https://chat.example/foto.jpg' },
+  ]);
+  const post = chatwoot.calls.find((call) => call.method === 'POST');
+  assert.equal(post.token, ALEJANDRO);
+  assert.equal(post.body.get('content'), 'Así quedaría');
+  assert.equal(post.body.get('message_type'), 'outgoing');
+  assert.equal(post.body.get('private'), 'false');
+  const sent = post.body.get('attachments[]');
+  assert.equal(sent.name, 'Menú.JPG');
+  assert.equal(sent.type, 'image/jpeg');
+  assert.equal(sent.size, 2048);
+});
+
+test('files WhatsApp would refuse never reach Chatwoot', async () => {
+  const { chatwoot, act } = setup();
+  await act(AGENT_1, { action: 'connect', token: ALEJANDRO });
+  const before = chatwoot.calls.length;
+  const send = (file, text = '') => act(AGENT_1, { action: 'send', prospectId: CLIENT_OF_1, text, file });
+
+  assert.match((await send(new File(['x'], 'virus.exe'))).body.error, /no acepta/);
+  assert.match((await send(new File([new Uint8Array(6 * 1024 * 1024)], 'grande.png'))).body.error, /5 MB/);
+  assert.match((await send(new File(['x'], 'nota.pdf'), 'a'.repeat(1025))).body.error, /1024/);
+  assert.equal((await send('not-a-file')).status, 400);
+  assert.equal(chatwoot.calls.length, before);
 });

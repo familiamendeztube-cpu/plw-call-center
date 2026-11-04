@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeStaff } from '../telephony/handlers.js';
 import { handleWhatsApp } from './handlers.js';
+import { MAX_UPLOAD_BYTES } from '../chatwoot-webhook/rules.js';
 
 // Agents read and answer their customers' WhatsApp chats in Chatwoot with their own Chatwoot user,
 // so every reply carries the agent's own name. Each token is stored encrypted and picked by the
@@ -41,8 +42,10 @@ Deno.serve(async (req) => {
   const authorization = req.headers.get('Authorization') ?? '';
   const jwt = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
   if (!jwt) return json({ error: 'Sesión no válida.' }, 401);
-  const body = await req.json().catch(() => null);
-  if (typeof body !== 'object' || body === null) return json({ error: 'Solicitud no válida.' }, 400);
+  const multipart = (req.headers.get('Content-Type') ?? '').startsWith('multipart/form-data');
+  if (multipart && Number(req.headers.get('Content-Length') ?? 0) > MAX_UPLOAD_BYTES + 64 * 1024) {
+    return json({ error: 'El archivo pesa más de 16 MB, el máximo de WhatsApp.' }, 413);
+  }
 
   try {
     const admin = createClient(
@@ -50,9 +53,24 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
-    // Who is calling comes from the verified, unrevoked session only.
+    // Who is calling comes from the verified, unrevoked session only. The body, which may hold a
+    // file, is read only after that.
     const staff = await authorizeStaff({ admin, jwt });
     if (!staff) return json({ error: 'Sesión revocada o no válida.' }, 401);
+
+    let body: Record<string, unknown> | null;
+    if (multipart) {
+      const form = await req.formData().catch(() => null);
+      body = form && {
+        action: form.get('action'),
+        prospectId: form.get('prospectId'),
+        text: form.get('text') ?? undefined,
+        file: form.get('file'),
+      };
+    } else {
+      body = await req.json().catch(() => null);
+    }
+    if (typeof body !== 'object' || body === null) return json({ error: 'Solicitud no válida.' }, 400);
     const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authorization } },
       auth: { persistSession: false, autoRefreshToken: false },
@@ -60,7 +78,11 @@ Deno.serve(async (req) => {
     const chatwoot = (path: string, token: string, init: RequestInit = {}) =>
       fetch(`${base}${path}`, {
         ...init,
-        headers: { api_access_token: token, 'Content-Type': 'application/json' },
+        // A file upload sets its own multipart Content-Type.
+        headers: {
+          api_access_token: token,
+          ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+        },
       }).catch(() => null);
 
     const result = await handleWhatsApp({ staff, body, admin, db, chatwoot, config });

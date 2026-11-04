@@ -3,11 +3,44 @@ import { formatDateTime } from '@/app/dates';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import type { TimelineEntry } from '@/features/inbox/models/message';
 
-const ATTACHMENT_LABELS: Record<string, string> = {
-  image: 'Ver imagen',
-  video: 'Ver video',
-  file: 'Abrir archivo',
-};
+/** WhatsApp photos, videos and voice notes play in place; other files open in a new tab. */
+function Attachment({ kind, url, onDark }: { kind: string; url: string; onDark: boolean }) {
+  if (kind === 'audio') {
+    return <audio controls preload="none" src={url} className="mt-2 w-64 max-w-full" />;
+  }
+  if (kind === 'video') {
+    return (
+      <video
+        controls
+        preload="metadata"
+        src={url}
+        className="mt-2 max-h-64 w-72 max-w-full rounded-lg bg-black"
+      />
+    );
+  }
+  if (kind === 'image') {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="mt-2 block">
+        <img
+          src={url}
+          alt="Foto enviada por WhatsApp"
+          loading="lazy"
+          className="max-h-64 max-w-full rounded-lg"
+        />
+      </a>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className={`mt-1 block text-sm font-medium underline ${onDark ? 'text-white' : 'text-plw-navy'}`}
+    >
+      Abrir archivo
+    </a>
+  );
+}
 
 interface ThreadTimelineProps {
   entries: TimelineEntry[];
@@ -74,27 +107,9 @@ export function ThreadTimeline({ entries, contactName, agentNames }: ThreadTimel
                   {entry.message.body}
                 </p>
               ) : null}
-              {entry.message.attachments?.map((file) =>
-                file.kind === 'audio' ? (
-                  <audio
-                    key={file.url}
-                    controls
-                    preload="none"
-                    src={file.url}
-                    className="mt-2 w-64 max-w-full"
-                  />
-                ) : (
-                  <a
-                    key={file.url}
-                    href={file.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`mt-1 block text-sm font-medium underline ${fromCustomer ? 'text-plw-navy' : 'text-white'}`}
-                  >
-                    {ATTACHMENT_LABELS[file.kind] ?? 'Abrir archivo'}
-                  </a>
-                )
-              )}
+              {entry.message.attachments?.map((file) => (
+                <Attachment key={file.url} {...file} onDark={!fromCustomer} />
+              ))}
               <time
                 dateTime={entry.message.sentAt}
                 className={

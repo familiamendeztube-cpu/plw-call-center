@@ -19,8 +19,21 @@ beforeEach(() => {
 // Stands in for the whatsapp function, which reads Chatwoot on the server.
 vi.mock('@/integrations/supabase/callStaffFunction', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  callStaffFunction: async (_name: string, body: Record<string, unknown>) => {
+  callStaffFunction: async (_name: string, sent: Record<string, unknown> | FormData) => {
+    // A file goes up as a multipart form; record it as plain fields.
+    const body = sent instanceof FormData ? Object.fromEntries(sent.entries()) : sent;
     requests.push(body);
+    if (body.file instanceof File) {
+      return {
+        message: {
+          id: '4',
+          author: 'agent',
+          body: body.text,
+          sentAt: '2026-11-04T18:10:00Z',
+          attachments: [{ kind: 'image', url: 'https://chat.example/menu.jpg' }],
+        },
+      };
+    }
     switch (body.action) {
       case 'connect':
         connected = true;
@@ -181,4 +194,40 @@ test('after 24 hours the agent reviews a template filled from the customer and s
     )
   ).toHaveLength(1);
   expect((screen.getByLabelText('Plantilla') as HTMLSelectElement).value).toBe('-1');
+});
+
+test('the agent sends a photo with a caption, and it shows in the chat', async () => {
+  const prospect = await openWhatsAppCustomer();
+  const user = userEvent.setup();
+  await screen.findByText('Hola, ¿qué planes tienen?');
+
+  const photo = new File(['foto'], 'menu.jpg', { type: 'image/jpeg' });
+  await user.upload(screen.getByLabelText('Archivo para enviar por WhatsApp'), photo);
+  expect(screen.getByText('menu.jpg')).toBeTruthy();
+  await user.type(screen.getByLabelText('Respuesta por WhatsApp'), 'Así quedaría su menú');
+  await user.click(screen.getByRole('button', { name: 'Enviar por WhatsApp' }));
+
+  const image = await screen.findByAltText('Foto enviada por WhatsApp');
+  expect(image.getAttribute('src')).toBe('https://chat.example/menu.jpg');
+  expect(requests[requests.length - 1]).toEqual({
+    action: 'send',
+    prospectId: prospect.id,
+    text: 'Así quedaría su menú',
+    file: photo,
+  });
+  // Ready for the next message.
+  expect(screen.queryByText('menu.jpg')).toBeNull();
+});
+
+test('a file over WhatsApp’s limit is refused before uploading', async () => {
+  await openWhatsAppCustomer();
+  const user = userEvent.setup();
+  await screen.findByText('Hola, ¿qué planes tienen?');
+
+  const video = new File(['v'], 'demo.mp4', { type: 'video/mp4' });
+  Object.defineProperty(video, 'size', { value: 17 * 1024 * 1024 });
+  await user.upload(screen.getByLabelText('Archivo para enviar por WhatsApp'), video);
+
+  expect(screen.getByText(/pesa más de 16 MB/).getAttribute('role')).toBe('alert');
+  expect(screen.queryByText('demo.mp4')).toBeNull();
 });
