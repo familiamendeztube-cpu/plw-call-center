@@ -33,7 +33,7 @@ export function WorkspaceLayout() {
         displayName={session?.displayName ?? ''}
         roleLabel={isAgent ? 'Agente de ventas' : 'Administrador'}
         statusControl={isAgent ? <AgentStatusControl /> : null}
-        onOpenPhone={openPhone}
+        onOpenPhone={isAgent ? openPhone : null}
       />
       <WorkspaceNav
         items={navItems}
@@ -43,16 +43,21 @@ export function WorkspaceLayout() {
         <main id="main-content" className="min-w-0 flex-1">
           <Outlet />
         </main>
-        <aside
-          aria-label="Panel de teléfono"
-          className="hidden w-[22rem] shrink-0 border-l border-neutral-200 xl:flex xl:flex-col"
-        >
-          <PhonePanel />
-        </aside>
+        {/* Administrators never place calls, and their phone line never connects. */}
+        {isAgent ? (
+          <aside
+            aria-label="Panel de teléfono"
+            className="hidden w-[22rem] shrink-0 border-l border-neutral-200 xl:flex xl:flex-col"
+          >
+            <PhonePanel />
+          </aside>
+        ) : null}
       </div>
-      <Drawer open={phoneOpen} title="Teléfono" side="right" onClose={closePhone}>
-        <PhonePanel />
-      </Drawer>
+      {isAgent ? (
+        <Drawer open={phoneOpen} title="Teléfono" side="right" onClose={closePhone}>
+          <PhonePanel />
+        </Drawer>
+      ) : null}
     </div>
   );
 }
