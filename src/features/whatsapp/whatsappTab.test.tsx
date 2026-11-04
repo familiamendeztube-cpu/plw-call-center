@@ -1,0 +1,184 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, expect, test, vi } from 'vitest';
+import { ServicesContext } from '@/app/ServicesContext';
+import { createDemoServices } from '@/demo/createDemoServices';
+import { CustomerWorkspace } from '@/features/customers/components/CustomerWorkspace';
+
+const requests: Record<string, unknown>[] = [];
+let connected = true;
+let windowOpen = true;
+
+beforeEach(() => {
+  requests.length = 0;
+  connected = true;
+  windowOpen = true;
+});
+
+// Stands in for the whatsapp function, which reads Chatwoot on the server.
+vi.mock('@/integrations/supabase/callStaffFunction', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  callStaffFunction: async (_name: string, body: Record<string, unknown>) => {
+    requests.push(body);
+    switch (body.action) {
+      case 'connect':
+        connected = true;
+        return { connected: true, sender: 'Alejandro Ruiz' };
+      case 'templates':
+        return {
+          templates: [
+            {
+              name: 'plw_seguimiento_solicitud_web',
+              language: 'es',
+              category: 'MARKETING',
+              body: '¡Hola, {{1}}! Nos gustaría conocer más sobre su negocio de {{2}}.',
+              params: ['1', '2'],
+            },
+          ],
+        };
+      case 'send':
+      case 'send_template': {
+        const text =
+          typeof body.text === 'string'
+            ? body.text
+            : '¡Hola, María Fernanda Solís! Nos gustaría conocer más sobre su negocio de cafetería.';
+        return {
+          message: { id: '3', author: 'agent', body: text, sentAt: '2026-11-04T18:00:00Z' },
+        };
+      }
+      default:
+        if (!connected) return { connected: false };
+        return {
+          connected: true,
+          sender: 'Alejandro Ruiz',
+          ambiguous: false,
+          canReply: windowOpen,
+          messages: [
+            {
+              id: '1',
+              author: 'customer',
+              body: 'Hola, ¿qué planes tienen?',
+              sentAt: '2026-11-04T17:00:00Z',
+              attachments: [{ kind: 'audio', url: 'https://chat.example/nota.ogg' }],
+            },
+            {
+              id: '2',
+              author: 'agent',
+              body: 'Ya le cuento',
+              sentAt: '2026-11-04T17:05:00Z',
+              failed: true,
+            },
+          ],
+        };
+    }
+  },
+}));
+
+async function openWhatsAppCustomer() {
+  const services = createDemoServices(new Date());
+  const [prospect] = await services.leads.listProspects();
+  const conversation = (await services.inbox.listConversations(prospect.assignedAgentId)).find(
+    (item) => item.prospectId === prospect.id
+  );
+  render(
+    <ServicesContext.Provider value={services}>
+      <MemoryRouter>
+        <CustomerWorkspace
+          entry={{
+            prospect: { ...prospect, source: 'whatsapp' },
+            conversation: conversation ?? null,
+          }}
+          agentId={prospect.assignedAgentId!}
+          agentNames={{}}
+        />
+      </MemoryRouter>
+    </ServicesContext.Provider>
+  );
+  return prospect;
+}
+
+test('a WhatsApp customer opens on the chat, keeps notes, and the agent answers from PLW', async () => {
+  const prospect = await openWhatsAppCustomer();
+
+  expect(screen.getByRole('tab', { name: 'WhatsApp' }).getAttribute('aria-selected')).toBe('true');
+  expect(screen.queryByRole('tab', { name: 'Correo' })).toBeNull();
+  expect(await screen.findByText('Hola, ¿qué planes tienen?')).toBeTruthy();
+  expect(document.querySelector('audio')?.getAttribute('src')).toBe(
+    'https://chat.example/nota.ogg'
+  );
+  expect(screen.getByText(/No se entregó/)).toBeTruthy();
+  expect(screen.getByText('Respondes en Chatwoot como Alejandro Ruiz.')).toBeTruthy();
+  // Stage and private notes still work for a WhatsApp customer; email replies do not apply.
+  expect(screen.getByRole('tab', { name: /Nota privada/ })).toBeTruthy();
+  expect(screen.queryByRole('tab', { name: /Respuesta por correo/ })).toBeNull();
+
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText('Respuesta por WhatsApp'), 'Le paso la información');
+  await user.click(screen.getByRole('button', { name: 'Enviar por WhatsApp' }));
+  expect(await screen.findByText('Le paso la información')).toBeTruthy();
+  expect(requests[requests.length - 1]).toEqual({
+    action: 'send',
+    prospectId: prospect.id,
+    text: 'Le paso la información',
+  });
+});
+
+test('an agent connects their own Chatwoot user once, then sees the chat', async () => {
+  connected = false;
+  await openWhatsAppCustomer();
+  const user = userEvent.setup();
+
+  const field = await screen.findByLabelText('Token de acceso de Chatwoot');
+  expect(field.getAttribute('type')).toBe('password');
+  await user.type(field, 'tok_alejandro_0000000001');
+  await user.click(screen.getByRole('button', { name: 'Conectar' }));
+
+  expect(await screen.findByText('Hola, ¿qué planes tienen?')).toBeTruthy();
+  expect(requests).toContainEqual({ action: 'connect', token: 'tok_alejandro_0000000001' });
+});
+
+test('after 24 hours the agent reviews a template filled from the customer and sends it', async () => {
+  windowOpen = false;
+  const prospect = await openWhatsAppCustomer();
+  const user = userEvent.setup();
+
+  expect(await screen.findByText(/Pasaron más de 24 horas/)).toBeTruthy();
+  expect(screen.queryByLabelText('Respuesta por WhatsApp')).toBeNull();
+  await user.selectOptions(
+    await screen.findByLabelText('Plantilla'),
+    'plw seguimiento solicitud web (es)'
+  );
+
+  // Filled from the customer record; the agent can correct any value.
+  expect((screen.getByLabelText('Dato 1') as HTMLInputElement).value).toBe('María Fernanda Solís');
+  const business = screen.getByLabelText('Dato 2') as HTMLInputElement;
+  expect(business.value).toBe('Alimentos y bebidas');
+  await user.clear(business);
+  const send = screen.getByRole('button', { name: 'Enviar plantilla' }) as HTMLButtonElement;
+  expect(send.disabled).toBe(true);
+  await user.type(business, 'cafetería');
+  expect(
+    screen.getByText(
+      '¡Hola, María Fernanda Solís! Nos gustaría conocer más sobre su negocio de cafetería.'
+    )
+  ).toBeTruthy();
+  await user.click(send);
+
+  expect(requests[requests.length - 1]).toEqual({
+    action: 'send_template',
+    prospectId: prospect.id,
+    template: {
+      name: 'plw_seguimiento_solicitud_web',
+      language: 'es',
+      values: { 1: 'María Fernanda Solís', 2: 'cafetería' },
+    },
+  });
+  // The sent template joins the chat; the picker resets for another one.
+  expect(
+    await screen.findAllByText(
+      '¡Hola, María Fernanda Solís! Nos gustaría conocer más sobre su negocio de cafetería.'
+    )
+  ).toHaveLength(1);
+  expect((screen.getByLabelText('Plantilla') as HTMLSelectElement).value).toBe('-1');
+});

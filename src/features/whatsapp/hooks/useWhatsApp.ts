@@ -1,0 +1,150 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useAsync } from '@/app/useAsync';
+import {
+  callStaffFunction,
+  INVALID_RESPONSE,
+  isRecord,
+} from '@/integrations/supabase/callStaffFunction';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import type { Message } from '@/features/inbox/models/message';
+import type { WhatsAppTemplate } from '@/features/whatsapp/models/templates';
+
+/** A free-text reply, or an approved template with its blanks filled. */
+export type WhatsAppOutgoing =
+  | { text: string }
+  | { template: { name: string; language: string; values: Record<string, string> } };
+
+const REFRESH_MS = 15_000;
+
+export type WhatsAppThread =
+  /** The agent has not connected their own Chatwoot user yet (or its token stopped working). */
+  | { connected: false }
+  | {
+      connected: true;
+      /** The agent's Chatwoot name: replies show under it. */
+      sender: string;
+      /** Several customers share this number; the agent should check who is writing. */
+      ambiguous: boolean;
+      /** False once WhatsApp's reply window has closed: only an approved template can reopen it. */
+      canReply: boolean;
+      messages: Message[];
+    };
+
+// Row level security returns a chat only to the customer's agent or an admin.
+async function loadChat(prospectId: string): Promise<{ unread: boolean } | null> {
+  const { data, error } = await getSupabaseClient()
+    .from('whatsapp_chats')
+    .select('unread')
+    .eq('prospect_id', prospectId);
+  if (error) throw new Error('No se pudo revisar el chat de WhatsApp.');
+  return data.length > 0 ? { unread: data.some((row) => row.unread === true) } : null;
+}
+
+/**
+ * Whether the customer has written on WhatsApp, read from PLW (not Chatwoot), so it is cheap enough
+ * to check on every customer page. Reloads whenever the customer's last activity changes.
+ */
+export function useWhatsAppChat(prospectId: string, lastActivity: string | undefined) {
+  const [chat, setChat] = useState<{ unread: boolean } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    loadChat(prospectId)
+      .then((next) => {
+        if (active) setChat(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [prospectId, lastActivity]);
+
+  const markRead = useCallback(() => setChat((current) => current && { unread: false }), []);
+  return { chat, markRead };
+}
+
+function toMessage(prospectId: string, value: unknown): Message {
+  if (!isRecord(value)) throw new Error(INVALID_RESPONSE);
+  return { ...(value as unknown as Message), conversationId: prospectId };
+}
+
+// The server reads Chatwoot and marks the chat read in the same call.
+async function loadThread(prospectId: string): Promise<WhatsAppThread> {
+  const payload = await callStaffFunction('whatsapp', { action: 'load', prospectId });
+  if (payload.connected === false) return { connected: false };
+  if (!Array.isArray(payload.messages)) throw new Error(INVALID_RESPONSE);
+  return {
+    connected: true,
+    sender: typeof payload.sender === 'string' ? payload.sender : 'Chatwoot',
+    ambiguous: payload.ambiguous === true,
+    canReply: payload.canReply !== false,
+    messages: payload.messages.map((message) => toMessage(prospectId, message)),
+  };
+}
+
+/**
+ * Links the signed-in agent to their own Chatwoot user. The token goes to the server once and is
+ * not kept in the browser; the server checks with Chatwoot whose it is before saving it encrypted.
+ */
+export async function connectChatwoot(token: string): Promise<void> {
+  await callStaffFunction('whatsapp', { action: 'connect', token });
+}
+
+/** Without a staffId: the signed-in agent. An administrator passes the agent to disconnect. */
+export async function disconnectChatwoot(staffId?: string): Promise<void> {
+  await callStaffFunction('whatsapp', { action: 'disconnect', staffId });
+}
+
+/** The templates the server read from Chatwoot just now; the server checks them again on send. */
+export async function loadWhatsAppTemplates(prospectId: string): Promise<WhatsAppTemplate[]> {
+  const payload = await callStaffFunction('whatsapp', { action: 'templates', prospectId });
+  if (!Array.isArray(payload.templates)) throw new Error(INVALID_RESPONSE);
+  return payload.templates as WhatsAppTemplate[];
+}
+
+export function useWhatsAppThread(prospectId: string) {
+  const result = useAsync(() => loadThread(prospectId), [prospectId]);
+  const { updateData } = result;
+
+  // Updates in place, so the chat stays on screen while it reloads.
+  const refresh = useCallback(() => {
+    loadThread(prospectId)
+      .then((data) => updateData(() => data))
+      .catch(() => undefined);
+  }, [prospectId, updateData]);
+
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    const timer = window.setInterval(tick, REFRESH_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [refresh]);
+
+  const send = useCallback(
+    async (outgoing: WhatsAppOutgoing) => {
+      try {
+        const request =
+          'text' in outgoing
+            ? { action: 'send', text: outgoing.text }
+            : { action: 'send_template', template: outgoing.template };
+        const payload = await callStaffFunction('whatsapp', { prospectId, ...request });
+        const message = toMessage(prospectId, payload.message);
+        updateData((thread) =>
+          thread.connected ? { ...thread, messages: [...thread.messages, message] } : thread
+        );
+      } catch (error) {
+        // A timeout can hide a message that did go out: show the chat as Chatwoot has it.
+        refresh();
+        throw error;
+      }
+    },
+    [prospectId, updateData, refresh]
+  );
+
+  return { ...result, send };
+}

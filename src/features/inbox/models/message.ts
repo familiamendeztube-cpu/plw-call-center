@@ -8,6 +8,10 @@ export interface Message {
   author: MessageAuthor;
   body: string;
   sentAt: string;
+  /** WhatsApp only: photos, voice notes and files sent with the message. */
+  attachments?: { kind: string; url: string }[];
+  /** WhatsApp only: WhatsApp refused to deliver it. */
+  failed?: boolean;
 }
 
 export type TimelineEntry =

@@ -3,6 +3,12 @@ import { formatDateTime } from '@/app/dates';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import type { TimelineEntry } from '@/features/inbox/models/message';
 
+const ATTACHMENT_LABELS: Record<string, string> = {
+  image: 'Ver imagen',
+  video: 'Ver video',
+  file: 'Abrir archivo',
+};
+
 interface ThreadTimelineProps {
   entries: TimelineEntry[];
   contactName: string;
@@ -57,15 +63,38 @@ export function ThreadTimeline({ entries, contactName, agentNames }: ThreadTimel
               >
                 {fromCustomer ? contactName : 'Agente'}
               </p>
-              <p
-                className={
-                  fromCustomer
-                    ? 'mt-1 whitespace-pre-line text-sm leading-relaxed text-plw-ink'
-                    : 'mt-1 whitespace-pre-line text-sm leading-relaxed text-white'
-                }
-              >
-                {entry.message.body}
-              </p>
+              {entry.message.body ? (
+                <p
+                  className={
+                    fromCustomer
+                      ? 'mt-1 whitespace-pre-line text-sm leading-relaxed text-plw-ink'
+                      : 'mt-1 whitespace-pre-line text-sm leading-relaxed text-white'
+                  }
+                >
+                  {entry.message.body}
+                </p>
+              ) : null}
+              {entry.message.attachments?.map((file) =>
+                file.kind === 'audio' ? (
+                  <audio
+                    key={file.url}
+                    controls
+                    preload="none"
+                    src={file.url}
+                    className="mt-2 w-64 max-w-full"
+                  />
+                ) : (
+                  <a
+                    key={file.url}
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`mt-1 block text-sm font-medium underline ${fromCustomer ? 'text-plw-navy' : 'text-white'}`}
+                  >
+                    {ATTACHMENT_LABELS[file.kind] ?? 'Abrir archivo'}
+                  </a>
+                )
+              )}
               <time
                 dateTime={entry.message.sentAt}
                 className={
@@ -75,6 +104,7 @@ export function ThreadTimeline({ entries, contactName, agentNames }: ThreadTimel
                 }
               >
                 {formatDateTime(entry.message.sentAt)}
+                {entry.message.failed ? ' · No se entregó' : ''}
               </time>
             </div>
           </li>

@@ -78,7 +78,7 @@ export function CustomerList({
                 <span className="flex min-w-0 items-center gap-2">
                   {unread ? (
                     <span
-                      aria-label="Correo sin leer"
+                      aria-label="Mensaje sin leer"
                       className="h-2 w-2 shrink-0 rounded-full bg-plw-gold"
                     />
                   ) : null}

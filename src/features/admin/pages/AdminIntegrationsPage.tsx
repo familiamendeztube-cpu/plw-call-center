@@ -11,6 +11,7 @@ import { Panel } from '@/components/ui/Panel';
 import { GmailSyncCard } from '@/features/admin/components/GmailSyncCard';
 import { GoogleWorkspaceCard } from '@/features/admin/components/GoogleWorkspaceCard';
 import { CONNECTOR_STATUS_LABELS } from '@/features/admin/models/integrations';
+import { ChatwootConnectionsCard } from '@/features/whatsapp/components/ChatwootConnectionsCard';
 import type { TelephonyConnectorStatus } from '@/integrations/telephony/telephonyContract';
 
 export function AdminIntegrationsPage() {
@@ -26,6 +27,7 @@ export function AdminIntegrationsPage() {
       />
       <GoogleWorkspaceCard />
       <GmailSyncCard />
+      <ChatwootConnectionsCard />
       <div className="grid gap-4 lg:grid-cols-2">
         <IntegrationCard
           icon={Mail}

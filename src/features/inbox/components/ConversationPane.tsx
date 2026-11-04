@@ -13,15 +13,15 @@ interface ConversationPaneProps {
   conversationId: string | null;
   agentId: AgentId;
   agentNames: Record<string, string>;
-  /** Customers who came by phone: shown instead of the email thread, and replies are notes only. */
-  callDetails?: ReactNode;
+  /** Customers who came by phone or WhatsApp: shown instead of the email thread; replies here are notes only. */
+  channelDetails?: ReactNode;
 }
 
 export function ConversationPane({
   conversationId,
   agentId,
   agentNames,
-  callDetails,
+  channelDetails,
 }: ConversationPaneProps) {
   const { leads } = useAppServices();
   const { state, reload, updateData } = useConversationView(conversationId);
@@ -94,8 +94,8 @@ export function ConversationPane({
         onProspectChange={handleProspectChange}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-plw-ivory/60 px-5 py-5">
-        {callDetails}
-        {callDetails && timeline.length === 0 ? null : (
+        {channelDetails}
+        {channelDetails && timeline.length === 0 ? null : (
           <ThreadTimeline
             entries={timeline}
             contactName={prospect.contactName}
@@ -110,7 +110,7 @@ export function ConversationPane({
         draft={thread.draft}
         outbox={thread.outbox}
         onNoteSaved={handleNoteSaved}
-        emailEnabled={!callDetails}
+        emailEnabled={!channelDetails}
       />
     </div>
   );

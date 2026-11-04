@@ -24,3 +24,11 @@ verify_jwt = false
 [functions.ai-call-audio]
 # The caller's session is checked by row-level security inside the handler.
 verify_jwt = false
+
+[functions.chatwoot-webhook]
+# Chatwoot HMAC signature is checked inside the handler. No browser access.
+verify_jwt = false
+
+[functions.whatsapp]
+# The caller's session is checked by row-level security inside the handler.
+verify_jwt = false

@@ -22,6 +22,7 @@ const OWNED_TABLES = [
   'private_notes',
   'followups',
   'activity_events',
+  'whatsapp_chats',
 ];
 const PERSONAL_TABLES = [
   ['drafts', 'conversation_id'],
@@ -66,6 +67,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'list_overdue_conversations',
   'mark_conversation_read',
   'mark_notifications_read',
+  'mark_whatsapp_read',
   'public_agent_directory',
   'reassign_prospect',
   'record_heartbeat',
@@ -90,6 +92,7 @@ const OWNER_ACTIONS = [
   ['mark the conversation read', 'SELECT public.mark_conversation_read($1)'],
   ['save a reply draft', `SELECT public.save_draft($1, 'Borrador', 1)`],
   ['change an AI call status', `SELECT public.set_ai_call_status($1, 'completed')`],
+  ['mark the WhatsApp chat read', 'SELECT public.mark_whatsapp_read($1)'],
 ];
 
 const ASSIGNED_AGENT_ONLY_ACTIONS = [
@@ -132,6 +135,10 @@ async function seedClient(clientId, ownerId) {
     `INSERT INTO public.ai_call_requests (id, conversation_id, prospect_id, call_started_at)
      VALUES ($1, $2, $1, now())`,
     [clientId, `conv_${clientId.slice(-4)}`]
+  );
+  await db.query(
+    `INSERT INTO public.whatsapp_chats (chatwoot_conversation_id, prospect_id) VALUES ($1, $2)`,
+    [Number(clientId.slice(-4)), clientId]
   );
   if (!ownerId) return;
 
@@ -232,10 +239,11 @@ after(async () => {
 
 for (const table of OWNED_TABLES) {
   test(`${table}: each agent sees only their own and the administrator sees all`, async () => {
-    assert.deepEqual(await visibleIds(AGENT_1, table), [CLIENT_OF_1]);
-    assert.deepEqual(await visibleIds(AGENT_2, table), [CLIENT_OF_2]);
-    assert.deepEqual(await visibleIds(AGENT_WITHOUT_CLIENTS, table), []);
-    assert.deepEqual(await visibleIds(ADMIN, table), await allIds(table));
+    const column = table === 'whatsapp_chats' ? 'prospect_id' : 'id';
+    assert.deepEqual(await visibleIds(AGENT_1, table, column), [CLIENT_OF_1]);
+    assert.deepEqual(await visibleIds(AGENT_2, table, column), [CLIENT_OF_2]);
+    assert.deepEqual(await visibleIds(AGENT_WITHOUT_CLIENTS, table, column), []);
+    assert.deepEqual(await visibleIds(ADMIN, table, column), await allIds(table, column));
   });
 }
 
@@ -369,8 +377,8 @@ test('the login directory only says who the agents are', async () => {
   assert.deepEqual(Object.keys(rows[0]).sort(), ['display_name', 'id', 'is_enabled']);
 });
 
-test('no signed-in staff member can read PINs or phone passwords', async () => {
-  for (const table of ['staff_credentials', 'agent_sip_accounts']) {
+test('no signed-in staff member can read PINs, phone passwords or Chatwoot tokens', async () => {
+  for (const table of ['staff_credentials', 'agent_sip_accounts', 'chatwoot_agent_accounts']) {
     await assert.rejects(runAs(AGENT_1, `SELECT * FROM public.${table}`), /permission denied/);
     await assert.rejects(runAs(ADMIN, `SELECT * FROM public.${table}`), /permission denied/);
   }

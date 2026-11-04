@@ -17,14 +17,18 @@ import { cx } from '@/components/ui/cx';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { AiCallPanel } from '@/features/ai-calls/components/AiCallSections';
+import { WhatsAppPanel } from '@/features/whatsapp/components/WhatsAppPanel';
+import { useWhatsAppChat } from '@/features/whatsapp/hooks/useWhatsApp';
 
-const SHARED_TABS: { id: CustomerTab; label: string }[] = [
+type TabItem = { id: CustomerTab; label: string };
+const SHARED_TABS: TabItem[] = [
   { id: 'oferta', label: 'Qué ofrecer' },
   { id: 'material', label: 'Presentación y videos' },
 ];
-// Customers who came by email get the email thread; those who came by AI call get the call.
-const EMAIL_TABS = [{ id: 'correo' as const, label: 'Correo' }, ...SHARED_TABS];
-const CALL_TABS = [{ id: 'llamada' as const, label: 'Llamada' }, ...SHARED_TABS];
+// The first tab is how the customer arrived: email thread, AI call, or WhatsApp chat.
+const EMAIL_TAB: TabItem = { id: 'correo', label: 'Correo' };
+const CALL_TAB: TabItem = { id: 'llamada', label: 'Llamada' };
+const WHATSAPP_TAB: TabItem = { id: 'whatsapp', label: 'WhatsApp' };
 
 interface CustomerWorkspaceProps {
   entry: CustomerEntry;
@@ -37,14 +41,22 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
   const [scheduling, setScheduling] = useState(false);
   const { prospect, conversation } = entry;
   const fromCall = prospect.source === 'ai_call';
-  const tabs = fromCall ? CALL_TABS : EMAIL_TABS;
+  const fromWhatsApp = prospect.source === 'whatsapp';
+  // An email or call customer who later wrote on WhatsApp gets a WhatsApp tab too.
+  const { chat, markRead } = useWhatsAppChat(prospect.id, conversation?.lastMessageAt);
+  const tabs = fromWhatsApp
+    ? [WHATSAPP_TAB, ...SHARED_TABS]
+    : [fromCall ? CALL_TAB : EMAIL_TAB, ...(chat ? [WHATSAPP_TAB] : []), ...SHARED_TABS];
   const firstTab = tabs[0].id;
   const requested = parseCustomerTab(searchParams.get(CUSTOMER_TAB_PARAM));
-  // Links that say "correo" or "llamada" open whichever of the two this customer has.
-  const tab = requested === 'correo' || requested === 'llamada' ? firstTab : requested;
-  const callDetails = (
+  // A link to a tab this customer does not have (e.g. "correo" for a call) opens the first one.
+  const tab = tabs.some((item) => item.id === requested) ? requested : firstTab;
+  const whatsApp = <WhatsAppPanel prospect={prospect} agentNames={agentNames} onRead={markRead} />;
+  const channelDetails = fromCall ? (
     <AiCallPanel prospectId={prospect.id} agentNames={agentNames} className="flex flex-col gap-3" />
-  );
+  ) : fromWhatsApp ? (
+    whatsApp
+  ) : undefined;
 
   useEffect(() => {
     if (searchParams.get(CUSTOMER_ACTION_PARAM) !== CUSTOMER_ACTION_SCHEDULE) return;
@@ -125,6 +137,12 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
                 )}
               >
                 {item.label}
+                {item.id === 'whatsapp' && chat?.unread && !active ? (
+                  <span
+                    aria-label="Mensaje sin leer"
+                    className="ml-1.5 inline-block h-2 w-2 rounded-full bg-plw-gold"
+                  />
+                ) : null}
               </button>
             );
           })}
@@ -147,10 +165,10 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
               conversationId={conversation.id}
               agentId={agentId}
               agentNames={agentNames}
-              callDetails={fromCall ? callDetails : undefined}
+              channelDetails={channelDetails}
             />
-          ) : fromCall ? (
-            <div className="p-5">{callDetails}</div>
+          ) : channelDetails ? (
+            <div className="p-5">{channelDetails}</div>
           ) : (
             <div className="p-6">
               <StatusMessage
@@ -161,6 +179,7 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
             </div>
           )
         ) : null}
+        {tab === 'whatsapp' && !fromWhatsApp ? <div className="p-5 sm:p-6">{whatsApp}</div> : null}
         {tab === 'oferta' ? (
           <div className="p-5 sm:p-6">
             <CustomerOfferPanel prospect={prospect} agentId={agentId} />
