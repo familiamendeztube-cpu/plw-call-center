@@ -24,6 +24,7 @@ export function ReassignDialog({ prospect, agents, onClose, onDone }: ReassignDi
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const verb = prospect.assignedAgentId ? 'Reasignar' : 'Asignar';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,8 +55,8 @@ export function ReassignDialog({ prospect, agents, onClose, onDone }: ReassignDi
   return (
     <Dialog
       open
-      title="Reasignar prospecto"
-      description={`${prospect.businessName} · ${prospect.contactName}`}
+      title={`${verb} prospecto`}
+      description={[prospect.businessName, prospect.contactName].filter(Boolean).join(' · ')}
       onClose={onClose}
       footer={
         <>
@@ -63,7 +64,7 @@ export function ReassignDialog({ prospect, agents, onClose, onDone }: ReassignDi
             Cancelar
           </Button>
           <Button type="submit" form="reassign-prospect-form" disabled={submitting}>
-            {submitting ? 'Reasignando...' : 'Confirmar reasignación'}
+            {submitting ? 'Guardando...' : `Confirmar: ${verb.toLowerCase()}`}
           </Button>
         </>
       }

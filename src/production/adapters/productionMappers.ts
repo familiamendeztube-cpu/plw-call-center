@@ -64,6 +64,7 @@ export function toProspect(row: Record<string, unknown>): Prospect {
     phone: readString(row, 'phone'),
     businessCategory: readString(row, 'business_category'),
     serviceInterest: readString(row, 'service_interest'),
+    source: readString(row, 'source'),
     assignedAgentId: readNullableAgentId(row, 'owner_id'),
     stage: readEnum(row, 'stage', SALES_STAGES),
     paymentStatus: readEnum(row, 'payment_status', PAYMENT_STATUSES),
@@ -165,8 +166,12 @@ export function toOverdueEntry(row: Record<string, unknown>): OverdueEntry {
 }
 
 export function toAssignmentHistoryEntry(row: Record<string, unknown>): AssignmentHistoryEntry {
+  // assignment_history.id is a bigint, which PostgREST sends as a JSON number.
+  if (typeof row.id !== 'number' && typeof row.id !== 'string') {
+    throw new Error('Fila inválida: el campo id no es un identificador.');
+  }
   return {
-    id: readString(row, 'id'),
+    id: String(row.id),
     prospectId: readString(row, 'prospect_id'),
     fromOwnerId: readNullableAgentId(row, 'from_owner_id'),
     toOwnerId: readNullableAgentId(row, 'to_owner_id'),

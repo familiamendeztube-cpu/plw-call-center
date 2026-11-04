@@ -1,6 +1,10 @@
 import { useCallback, useEffect } from 'react';
 import { useAsync } from '@/app/useAsync';
-import { getSupabaseClient } from '@/integrations/supabase/client';
+import {
+  getSupabaseClient,
+  supabaseAnonKeyValue,
+  supabaseFunctionsUrl,
+} from '@/integrations/supabase/client';
 import { AI_CALL_COLUMNS, type AiCall, type AiCallStatus } from '@/features/ai-calls/models/aiCall';
 
 const REFRESH_MS = 30_000;
@@ -27,6 +31,29 @@ export async function setAiCallStatus(requestId: string, status: AiCallStatus): 
   if (error) throw new Error('No se pudo cambiar el estado.');
 }
 
+/** The call recording, fetched through the server so the ElevenLabs key never reaches the browser. */
+export async function loadAiCallAudio(requestId: string): Promise<Blob> {
+  const { data } = await getSupabaseClient().auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Tu sesión venció. Ingresa de nuevo para continuar.');
+  const response = await fetch(`${supabaseFunctionsUrl}/ai-call-audio`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: supabaseAnonKeyValue,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ requestId }),
+  }).catch(() => null);
+  if (!response?.ok) {
+    const payload: unknown = await response?.json().catch(() => null);
+    const message =
+      typeof payload === 'object' && payload !== null && 'error' in payload ? payload.error : null;
+    throw new Error(typeof message === 'string' ? message : 'No se pudo cargar la grabación.');
+  }
+  return response.blob();
+}
+
 export async function countRecentWebhookFailures(): Promise<number> {
   const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const { count, error } = await getSupabaseClient()
@@ -37,7 +64,10 @@ export async function countRecentWebhookFailures(): Promise<number> {
   return count;
 }
 
-export function useAiCalls({ prospectId, status }: { prospectId?: string; status?: AiCallStatus } = {}) {
+export function useAiCalls({
+  prospectId,
+  status,
+}: { prospectId?: string; status?: AiCallStatus } = {}) {
   const result = useAsync(() => loadAiCalls(prospectId, status), [prospectId, status]);
   const { updateData } = result;
 

@@ -24,7 +24,7 @@ DECLARE
   v_e integer;
   v_unassigned integer;
   v_drained integer;
-  v_thirteenth uuid;
+  v_waiting uuid;
   v_unread boolean;
   v_pending text[];
   v_form_email text;
@@ -39,7 +39,7 @@ BEGIN
     VALUES (v_user, 'authenticated', 'authenticated', 'gmail-test-' || v_user || '@example.invalid', now(), now());
 
     INSERT INTO public.staff_profiles (id, role, display_name, auth_user_id, is_enabled, max_active_prospects)
-    VALUES ('agent-91000' || i, 'agent', 'Prueba Gmail ' || i, v_user, i <> 5, 4);
+    VALUES ('agent-91000' || i, 'agent', 'Prueba Gmail ' || i, v_user, i <> 5, 3);
 
     INSERT INTO public.staff_presence (staff_id, availability, last_heartbeat_at, updated_at)
     VALUES ('agent-91000' || i, CASE WHEN i = 4 THEN 'paused' ELSE 'active' END, now(), now());
@@ -65,7 +65,7 @@ BEGIN
   IF public.gmail_sync_guard(v_version - 1, v_token) THEN RAISE EXCEPTION 'check 1 failed: guard accepted an old version'; END IF;
   IF public.gmail_sync_claim() IS NOT NULL THEN RAISE EXCEPTION 'check 1 failed: a live lease was claimed twice'; END IF;
 
-  -- Check 2: twelve new threads become four each for the three eligible agents.
+  -- Check 2: twelve new threads become three each for the four enabled agents, the paused one included.
   FOR i IN 1..12 LOOP
     v_payload := jsonb_build_object(
       'gmailMessageId', 'm-' || i, 'gmailThreadId', 't-' || i,
@@ -92,25 +92,24 @@ BEGIN
   JOIN public.prospects p ON p.id = t.prospect_id
   WHERE t.mailbox_address = v_mailbox;
 
-  IF v_a <> 4 OR v_b <> 4 OR v_c <> 4 THEN
-    RAISE EXCEPTION 'check 2 failed: distribution %/%/%', v_a, v_b, v_c;
+  IF v_a <> 3 OR v_b <> 3 OR v_c <> 3 OR v_d <> 3 THEN
+    RAISE EXCEPTION 'check 2 failed: distribution %/%/%/%', v_a, v_b, v_c, v_d;
   END IF;
-  IF v_d <> 0 OR v_e <> 0 OR v_unassigned <> 0 THEN
-    RAISE EXCEPTION 'check 2 failed: paused/disabled agent received work (%/%, unassigned %)', v_d, v_e, v_unassigned;
+  IF v_e <> 0 OR v_unassigned <> 0 THEN
+    RAISE EXCEPTION 'check 2 failed: disabled agent received work (%, unassigned %)', v_e, v_unassigned;
   END IF;
 
-  -- Check 3: a thirteenth thread waits because every eligible agent is full.
-  v_payload := jsonb_build_object(
+  -- Check 3: a thirteenth thread waits because every enabled agent is full.
+  v_result := public.gmail_record_message(v_version, v_token, jsonb_build_object(
     'gmailMessageId', 'm-13', 'gmailThreadId', 't-13',
     'fromAddress', 'cliente13@example.invalid', 'fromName', 'Cliente 13',
     'replyTo', '', 'subject', 'Consulta 13', 'body', 'Hola 13', 'sentAt', now()::text,
     'contactEmail', 'cliente13@example.invalid', 'contactName', 'Cliente 13', 'contactPhone', ''
-  );
-  v_result := public.gmail_record_message(v_version, v_token, v_payload);
+  ));
   IF v_result->>'outcome' <> 'created' THEN RAISE EXCEPTION 'check 3 failed: %', v_result->>'outcome'; END IF;
-  v_thirteenth := (v_result->>'prospectId')::uuid;
+  v_waiting := (v_result->>'prospectId')::uuid;
 
-  SELECT q.status INTO v_queue_status FROM public.assignment_queue q WHERE q.prospect_id = v_thirteenth;
+  SELECT q.status INTO v_queue_status FROM public.assignment_queue q WHERE q.prospect_id = v_waiting;
   IF v_queue_status <> 'waiting' THEN RAISE EXCEPTION 'check 3 failed: queue status %', v_queue_status; END IF;
 
   -- Check 4: a repeated message ID is a duplicate and adds nothing.
@@ -157,7 +156,7 @@ BEGIN
   UPDATE public.staff_profiles SET max_active_prospects = 5 WHERE id = 'agent-910001';
   v_drained := public.process_waiting_queue();
   IF v_drained <> 1 THEN RAISE EXCEPTION 'check 6 failed: drained %', v_drained; END IF;
-  SELECT p.owner_id INTO v_owner FROM public.prospects p WHERE p.id = v_thirteenth;
+  SELECT p.owner_id INTO v_owner FROM public.prospects p WHERE p.id = v_waiting;
   IF v_owner IS DISTINCT FROM 'agent-910001' THEN RAISE EXCEPTION 'check 6 failed: owner %', v_owner; END IF;
 
   -- Check 7: a durable page position is saved only with the live token; a pause clears it.

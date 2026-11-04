@@ -17,6 +17,8 @@ interface ReplyPanelProps {
   draft: Draft | null;
   outbox: OutboxItem[];
   onNoteSaved: () => void;
+  /** False for customers who came by phone: only private notes, no email reply. */
+  emailEnabled?: boolean;
 }
 
 const TAB_LABELS: Record<ReplyTab, string> = {
@@ -31,9 +33,10 @@ export function ReplyPanel({
   draft,
   outbox,
   onNoteSaved,
+  emailEnabled = true,
 }: ReplyPanelProps) {
-  const [tab, setTab] = useState<ReplyTab>('email');
-  const tabs: ReplyTab[] = ['email', 'note'];
+  const tabs: ReplyTab[] = emailEnabled ? ['email', 'note'] : ['note'];
+  const [tab, setTab] = useState<ReplyTab>(tabs[0]);
 
   return (
     <section aria-label="Redactar" className="border-t border-neutral-200 bg-white px-5 py-4">

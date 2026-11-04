@@ -36,22 +36,33 @@ export function AiCallAlerts({ onSelect }: { onSelect: (prospectId: string) => v
   );
 }
 
-/** The AI requests of one customer, shown above the customer's tabs. Renders nothing when none. */
+/** The AI requests of one customer. Renders nothing when there are none. */
 export function AiCallPanel({
   prospectId,
   agentNames,
+  className = 'flex max-h-[45vh] flex-col gap-3 overflow-y-auto border-b border-neutral-200 bg-plw-ivory/60 p-4',
 }: {
   prospectId: string;
   agentNames: Record<string, string>;
+  className?: string;
 }) {
-  const { state, refresh } = useAiCalls({ prospectId });
-  if (state.status !== 'ready' || state.data.length === 0) return null;
+  const { state, refresh, reload } = useAiCalls({ prospectId });
+  if (state.status === 'loading') return null;
+  // A failed load used to render nothing, which looked like a call with no details.
+  if (state.status === 'error') {
+    return (
+      <div role="alert" className={className}>
+        <p className="text-sm text-danger-700">{state.message}</p>
+        <Button variant="secondary" size="sm" className="self-start" onClick={reload}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
+  if (state.data.length === 0) return null;
 
   return (
-    <section
-      aria-label="Llamadas atendidas por el asistente IA"
-      className="flex max-h-[45vh] flex-col gap-3 overflow-y-auto border-b border-neutral-200 bg-plw-ivory/60 p-4"
-    >
+    <section aria-label="Llamadas atendidas por el asistente IA" className={className}>
       {state.data.map((call) => (
         <AiCallCard key={call.id} call={call} agentNames={agentNames} canDial onChanged={refresh} />
       ))}

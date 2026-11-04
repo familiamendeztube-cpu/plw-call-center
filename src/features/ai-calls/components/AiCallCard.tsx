@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { Phone } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Phone, Play } from 'lucide-react';
 import { formatDateTime } from '@/app/dates';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { Panel } from '@/components/ui/Panel';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { toCostaRicaNumber } from '@/features/telephony/models/call';
-import { setAiCallStatus } from '@/features/ai-calls/hooks/useAiCalls';
+import { loadAiCallAudio, setAiCallStatus } from '@/features/ai-calls/hooks/useAiCalls';
 import {
   AI_CALL_STATUSES,
   AI_CALL_STATUS_LABELS,
@@ -29,6 +30,62 @@ function Field({ label, value }: { label: string; value: string | null }) {
       <dt className="text-xs text-neutral-500">{label}</dt>
       <dd className={value ? 'text-plw-ink' : 'text-neutral-400'}>{value ?? 'No indicado'}</dd>
     </div>
+  );
+}
+
+type Recording =
+  | { status: 'idle' | 'loading' }
+  | { status: 'ready'; url: string }
+  | { status: 'error'; message: string };
+
+/** Loads the recording only when asked: it is a few MB and most cards are never played. */
+function CallRecording({ requestId }: { requestId: string }) {
+  const [recording, setRecording] = useState<Recording>({ status: 'idle' });
+  useEffect(
+    () => () => {
+      if (recording.status === 'ready') URL.revokeObjectURL(recording.url);
+    },
+    [recording]
+  );
+
+  async function load() {
+    setRecording({ status: 'loading' });
+    try {
+      setRecording({ status: 'ready', url: URL.createObjectURL(await loadAiCallAudio(requestId)) });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'No se pudo cargar la grabación.';
+      setRecording({ status: 'error', message });
+    }
+  }
+
+  if (recording.status === 'ready') {
+    return (
+      <audio
+        controls
+        autoPlay
+        src={recording.url}
+        className="w-full"
+        aria-label="Grabación de la llamada"
+      />
+    );
+  }
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={recording.status === 'loading'}
+        onClick={() => void load()}
+      >
+        <Play size={14} aria-hidden="true" />
+        {recording.status === 'loading' ? 'Cargando grabación...' : 'Escuchar la llamada'}
+      </Button>
+      {recording.status === 'error' ? (
+        <p role="alert" className="w-full text-sm text-danger-700">
+          {recording.message}
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -57,6 +114,9 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
     <Panel as="article" className="p-4">
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="navy">Asistente IA · ElevenLabs</Badge>
+        {call.preferredContact ? (
+          <Badge tone="gold">Prefiere: {CONTACT_LABELS[call.preferredContact]}</Badge>
+        ) : null}
         <span className="text-sm text-neutral-500">{formatDateTime(call.callStartedAt)}</span>
         {call.prospectId ? (
           <span className="text-sm text-neutral-500">
@@ -67,11 +127,21 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
         )}
       </div>
 
+      <div className="mt-3 rounded-lg bg-plw-ivory px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-plw-gold">
+          Resumen de la llamada
+        </p>
+        <p className={call.summary ? 'mt-1 text-sm text-plw-ink' : 'mt-1 text-sm text-neutral-400'}>
+          {call.summary ?? 'ElevenLabs no envió un resumen de esta llamada.'}
+        </p>
+      </div>
+
       <dl className="mt-3 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
         <Field label="Cliente" value={call.customerName} />
         <Field label="Negocio" value={call.businessName} />
+        <Field label="Giro del negocio" value={call.businessType} />
         <Field label="Teléfono" value={number} />
-        <Field label="Motivo" value={call.reason} />
+        <Field label="Qué quiere mejorar" value={call.reason} />
         <Field
           label="Contacto solicitado"
           value={call.preferredContact ? CONTACT_LABELS[call.preferredContact] : null}
@@ -82,7 +152,6 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
           value={call.consent === null ? null : call.consent ? 'Sí' : 'No'}
         />
       </dl>
-      {call.summary ? <p className="mt-3 text-sm text-plw-ink">{call.summary}</p> : null}
       {call.preferredContact === 'whatsapp' ? (
         <p className="mt-2 text-sm text-neutral-600">
           Prefiere WhatsApp: contáctalo por Chatwoot o la línea de WhatsApp aprobada y registra el
@@ -97,6 +166,8 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
             Marcar en el teléfono
           </Button>
         ) : null}
+        {number ? <CopyButton value={number} label={`Copiar el número ${number}`} /> : null}
+        <CallRecording requestId={call.id} />
         {call.prospectId ? (
           <label className="flex items-center gap-2 text-sm">
             Estado

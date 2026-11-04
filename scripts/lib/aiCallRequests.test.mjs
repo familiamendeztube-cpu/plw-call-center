@@ -61,7 +61,8 @@ test('a routed call becomes a customer and goes to the available agent', async (
     await makeAvailable(q, 'agent-1');
     const id = await record(q, call());
     const [row] = await q(
-      `SELECT r.status, r.business_name, p.source, p.business_name AS label, p.owner_id, p.phone
+      `SELECT r.status, r.business_name, p.source, p.business_name AS label, p.owner_id, p.phone,
+              p.contact_name, p.service_interest
        FROM public.ai_call_requests r JOIN public.prospects p ON p.id = r.prospect_id WHERE r.id = $1`,
       [id]
     );
@@ -72,21 +73,66 @@ test('a routed call becomes a customer and goes to the available agent', async (
       label: 'Ana Mora',
       owner_id: 'agent-1',
       phone: '+50688887777',
+      contact_name: 'Ana Mora',
+      service_interest: 'Quiere información de planes',
     });
   });
 });
 
-test('a paused agent receives nothing and the call waits in the queue', async () => {
+const ownerAndQueue = (q, id) =>
+  q(
+    `SELECT p.owner_id, q.status FROM public.ai_call_requests r
+     JOIN public.prospects p ON p.id = r.prospect_id
+     JOIN public.assignment_queue q ON q.prospect_id = p.id WHERE r.id = $1`,
+    [id]
+  ).then((rows) => rows[0]);
+
+test('with nobody online and Activo, the call still goes to an enabled agent', async () => {
   await inTransaction(async (q) => {
     await makeAvailable(q, 'agent-1', 'paused');
     const id = await record(q, call());
-    const [row] = await q(
-      `SELECT p.owner_id, q.status FROM public.ai_call_requests r
-       JOIN public.prospects p ON p.id = r.prospect_id
-       JOIN public.assignment_queue q ON q.prospect_id = p.id WHERE r.id = $1`,
-      [id]
+    assert.deepEqual(await ownerAndQueue(q, id), { owner_id: 'agent-1', status: 'assigned' });
+  });
+});
+
+test('calls take turns between agents whether they are Activo or not', async () => {
+  await inTransaction(async (q) => {
+    await makeAvailable(q, 'agent-1', 'paused');
+    await makeAvailable(q, 'agent-2', 'active');
+    const owners = [];
+    for (const n of [1, 2, 3]) {
+      const id = await record(q, call({ conversation_id: `conv_turn_${n}`, caller_phone: `+5068888000${n}` }));
+      owners.push((await ownerAndQueue(q, id)).owner_id);
+    }
+    assert.deepEqual(owners, ['agent-1', 'agent-2', 'agent-1']);
+  });
+});
+
+test('the call waits only when every agent is at their limit', async () => {
+  await inTransaction(async (q) => {
+    await makeAvailable(q, 'agent-1');
+    await q(`UPDATE public.staff_profiles SET max_active_prospects = 0 WHERE id = 'agent-1'`);
+    const id = await record(q, call());
+    assert.deepEqual(await ownerAndQueue(q, id), { owner_id: null, status: 'waiting' });
+  });
+});
+
+test('the call fills empty customer fields and keeps the ones already set', async () => {
+  await inTransaction(async (q) => {
+    const [existing] = await q(
+      `INSERT INTO public.prospects (business_name, phone, service_interest, owner_id)
+       VALUES ('Panadería Sol', '8888-7777', 'Ya definido', 'agent-2') RETURNING id`
     );
-    assert.deepEqual(row, { owner_id: null, status: 'waiting' });
+    await record(q, call({ business_type: 'Panadería' }));
+    const [row] = await q(
+      `SELECT contact_name, business_category, service_interest FROM public.prospects WHERE id = $1`,
+      [existing.id]
+    );
+    assert.deepEqual(row, {
+      contact_name: 'Ana Mora',
+      business_category: 'Panadería',
+      service_interest: 'Ya definido',
+    });
   });
 });
 

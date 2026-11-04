@@ -42,6 +42,7 @@ test('maps a post-call event to the stored fields', () => {
       callback_phone: null,
       customer_name: 'Prueba PLW',
       business_name: null,
+      business_type: null,
       reason: 'Prueba del webhook',
       preferred_contact: 'whatsapp',
       preferred_time: 'mañana 10 am',
@@ -78,6 +79,7 @@ test('falls back to the caller ID variable and rejects unknown contact methods',
 const COLLECTED = {
   customer_name: 'Cliente Prueba',
   business_name: 'Negocio Prueba',
+  business_type: 'Restaurante',
   call_reason: 'Automatizar su negocio',
   preferred_contact: 'WhatsApp',
   callback_time: 'Cualquier hora',
@@ -87,6 +89,7 @@ const COLLECTED = {
 const EXPECTED = {
   customer_name: 'Cliente Prueba',
   business_name: 'Negocio Prueba',
+  business_type: 'Restaurante',
   reason: 'Automatizar su negocio',
   preferred_contact: 'whatsapp',
   preferred_time: 'Cualquier hora',

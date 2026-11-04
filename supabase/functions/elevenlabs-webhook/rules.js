@@ -71,6 +71,7 @@ function isoFromUnix(seconds) {
 export const FIELD_IDS = [
   'customer_name',
   'business_name',
+  'business_type',
   'call_reason',
   'preferred_contact',
   'callback_time',
@@ -140,6 +141,7 @@ export function callFromEvent(event) {
       callback_phone: phone(value('callback_phone')),
       customer_name: text(value('customer_name'), 120),
       business_name: text(value('business_name'), 160),
+      business_type: text(value('business_type'), 120),
       reason: text(value('call_reason'), 500),
       preferred_contact: ['phone', 'whatsapp'].includes(contact) ? contact : null,
       preferred_time: text(value('callback_time'), 200),

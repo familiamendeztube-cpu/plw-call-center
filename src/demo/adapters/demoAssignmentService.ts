@@ -51,6 +51,7 @@ export function createDemoAssignmentService(state: DemoState): AssignmentService
         phone: input.phone,
         businessCategory: input.businessCategory,
         serviceInterest: input.serviceInterest,
+        source: input.source,
         assignedAgentId: null,
         stage: 'new',
         paymentStatus: 'not_recorded',

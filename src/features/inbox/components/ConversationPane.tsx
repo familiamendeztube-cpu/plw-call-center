@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useAppServices } from '@/app/ServicesContext';
 import { buildTimeline } from '@/features/inbox/models/message';
 import { useConversationView } from '@/features/inbox/hooks/useConversationView';
@@ -12,9 +13,16 @@ interface ConversationPaneProps {
   conversationId: string | null;
   agentId: AgentId;
   agentNames: Record<string, string>;
+  /** Customers who came by phone: shown instead of the email thread, and replies are notes only. */
+  callDetails?: ReactNode;
 }
 
-export function ConversationPane({ conversationId, agentId, agentNames }: ConversationPaneProps) {
+export function ConversationPane({
+  conversationId,
+  agentId,
+  agentNames,
+  callDetails,
+}: ConversationPaneProps) {
   const { leads } = useAppServices();
   const { state, reload, updateData } = useConversationView(conversationId);
 
@@ -85,12 +93,15 @@ export function ConversationPane({ conversationId, agentId, agentNames }: Conver
         ownerName={ownerName}
         onProspectChange={handleProspectChange}
       />
-      <div className="min-h-0 flex-1 overflow-y-auto bg-plw-ivory/60 px-5 py-5">
-        <ThreadTimeline
-          entries={timeline}
-          contactName={prospect.contactName}
-          agentNames={agentNames}
-        />
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-plw-ivory/60 px-5 py-5">
+        {callDetails}
+        {callDetails && timeline.length === 0 ? null : (
+          <ThreadTimeline
+            entries={timeline}
+            contactName={prospect.contactName}
+            agentNames={agentNames}
+          />
+        )}
       </div>
       <ReplyPanel
         conversationId={thread.conversation.id}
@@ -99,6 +110,7 @@ export function ConversationPane({ conversationId, agentId, agentNames }: Conver
         draft={thread.draft}
         outbox={thread.outbox}
         onNoteSaved={handleNoteSaved}
+        emailEnabled={!callDetails}
       />
     </div>
   );

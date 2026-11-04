@@ -40,6 +40,8 @@ export interface Prospect {
   phone: string;
   businessCategory: string;
   serviceInterest: string;
+  /** How the inquiry arrived: 'email', 'ai_call', or free text for manual entries. */
+  source: string;
   assignedAgentId: AgentId | null;
   stage: SalesStage;
   paymentStatus: PaymentStatus;

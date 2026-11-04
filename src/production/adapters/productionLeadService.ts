@@ -4,7 +4,7 @@ import { readOptionalRow, readRows } from '@/production/adapters/productionRows'
 import { toNote, toProspect } from '@/production/adapters/productionMappers';
 
 const PROSPECT_COLUMNS =
-  'id, business_name, contact_name, email, phone, business_category, service_interest, owner_id, stage, payment_status, next_action, next_follow_up_at, created_at';
+  'id, business_name, contact_name, email, phone, business_category, service_interest, source, owner_id, stage, payment_status, next_action, next_follow_up_at, created_at';
 const NOTE_COLUMNS = 'id, prospect_id, author_id, body, created_at';
 const LOAD_ERROR = 'No se pudieron cargar los prospectos.';
 const SAVE_ERROR = 'No se pudo guardar el cambio.';

@@ -19,6 +19,7 @@ export interface AiCall {
   callbackPhone: string | null;
   customerName: string | null;
   businessName: string | null;
+  businessType: string | null;
   reason: string | null;
   preferredContact: keyof typeof CONTACT_LABELS | null;
   preferredTime: string | null;
@@ -41,6 +42,7 @@ export const AI_CALL_COLUMNS = [
   'callbackPhone:callback_phone',
   'customerName:customer_name',
   'businessName:business_name',
+  'businessType:business_type',
   'reason',
   'preferredContact:preferred_contact',
   'preferredTime:preferred_time',

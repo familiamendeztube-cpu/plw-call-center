@@ -4,6 +4,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { DemoDataNote } from '@/components/ui/DemoDataNote';
 import { Badge } from '@/components/ui/Badge';
 import { StatusMessage } from '@/components/ui/StatusMessage';
+import { Button } from '@/components/ui/Button';
+import { ReassignDialog } from '@/features/assignment/components/ReassignDialog';
 import { AdminSnapshotBoundary } from '@/features/admin/components/AdminSnapshotBoundary';
 import { useAdminSnapshot } from '@/features/admin/hooks/useAdminSnapshot';
 import type { AdminSnapshot } from '@/features/admin/models/overview';
@@ -28,14 +30,21 @@ export function AdminProspectsPage() {
         actions={<DemoDataNote />}
       />
       <AdminSnapshotBoundary state={state} reload={reload}>
-        {(snapshot) => <ProspectsTable snapshot={snapshot} />}
+        {(snapshot) => <ProspectsTable snapshot={snapshot} onChanged={reload} />}
       </AdminSnapshotBoundary>
     </div>
   );
 }
 
-function ProspectsTable({ snapshot }: { snapshot: AdminSnapshot }) {
+function ProspectsTable({
+  snapshot,
+  onChanged,
+}: {
+  snapshot: AdminSnapshot;
+  onChanged: () => void;
+}) {
   const [owner, setOwner] = useState(ALL_OWNERS);
+  const [assigning, setAssigning] = useState<Prospect | null>(null);
   const agentNames = buildAgentNameMap(snapshot.agents);
   const visible = useMemo(
     () => snapshot.prospects.filter((prospect) => matchesOwner(prospect, owner)),
@@ -83,6 +92,9 @@ function ProspectsTable({ snapshot }: { snapshot: AdminSnapshot }) {
                 <th scope="col" className="px-4 py-3 font-semibold">
                   Próximo seguimiento
                 </th>
+                <th scope="col" className="px-4 py-3 font-semibold">
+                  <span className="sr-only">Acciones</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">
@@ -110,12 +122,28 @@ function ProspectsTable({ snapshot }: { snapshot: AdminSnapshot }) {
                       ? formatDateTime(prospect.nextFollowUpAt)
                       : 'Sin fecha programada'}
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button variant="secondary" size="sm" onClick={() => setAssigning(prospect)}>
+                      {prospect.assignedAgentId ? 'Reasignar' : 'Asignar'}
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+      {assigning ? (
+        <ReassignDialog
+          prospect={assigning}
+          agents={snapshot.agents}
+          onClose={() => setAssigning(null)}
+          onDone={() => {
+            setAssigning(null);
+            onChanged();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
