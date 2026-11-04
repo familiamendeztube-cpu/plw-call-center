@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '@/features/auth/context/useAuth';
 import type { Session } from '@/features/auth/models/session';
-import { PhoneKeypad } from '@/features/telephony/components/PhoneKeypad';
 import { PhoneScreen } from '@/features/telephony/components/PhoneScreen';
 import { RecentCallsList } from '@/features/telephony/components/RecentCallsList';
 import { TelephonyProvider } from '@/features/telephony/context/TelephonyProvider';
@@ -58,7 +57,6 @@ function Phone({ connector, session }: { connector: TelephonyConnector; session:
     <AuthContext.Provider value={{ session } as AuthContextValue}>
       <TelephonyProvider connector={connector}>
         <PhoneScreen />
-        <PhoneKeypad />
         <RecentCallsList />
         <CommandError />
       </TelephonyProvider>
@@ -88,16 +86,6 @@ test('the screen drops what cannot be dialed, also from a paste', () => {
   render(<Phone connector={connector} session={AGENT_1} />);
   fireEvent.change(numberField(), { target: { value: '+506 7130-1928 llamar' } });
   expect(numberField().value).toBe('+50671301928');
-});
-
-test('the screen and the keypad edit the same number', async () => {
-  const { connector } = createConnector();
-  render(<Phone connector={connector} session={AGENT_1} />);
-  await userEvent.type(numberField(), '7130');
-  await userEvent.click(screen.getByRole('button', { name: 'Tecla 5' }));
-  expect(numberField().value).toBe('71305');
-  await userEvent.click(screen.getByRole('button', { name: 'Borrar último dígito' }));
-  expect(numberField().value).toBe('7130');
 });
 
 test('Enter calls the typed number', async () => {

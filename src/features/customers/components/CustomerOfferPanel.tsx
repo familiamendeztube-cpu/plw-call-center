@@ -39,7 +39,6 @@ export function CustomerOfferPanel({ prospect, agentId }: CustomerOfferPanelProp
           <Fact label="Giro del negocio" value={prospect.businessCategory || 'Sin definir'} />
           <Fact label="Etapa" value={SALES_STAGE_LABELS[prospect.stage]} />
           <Fact label="Pago" value={PAYMENT_STATUS_LABELS[prospect.paymentStatus]} />
-          <Fact label="Siguiente acción" value={prospect.nextAction || 'Sin definir'} />
           <Fact
             label="Próximo seguimiento"
             value={

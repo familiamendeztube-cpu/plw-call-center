@@ -77,6 +77,7 @@ export const FIELD_IDS = [
   'callback_time',
   'callback_phone',
   'callback_consent',
+  'call_summary',
 ];
 
 /**
@@ -146,7 +147,8 @@ export function callFromEvent(event) {
       preferred_contact: ['phone', 'whatsapp'].includes(contact) ? contact : null,
       preferred_time: text(value('callback_time'), 200),
       consent: bool(value('callback_consent')),
-      summary: text(data.analysis?.transcript_summary, 4000),
+      // ElevenLabs writes transcript_summary in English; the call_summary field is asked for in Spanish.
+      summary: text(value('call_summary'), 4000) ?? text(data.analysis?.transcript_summary, 4000),
       call_started_at: startedAt,
       call_duration_seconds: Number.isInteger(duration) && duration >= 0 ? duration : null,
     },

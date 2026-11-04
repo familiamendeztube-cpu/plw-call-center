@@ -40,12 +40,6 @@ export function CustomerDetailsDialog({
       widthClass="max-w-2xl"
     >
       <div className="flex flex-col gap-6">
-        <div className="rounded-xl bg-plw-ivory p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-plw-gold">
-            Siguiente acción
-          </p>
-          <p className="mt-1 text-sm font-medium text-plw-ink">{prospect.nextAction}</p>
-        </div>
         <StageSelect prospect={prospect} onChange={onProspectChange} />
         <dl className="divide-y divide-neutral-200 border-y border-neutral-200">
           <DetailRow label="Contacto">{prospect.contactName}</DetailRow>

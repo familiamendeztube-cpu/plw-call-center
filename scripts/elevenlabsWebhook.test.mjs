@@ -141,6 +141,14 @@ test('keeps consent false, reads true/false text, and leaves anything else empty
   assert.equal(consent('sí'), null);
 });
 
+test('prefers the Spanish call_summary field over the English transcript summary', () => {
+  const spanish = withAnalysis({
+    data_collection_results: { call_summary: { value: 'Pedro quiere automatizar sus contactos.' } },
+  });
+  assert.equal(spanish.call.summary, 'Pedro quiere automatizar sus contactos.');
+  assert.equal(withAnalysis({ data_collection_results: {} }).call.summary, 'Resumen');
+});
+
 test('flags a saved call whose collected fields could not be read', () => {
   assert.equal(withAnalysis({}).fieldsIssue, 'no_collected_fields');
   assert.equal(withAnalysis({ data_collection_results: {} }).fieldsIssue, 'no_collected_fields');

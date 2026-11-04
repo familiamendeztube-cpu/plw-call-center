@@ -3,7 +3,6 @@ import { useAuth } from '@/features/auth/context/useAuth';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { ConnectionStatus } from '@/features/telephony/components/ConnectionStatus';
 import { PhoneScreen } from '@/features/telephony/components/PhoneScreen';
-import { PhoneKeypad } from '@/features/telephony/components/PhoneKeypad';
 import { CallControls } from '@/features/telephony/components/CallControls';
 import { PhoneCustomerActions } from '@/features/telephony/components/PhoneCustomerActions';
 import { RecentCallsList } from '@/features/telephony/components/RecentCallsList';
@@ -48,21 +47,6 @@ export function PhonePanel() {
           ) : null}
 
           <PhoneCustomerActions />
-
-          <details className="group rounded-xl border border-neutral-200 bg-white">
-            <summary className="flex h-11 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-plw-navy">
-              Marcar un número
-              <span
-                aria-hidden="true"
-                className="text-neutral-500 transition-transform group-open:rotate-45"
-              >
-                +
-              </span>
-            </summary>
-            <div className="px-3 pb-4">
-              <PhoneKeypad />
-            </div>
-          </details>
 
           <section aria-labelledby="recent-calls-title" className="flex flex-col gap-2">
             <h3

@@ -86,12 +86,6 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
 
   const changeDialNumber = useCallback((value: string) => setDialNumber(toDialNumber(value)), []);
 
-  const appendDigit = useCallback((digit: string) => {
-    setDialNumber((current) => toDialNumber(`${current}${digit}`));
-  }, []);
-
-  const deleteDigit = useCallback(() => setDialNumber((current) => current.slice(0, -1)), []);
-
   const clearDialNumber = useCallback(() => setDialNumber(''), []);
 
   const placeCall = useCallback(
@@ -129,8 +123,6 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       recentCalls,
       commandError,
       changeDialNumber,
-      appendDigit,
-      deleteDigit,
       clearDialNumber,
       placeCall,
       answerCall,
@@ -146,8 +138,6 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       recentCalls,
       commandError,
       changeDialNumber,
-      appendDigit,
-      deleteDigit,
       clearDialNumber,
       placeCall,
       answerCall,

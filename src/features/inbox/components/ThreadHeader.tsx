@@ -33,17 +33,9 @@ export function ThreadHeader({ prospect, ownerName, onProspectChange }: ThreadHe
         </Button>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-        <div className="rounded-lg bg-plw-ivory px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-plw-gold">
-            Siguiente acción
-          </p>
-          <p className="mt-1 text-sm font-medium text-plw-ink">{prospect.nextAction}</p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <p className="text-xs font-medium text-neutral-500">Etapa de venta</p>
-          <StageSelect prospect={prospect} onChange={onProspectChange} compact />
-        </div>
+      <div className="mt-4 flex flex-col gap-1.5 sm:w-64">
+        <p className="text-xs font-medium text-neutral-500">Etapa de venta</p>
+        <StageSelect prospect={prospect} onChange={onProspectChange} compact />
       </div>
 
       {detailsOpen ? (
