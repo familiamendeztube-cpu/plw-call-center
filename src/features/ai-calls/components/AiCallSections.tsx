@@ -1,14 +1,22 @@
 import { Button } from '@/components/ui/Button';
-import { useAiCalls } from '@/features/ai-calls/hooks/useAiCalls';
+import { setAiCallStatus, useAiCalls } from '@/features/ai-calls/hooks/useAiCalls';
 import { AiCallCard } from '@/features/ai-calls/components/AiCallCard';
-import { contactNumber } from '@/features/ai-calls/models/aiCall';
+import { contactNumber, type AiCall } from '@/features/ai-calls/models/aiCall';
 
 /** Banner on the agent's customer page: their pending AI requests, one click to open each. */
 export function AiCallAlerts({ onSelect }: { onSelect: (prospectId: string) => void }) {
-  const { state } = useAiCalls({ status: 'pending' });
+  const { state, updateData } = useAiCalls({ status: 'pending' });
   if (state.status !== 'ready') return null;
   const pending = state.data.filter((call) => call.prospectId);
   if (pending.length === 0) return null;
+
+  // Opening a request from the banner means the agent started on it: it leaves the banner
+  // and moves to "En proceso" before the card loads, so the card shows the same status.
+  async function open(call: AiCall) {
+    updateData((list) => list.filter((item) => item.id !== call.id));
+    await setAiCallStatus(call.id, 'in_progress').catch(() => undefined);
+    onSelect(call.prospectId as string);
+  }
 
   return (
     <div
@@ -22,12 +30,7 @@ export function AiCallAlerts({ onSelect }: { onSelect: (prospectId: string) => v
       </p>
       <div className="flex flex-wrap gap-2">
         {pending.slice(0, 5).map((call) => (
-          <Button
-            key={call.id}
-            variant="secondary"
-            size="sm"
-            onClick={() => onSelect(call.prospectId as string)}
-          >
+          <Button key={call.id} variant="secondary" size="sm" onClick={() => void open(call)}>
             {call.customerName ?? contactNumber(call) ?? 'Llamada IA'}
           </Button>
         ))}

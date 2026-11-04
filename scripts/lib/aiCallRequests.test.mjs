@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestDatabase } from './testDatabase.mjs';
@@ -159,6 +160,98 @@ test('a returning caller is attached to their customer and current agent', async
     assert.equal(row.prospect_id, existing.id);
     const [{ count }] = await q(`SELECT count(*)::int AS count FROM public.prospects`);
     assert.equal(count, 1);
+  });
+});
+
+test('a different person on a known number becomes a new customer, without touching the other', async () => {
+  await inTransaction(async (q) => {
+    await makeAvailable(q, 'agent-1');
+    const [pedro] = await q(
+      `INSERT INTO public.prospects (business_name, contact_name, phone, owner_id)
+       VALUES ('Hospitapiedras.com', 'Pedro Picapiedra', '50688887777', 'agent-2') RETURNING id`
+    );
+    const id = await record(q, call({ business_name: 'El Arbolito Feliz', business_type: 'Árboles' }));
+    const [row] = await q(
+      `SELECT r.prospect_id <> $2 AS separate, p.business_name, p.contact_name, p.owner_id
+       FROM public.ai_call_requests r JOIN public.prospects p ON p.id = r.prospect_id WHERE r.id = $1`,
+      [id, pedro.id]
+    );
+    assert.deepEqual(row, {
+      separate: true,
+      business_name: 'El Arbolito Feliz',
+      contact_name: 'Ana Mora',
+      owner_id: 'agent-1',
+    });
+    const [untouched] = await q(`SELECT business_category FROM public.prospects WHERE id = $1`, [pedro.id]);
+    assert.equal(untouched.business_category, '');
+  });
+});
+
+test('the same person calling again joins their customer, short name and accents included', async () => {
+  await inTransaction(async (q) => {
+    const [existing] = await q(
+      `INSERT INTO public.prospects (business_name, contact_name, phone, owner_id)
+       VALUES ('Panadería Sol', 'Ána Mora Solís', '8888-7777', 'agent-2') RETURNING id`
+    );
+    const id = await record(q, call({ customer_name: 'ana mora' }));
+    const [row] = await q(`SELECT prospect_id FROM public.ai_call_requests WHERE id = $1`, [id]);
+    assert.equal(row.prospect_id, existing.id);
+  });
+});
+
+// The migration's one-time repair, replayed on the merged state seen in production on 2026-11-04.
+const REPAIR = readFileSync(
+  new URL('../../supabase/migrations/20261104200000_ai_calls_split_different_callers.sql', import.meta.url),
+  'utf8'
+).split('-- BEGIN repair')[1].split('-- END repair')[0];
+
+test('the repair gives a merged caller their own customer with the same agent', async () => {
+  await inTransaction(async (q) => {
+    const [pedro] = await q(
+      `INSERT INTO public.prospects (business_name, contact_name, phone, business_category, owner_id)
+       VALUES ('Hospitapiedras.com', 'Pedro Picapiedra', '50681234567', 'venta de árboles', 'agent-2')
+       RETURNING id`
+    );
+    const insertCall = (conversation, name, business, type) =>
+      q(
+        `INSERT INTO public.ai_call_requests
+           (conversation_id, prospect_id, callback_phone, customer_name, business_name, business_type,
+            call_started_at, status)
+         VALUES ($1, $2, '81234567', $3, $4, $5, now(), 'in_progress') RETURNING id`,
+        [conversation, pedro.id, name, business, type]
+      ).then((rows) => rows[0].id);
+    const pedroCall = await insertCall('conv_pedro', 'Pedro Picapiedra', 'Hospitapiedras.com', null);
+    const juanCall = await insertCall('conv_juan', 'Juan López', 'El Arbolito Feliz', 'venta de árboles');
+
+    await q(REPAIR);
+    await q(REPAIR); // Re-running changes nothing.
+
+    const rows = await q(
+      `SELECT r.id, p.business_name, p.contact_name, p.business_category, p.owner_id, q.status AS queue
+       FROM public.ai_call_requests r
+       JOIN public.prospects p ON p.id = r.prospect_id
+       JOIN public.assignment_queue q ON q.prospect_id = p.id
+       WHERE r.id = $1`,
+      [juanCall]
+    );
+    assert.deepEqual(rows, [
+      {
+        id: juanCall,
+        business_name: 'El Arbolito Feliz',
+        contact_name: 'Juan López',
+        business_category: 'venta de árboles',
+        owner_id: 'agent-2',
+        queue: 'assigned',
+      },
+    ]);
+    const [pedroAfter] = await q(
+      `SELECT p.business_category, r.prospect_id = p.id AS kept
+       FROM public.prospects p, public.ai_call_requests r WHERE p.id = $1 AND r.id = $2`,
+      [pedro.id, pedroCall]
+    );
+    assert.deepEqual(pedroAfter, { business_category: '', kept: true });
+    const [{ count }] = await q(`SELECT count(*)::int AS count FROM public.prospects`);
+    assert.equal(count, 2);
   });
 });
 

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Phone, Play } from 'lucide-react';
+import { ChevronDown, Phone, Play } from 'lucide-react';
 import { formatDateTime } from '@/app/dates';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { CopyButton } from '@/components/ui/CopyButton';
 import { Panel } from '@/components/ui/Panel';
+import { cx } from '@/components/ui/cx';
+import { useAuth } from '@/features/auth/context/useAuth';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { toCostaRicaNumber } from '@/features/telephony/models/call';
 import { loadAiCallAudio, setAiCallStatus } from '@/features/ai-calls/hooks/useAiCalls';
@@ -91,8 +92,17 @@ function CallRecording({ requestId }: { requestId: string }) {
 
 export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardProps) {
   const { changeDialNumber } = useTelephony();
+  const isAdmin = useAuth().session?.role === 'admin';
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const footer = [
+    call.statusBy && call.statusAt
+      ? `Último cambio: ${agentNames[call.statusBy] ?? call.statusBy}, ${formatDateTime(call.statusAt)}`
+      : null,
+    // Only administrators need the ElevenLabs reference, to look a call up there.
+    isAdmin ? `ID de ElevenLabs: ${call.conversationId}` : null,
+  ].filter(Boolean);
   const number = contactNumber(call);
   const dialable = toCostaRicaNumber(number ?? '');
   const ownerId = call.prospect?.ownerId ?? null;
@@ -128,10 +138,28 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
       </div>
 
       <div className="mt-3 rounded-lg bg-plw-ivory px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-plw-gold">
+        <button
+          type="button"
+          aria-expanded={summaryOpen}
+          aria-controls={`summary-${call.id}`}
+          onClick={() => setSummaryOpen((open) => !open)}
+          className="flex w-full items-center justify-between gap-2 text-left text-xs font-semibold uppercase tracking-wider text-plw-gold"
+        >
           Resumen de la llamada
-        </p>
-        <p className={call.summary ? 'mt-1 text-sm text-plw-ink' : 'mt-1 text-sm text-neutral-400'}>
+          <ChevronDown
+            size={16}
+            aria-hidden="true"
+            className={cx('shrink-0 transition-transform', summaryOpen && 'rotate-180')}
+          />
+        </button>
+        <p
+          id={`summary-${call.id}`}
+          className={cx(
+            'mt-1 text-sm',
+            call.summary ? 'text-plw-ink' : 'text-neutral-400',
+            !summaryOpen && 'line-clamp-2'
+          )}
+        >
           {call.summary ?? 'ElevenLabs no envió un resumen de esta llamada.'}
         </p>
       </div>
@@ -166,7 +194,6 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
             Marcar en el teléfono
           </Button>
         ) : null}
-        {number ? <CopyButton value={number} label={`Copiar el número ${number}`} /> : null}
         <CallRecording requestId={call.id} />
         {call.prospectId ? (
           <label className="flex items-center gap-2 text-sm">
@@ -191,12 +218,9 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
           {error}
         </p>
       ) : null}
-      <p className="mt-3 text-xs text-neutral-500">
-        {call.statusBy && call.statusAt
-          ? `Último cambio: ${agentNames[call.statusBy] ?? call.statusBy}, ${formatDateTime(call.statusAt)} · `
-          : ''}
-        ID de ElevenLabs: {call.conversationId}
-      </p>
+      {footer.length > 0 ? (
+        <p className="mt-3 text-xs text-neutral-500">{footer.join(' · ')}</p>
+      ) : null}
     </Panel>
   );
 }

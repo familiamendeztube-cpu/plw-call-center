@@ -141,6 +141,18 @@ test('keeps consent false, reads true/false text, and leaves anything else empty
   assert.equal(consent('sí'), null);
 });
 
+test('reads the contact method in Spanish or English, and nothing else', () => {
+  const contact = (value) =>
+    withAnalysis({ data_collection_results: { preferred_contact: { value } } }).call.preferred_contact;
+  assert.equal(contact('Llamada telefónica'), 'phone');
+  assert.equal(contact('llamada'), 'phone');
+  assert.equal(contact('Teléfono'), 'phone');
+  assert.equal(contact('phone call'), 'phone');
+  assert.equal(contact('Por WhatsApp'), 'whatsapp');
+  assert.equal(contact('correo'), null);
+  assert.equal(contact(null), null);
+});
+
 test('prefers the Spanish call_summary field over the English transcript summary', () => {
   const spanish = withAnalysis({
     data_collection_results: { call_summary: { value: 'Pedro quiere automatizar sus contactos.' } },

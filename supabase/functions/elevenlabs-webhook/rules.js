@@ -109,6 +109,13 @@ function bool(value) {
   return clean === 'true' ? true : clean === 'false' ? false : null;
 }
 
+// The agent records what the caller said, often in Spanish ("Llamada telefónica", "por WhatsApp").
+function contactMethod(value) {
+  const clean = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (clean.includes('whats')) return 'whatsapp';
+  return /phone|call|llamad|tel[eé]f/.test(clean) ? 'phone' : null;
+}
+
 /** Turns a verified webhook event into the fields PLW stores, or says why it is skipped. */
 export function callFromEvent(event) {
   if (typeof event !== 'object' || event === null) return { invalid: 'malformed' };
@@ -126,7 +133,6 @@ export function callFromEvent(event) {
 
   const { values, entryCount } = collectedValues(data.analysis);
   const value = (id) => values.get(id) ?? null;
-  const contact = typeof value('preferred_contact') === 'string' ? value('preferred_contact').trim().toLowerCase() : '';
   const duration = metadata.call_duration_secs;
   // Delivery and field persistence are separate outcomes; these codes flag the second.
   const fieldsIssue =
@@ -144,7 +150,7 @@ export function callFromEvent(event) {
       business_name: text(value('business_name'), 160),
       business_type: text(value('business_type'), 120),
       reason: text(value('call_reason'), 500),
-      preferred_contact: ['phone', 'whatsapp'].includes(contact) ? contact : null,
+      preferred_contact: contactMethod(value('preferred_contact')),
       preferred_time: text(value('callback_time'), 200),
       consent: bool(value('callback_consent')),
       // ElevenLabs writes transcript_summary in English; the call_summary field is asked for in Spanish.
