@@ -23,9 +23,17 @@ interface SipAccount {
 
 const ENDED_DISPLAY_MS = 5000;
 const MEDIA_TIMEOUT_MS = 10000;
-const RING_CYCLE_MS = 6000;
-const RING_SECONDS = 2;
-const RING_VOLUME = 0.1;
+// Ring, ring, then a pause: 0.4 s on, 0.2 s off, 0.4 s on, 2 s off.
+const RING_BURSTS: [number, number][] = [
+  [0, 0.4],
+  [0.6, 1],
+];
+const RING_CYCLE_SECONDS = 3;
+// Two pitches trading places 25 times a second: the trill of a desk phone.
+const RING_PITCHES = [950, 1400];
+const RING_TRILL_HZ = 25;
+// ponytail: one loudness for every agent; add a volume setting if some find it too loud.
+const RING_VOLUME = 0.5;
 const AUTHENTICATION_ERROR = 'Authentication Error';
 const AUDIO_LOST_CAUSE = 'RTP Timeout';
 const LOCAL_CANCEL_CAUSE = 'Canceled';
@@ -42,6 +50,8 @@ const LOGIN_REJECTED = 'El servidor rechazó la cuenta de teléfono. Contacta al
 const REGISTRATION_FAILED = 'No se pudo registrar la línea. Reintentando...';
 const ACCOUNT_FAILED = 'No se pudo cargar la cuenta de teléfono.';
 const AUDIO_BLOCKED = 'El navegador bloqueó el audio de la llamada. Haz clic en la página.';
+const RING_LOCKED =
+  'Haz clic una vez en cualquier parte de la página para que suene el timbre cuando entre una llamada.';
 const CALL_FAILED = 'No se pudo completar la llamada.';
 
 const FAILURE_MESSAGES: Record<string, string> = {
@@ -101,30 +111,36 @@ function readSipAccount(payload: Record<string, unknown>): SipAccount | null {
   };
 }
 
-// The browser can refuse to start this until the agent has clicked on the page.
-// The phone panel still shows the incoming call.
+/** One cycle of the ringtone, as samples to loop. */
+export function ringSamples(sampleRate: number): Float32Array {
+  const samples = new Float32Array(Math.round(RING_CYCLE_SECONDS * sampleRate));
+  let phase = 0;
+  for (let index = 0; index < samples.length; index += 1) {
+    const seconds = index / sampleRate;
+    const pitch = RING_PITCHES[Math.floor(seconds * RING_TRILL_HZ * 2) % 2];
+    // The phase carries over between pitches, so the trill has no clicks.
+    phase += (2 * Math.PI * pitch) / sampleRate;
+    const ringing = RING_BURSTS.some(([from, to]) => seconds >= from && seconds < to);
+    samples[index] = ringing ? Math.sin(phase) * RING_VOLUME : 0;
+  }
+  return samples;
+}
+
+// The browser refuses sound from a page nobody has clicked since it loaded.
+const ringLocked = () => navigator.userActivation?.hasBeenActive === false;
+
+// Loops on the audio clock, not a timer, so it keeps ringing in a background tab.
 function startRingtone(): () => void {
   const context = new AudioContext();
-  const volume = context.createGain();
-  volume.gain.value = 0;
-  volume.connect(context.destination);
-  for (const frequency of [440, 480]) {
-    const tone = context.createOscillator();
-    tone.frequency.value = frequency;
-    tone.connect(volume);
-    tone.start();
-  }
-
-  const ring = () => {
-    volume.gain.setValueAtTime(RING_VOLUME, context.currentTime);
-    volume.gain.setValueAtTime(0, context.currentTime + RING_SECONDS);
-  };
-  ring();
-  const timer = window.setInterval(ring, RING_CYCLE_MS);
-  return () => {
-    window.clearInterval(timer);
-    void context.close();
-  };
+  const cycle = ringSamples(context.sampleRate);
+  const buffer = context.createBuffer(1, cycle.length, context.sampleRate);
+  buffer.copyToChannel(cycle, 0);
+  const ring = context.createBufferSource();
+  ring.buffer = buffer;
+  ring.loop = true;
+  ring.connect(context.destination);
+  ring.start();
+  return () => void context.close();
 }
 
 export function createSipTelephonyConnector(): TelephonyConnector {
@@ -149,6 +165,14 @@ export function createSipTelephonyConnector(): TelephonyConnector {
   function setStatus(next: TelephonyConnectorStatus, message?: string) {
     status = next;
     emit({ type: 'status', status: next, message });
+  }
+
+  // The first click unlocks the ringtone, so the warning goes away.
+  const clearRingWarning = () => {
+    if (status === 'registered') setStatus('registered');
+  };
+  for (const type of ['pointerdown', 'keydown']) {
+    window.addEventListener(type, clearRingWarning, { capture: true, once: true });
   }
 
   function publishCall(next: CallSnapshot | null, message?: string) {
@@ -197,14 +221,17 @@ export function createSipTelephonyConnector(): TelephonyConnector {
 
     session = next;
     window.clearTimeout(endedTimer);
-    publishCall({
-      id: next.id,
-      state: inbound ? 'ringing' : 'dialing',
-      direction: inbound ? 'inbound' : 'outbound',
-      remoteNumber: next.remote_identity.uri.user ?? '',
-      startedAt: null,
-      muted: false,
-    });
+    publishCall(
+      {
+        id: next.id,
+        state: inbound ? 'ringing' : 'dialing',
+        direction: inbound ? 'inbound' : 'outbound',
+        remoteNumber: next.remote_identity.uri.user ?? '',
+        startedAt: null,
+        muted: false,
+      },
+      inbound && ringLocked() ? RING_LOCKED : undefined
+    );
     if (inbound) stopRingtone = startRingtone();
 
     // JsSIP creates the connection for an outgoing call before this event, and
@@ -243,7 +270,7 @@ export function createSipTelephonyConnector(): TelephonyConnector {
     });
     agent.on('connecting', () => setStatus('connecting'));
     agent.on('disconnected', () => setStatus('error', CONNECTION_LOST));
-    agent.on('registered', () => setStatus('registered'));
+    agent.on('registered', () => setStatus('registered', ringLocked() ? RING_LOCKED : undefined));
     agent.on('unregistered', () => setStatus('connecting'));
     agent.on('registrationFailed', ({ cause }) =>
       setStatus('error', cause === AUTHENTICATION_ERROR ? LOGIN_REJECTED : REGISTRATION_FAILED)
