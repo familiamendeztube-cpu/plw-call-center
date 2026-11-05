@@ -119,11 +119,41 @@ export async function disconnectChatwoot(staffId?: string): Promise<void> {
   await callStaffFunction('whatsapp', { action: 'disconnect', staffId });
 }
 
-/** The templates the server read from Chatwoot just now; the server checks them again on send. */
-export async function loadWhatsAppTemplates(prospectId: string): Promise<WhatsAppTemplate[]> {
-  const payload = await callStaffFunction('whatsapp', { action: 'templates', prospectId });
+/**
+ * The templates the server read from Chatwoot just now; the server checks them again on send.
+ * Null when the agent has not connected their Chatwoot user yet.
+ */
+export async function loadWhatsAppTemplates(): Promise<WhatsAppTemplate[] | null> {
+  const payload = await callStaffFunction('whatsapp', { action: 'templates' });
+  if (payload.connected === false) return null;
   if (!Array.isArray(payload.templates)) throw new Error(INVALID_RESPONSE);
   return payload.templates as WhatsAppTemplate[];
+}
+
+/**
+ * The number as WhatsApp writes it, or null; the server applies the same rule. Costa Rica's eight
+ * digits need no 506; another country is written with + and its code.
+ */
+export function whatsAppNumber(typed: string): string | null {
+  const compact = typed.replace(/[\s().-]/g, '');
+  const local = /^(?:\+?506)?([2-8]\d{7})$/.exec(compact);
+  if (local) return `+506${local[1]}`;
+  return /^\+(?!506)[1-9]\d{7,14}$/.test(compact) ? compact : null;
+}
+
+/**
+ * Writes to a number with an approved template. The server joins the chat to the agent's own
+ * customer with that number, or creates one, and refuses another agent's customer before sending.
+ * Returns the customer.
+ */
+export async function startWhatsAppChat(start: {
+  phone: string;
+  name: string;
+  template: { name: string; language: string; values: Record<string, string> };
+}): Promise<string> {
+  const payload = await callStaffFunction('whatsapp', { action: 'start', ...start });
+  if (typeof payload.prospectId !== 'string') throw new Error(INVALID_RESPONSE);
+  return payload.prospectId;
 }
 
 export function useWhatsAppThread(prospectId: string) {

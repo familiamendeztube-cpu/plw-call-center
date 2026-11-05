@@ -66,6 +66,12 @@ function createChatwoot(revoked = new Set()) {
     if (path.endsWith('/messages')) {
       return response(200, { payload: [{ id: 1, content: 'Hola', message_type: 0, created_at: NOW }] });
     }
+    // Chatwoot's search matches part of the number; only an exact match is the same contact.
+    if (path.includes('/contacts/search')) {
+      return response(200, { payload: [{ id: 400, phone_number: '+50688881234999' }] });
+    }
+    if (path.endsWith('/contacts')) return response(200, { payload: { contact: { id: 401 } } });
+    if (path.endsWith('/conversations')) return response(200, { id: 77 });
     return response(200, { id: 31, can_reply: true });
   };
   chatwoot.calls = calls;
@@ -96,11 +102,26 @@ function createAdmin() {
       return { error: null };
     },
   };
+  // What start_whatsapp_customer answers per number: the agent's customer and its chat, or no row
+  // when the number is another agent's customer.
+  const targets = {
+    '+50688881234': { customer: CLIENT_OF_1, conversation: null },
+    '+50688885678': { customer: CLIENT_OF_1, conversation: 31 },
+  };
+  const calls = [];
   return {
     rows,
+    calls,
     from(name) {
       assert.equal(name, 'chatwoot_agent_accounts');
       return table;
+    },
+    rpc(name, args) {
+      calls.push({ name, args });
+      return {
+        maybeSingle: async () => ({ data: targets[args.p_phone] ?? null, error: null }),
+        then: (resolve) => resolve({ error: null }),
+      };
     },
   };
 }
@@ -202,7 +223,7 @@ test("an agent cannot open or answer another agent's customer", async () => {
   const { chatwoot, act } = setup();
   await act(AGENT_1, { action: 'connect', token: ALEJANDRO });
   const before = chatwoot.calls.length;
-  for (const action of ['load', 'send', 'templates']) {
+  for (const action of ['load', 'send', 'send_template']) {
     const result = await act(AGENT_1, { action, prospectId: CLIENT_OF_2, text: 'Hola' });
     assert.equal(result.status, 404, action);
   }
@@ -325,4 +346,82 @@ test('files WhatsApp would refuse never reach Chatwoot', async () => {
   assert.match((await send(new File(['x'], 'nota.pdf'), 'a'.repeat(1025))).body.error, /1024/);
   assert.equal((await send('not-a-file')).status, 400);
   assert.equal(chatwoot.calls.length, before);
+});
+
+const PICKED = { name: TEMPLATE.name, language: 'es', values: { 1: 'Ana', 2: 'restaurante' } };
+const start = (act, phone, template = PICKED) =>
+  act(AGENT_1, { action: 'start', phone, name: ' Ana Mora ', template });
+
+test('a new number: the agent opens the Chatwoot conversation with the template, under their own user', async () => {
+  const { admin, chatwoot, act } = setup();
+  await act(AGENT_1, { action: 'connect', token: ALEJANDRO });
+
+  const result = await start(act, '8888-1234');
+  assert.deepEqual(result, { status: 200, body: { prospectId: CLIENT_OF_1 } });
+  // PLW chose the customer, by the number as WhatsApp writes it, before anything went out.
+  assert.deepEqual(admin.calls[0], {
+    name: 'start_whatsapp_customer',
+    args: { p_agent: 'agent-1', p_phone: '+50688881234', p_name: 'Ana Mora' },
+  });
+  const posts = chatwoot.calls.filter((call) => call.method === 'POST');
+  assert.deepEqual(
+    posts.map(({ path, token }) => [path, token]),
+    [
+      ['/api/v1/accounts/194381/contacts', ALEJANDRO],
+      ['/api/v1/accounts/194381/conversations', ALEJANDRO],
+    ]
+  );
+  assert.deepEqual(posts[0].body, { name: 'Ana Mora', phone_number: '+50688881234' });
+  const opened = posts[1].body;
+  assert.equal(opened.inbox_id, 151557);
+  assert.equal(opened.contact_id, 401);
+  assert.equal(opened.source_id, '50688881234');
+  assert.equal(opened.message.content, '¡Hola, Ana! … su negocio de restaurante …');
+  assert.equal(opened.message.template_params.category, 'MARKETING');
+  assert.deepEqual(admin.calls[1], {
+    name: 'link_whatsapp_chat',
+    args: { p_conversation_id: 77, p_prospect_id: CLIENT_OF_1 },
+  });
+});
+
+test("a number that is another agent's customer is refused before anything is sent", async () => {
+  const { admin, chatwoot, act } = setup();
+  await act(AGENT_1, { action: 'connect', token: ALEJANDRO });
+  const result = await start(act, '+506 7777 0000');
+  assert.equal(result.status, 409);
+  assert.match(result.body.error, /no tienes asignado/);
+  assert.equal(chatwoot.calls.filter((call) => call.method === 'POST').length, 0);
+  assert.deepEqual(admin.calls.map((call) => call.name), ['start_whatsapp_customer']);
+});
+
+test('a customer who already has a chat gets the template in that chat', async () => {
+  const { admin, chatwoot, act } = setup();
+  await act(AGENT_1, { action: 'connect', token: ALEJANDRO });
+  assert.equal((await start(act, '88885678')).status, 200);
+  const posts = chatwoot.calls.filter((call) => call.method === 'POST');
+  assert.deepEqual(posts.map((call) => call.path), ['/api/v1/accounts/194381/conversations/31/messages']);
+  assert.equal(admin.calls[1].args.p_conversation_id, 31);
+});
+
+test('a mistyped number or an unfinished template creates and sends nothing', async () => {
+  const { admin, chatwoot, act } = setup();
+  await act(AGENT_1, { action: 'connect', token: ALEJANDRO });
+  const before = chatwoot.calls.length;
+  for (const phone of ['1234', '9888 1234', '+506 1234 5678', 'abc']) {
+    assert.match((await start(act, phone)).body.error, /número de WhatsApp válido/, phone);
+  }
+  assert.equal(chatwoot.calls.length, before);
+  const unfinished = await start(act, '88881234', { ...PICKED, values: { 1: 'Ana' } });
+  assert.equal(unfinished.status, 400);
+  assert.equal(admin.calls.length, 0);
+});
+
+test('an agent who has not connected is offered to connect when picking a template', async () => {
+  const { chatwoot, act } = setup();
+  assert.deepEqual(await act(AGENT_1, { action: 'templates' }), {
+    status: 200,
+    body: { connected: false },
+  });
+  assert.equal((await start(act, '88881234')).status, 409);
+  assert.equal(chatwoot.calls.length, 0);
 });

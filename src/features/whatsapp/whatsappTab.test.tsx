@@ -5,6 +5,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { ServicesContext } from '@/app/ServicesContext';
 import { createDemoServices } from '@/demo/createDemoServices';
 import { CustomerWorkspace } from '@/features/customers/components/CustomerWorkspace';
+import { NewWhatsAppChatDialog } from '@/features/whatsapp/components/NewWhatsAppChatDialog';
 
 const requests: Record<string, unknown>[] = [];
 let connected = true;
@@ -38,7 +39,10 @@ vi.mock('@/integrations/supabase/callStaffFunction', async (importOriginal) => (
       case 'connect':
         connected = true;
         return { connected: true, sender: 'Alejandro Ruiz' };
+      case 'start':
+        return { prospectId: 'cliente-nuevo' };
       case 'templates':
+        if (!connected) return { connected: false };
         return {
           templates: [
             {
@@ -156,7 +160,7 @@ test('after 24 hours the agent reviews a template filled from the customer and s
   const prospect = await openWhatsAppCustomer();
   const user = userEvent.setup();
 
-  expect(await screen.findByText(/Pasaron más de 24 horas/)).toBeTruthy();
+  expect(await screen.findByText(/hasta que el cliente responda/)).toBeTruthy();
   expect(screen.queryByLabelText('Mensaje de WhatsApp')).toBeNull();
   await user.selectOptions(
     await screen.findByLabelText('Plantilla'),
@@ -249,4 +253,65 @@ test('the chat reads like WhatsApp: the reply tab is pinned and a sent message g
   await user.click(screen.getByRole('button', { name: 'Enviar por WhatsApp' }));
   await screen.findByText('Le escribo en un momento');
   expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
+});
+
+test('an agent writes to a number from outside PLW with a reviewed template', async () => {
+  const started = vi.fn();
+  render(<NewWhatsAppChatDialog onClose={() => undefined} onStarted={started} />);
+  const user = userEvent.setup();
+
+  const phone = screen.getByLabelText('Número de WhatsApp');
+  await user.type(phone, '8888 12');
+  expect(screen.getByText(/Los 8 dígitos de Costa Rica/)).toBeTruthy();
+  await user.type(phone, '34');
+  expect(screen.getByText('Se enviará al +50688881234.')).toBeTruthy();
+  await user.type(screen.getByLabelText('Nombre del cliente (opcional)'), 'Ana Mora');
+
+  await user.selectOptions(
+    await screen.findByLabelText('Plantilla'),
+    'plw seguimiento solicitud web (es)'
+  );
+  expect((screen.getByLabelText('Dato 1') as HTMLInputElement).value).toBe('Ana Mora');
+  await user.type(screen.getByLabelText('Dato 2'), 'cafetería');
+  await user.click(screen.getByRole('button', { name: 'Enviar plantilla' }));
+
+  expect(requests[requests.length - 1]).toEqual({
+    action: 'start',
+    phone: '+50688881234',
+    name: 'Ana Mora',
+    template: {
+      name: 'plw_seguimiento_solicitud_web',
+      language: 'es',
+      values: { 1: 'Ana Mora', 2: 'cafetería' },
+    },
+  });
+  expect(started).toHaveBeenCalledWith('cliente-nuevo');
+});
+
+test('a mistyped number is caught before anything is sent', async () => {
+  render(<NewWhatsAppChatDialog onClose={() => undefined} onStarted={() => undefined} />);
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText('Número de WhatsApp'), '1234');
+  await user.selectOptions(
+    await screen.findByLabelText('Plantilla'),
+    'plw seguimiento solicitud web (es)'
+  );
+  await user.type(screen.getByLabelText('Dato 1'), 'Ana');
+  await user.type(screen.getByLabelText('Dato 2'), 'cafetería');
+  await user.click(screen.getByRole('button', { name: 'Enviar plantilla' }));
+
+  expect((await screen.findByRole('alert')).textContent).toMatch(/Revisa el número/);
+  expect(requests.some((request) => request.action === 'start')).toBe(false);
+});
+
+test('an agent without a WhatsApp customer yet connects Chatwoot from the new chat', async () => {
+  connected = false;
+  render(<NewWhatsAppChatDialog onClose={() => undefined} onStarted={() => undefined} />);
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText('Token de acceso de Chatwoot'),
+    'tok_alejandro_0000000001'
+  );
+  await user.click(screen.getByRole('button', { name: 'Conectar' }));
+  expect(await screen.findByLabelText('Plantilla')).toBeTruthy();
 });

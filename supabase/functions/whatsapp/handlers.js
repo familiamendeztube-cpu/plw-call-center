@@ -10,6 +10,7 @@ import {
   renderTemplate,
   sendableTemplates,
   whatsAppFile,
+  whatsAppNumber,
 } from '../chatwoot-webhook/rules.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,6 +20,10 @@ const MAX_TEXT = 4096; // WhatsApp's limit for one text message.
 const UNIQUE_VIOLATION = '23505';
 const NOT_CONNECTED = 'Conecta tu cuenta de Chatwoot para responder por WhatsApp.';
 const EXPIRED = 'Tu conexión con Chatwoot ya no es válida. Conéctala de nuevo.';
+const BAD_NUMBER =
+  'Escribe un número de WhatsApp válido: los 8 dígitos de Costa Rica, o + y el código del país.';
+const NOT_YOURS =
+  'Ese número es de un cliente que no tienes asignado. Pídele a un administrador que te lo asigne.';
 
 const reply = (status, body) => ({ status, body });
 const readJson = (response) => response.json().catch(() => null);
@@ -99,50 +104,63 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
     return reply(200, { connected: true, sender: result.identity.name });
   }
 
-  const prospectId = typeof body.prospectId === 'string' ? body.prospectId : '';
-  if (!UUID.test(prospectId)) return reply(400, { error: 'Solicitud no válida.' });
+  const action = body.action;
+  const forChat = action === 'load' || action === 'send' || action === 'send_template';
+  if (!forChat && action !== 'templates' && action !== 'start') {
+    return reply(400, { error: 'Acción no válida.' });
+  }
+  // Reading actions answer "not connected" so the page can offer to connect; writes refuse.
+  const quiet = action === 'load' || action === 'templates';
 
-  // ponytail: shows the customer's latest Chatwoot conversation only; list older ones if agents need them.
-  const { data: chat, error: chatError } = await db
-    .from('whatsapp_chats')
-    .select('chatwoot_conversation_id, ambiguous_match')
-    .eq('prospect_id', prospectId)
-    .order('last_message_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (chatError) return reply(401, { error: 'Sesión no válida.' });
-  // Same answer for "does not exist" and "not yours". The conversation id comes from PLW only.
-  if (!chat) return reply(404, { error: 'Este cliente no tiene chat de WhatsApp.' });
+  let chat = null;
+  let prospectId = '';
+  if (forChat) {
+    prospectId = typeof body.prospectId === 'string' ? body.prospectId : '';
+    if (!UUID.test(prospectId)) return reply(400, { error: 'Solicitud no válida.' });
+    // ponytail: shows the customer's latest Chatwoot conversation only; list older ones if agents need them.
+    const { data, error } = await db
+      .from('whatsapp_chats')
+      .select('chatwoot_conversation_id, ambiguous_match')
+      .eq('prospect_id', prospectId)
+      .order('last_message_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return reply(401, { error: 'Sesión no válida.' });
+    // Same answer for "does not exist" and "not yours". The conversation id comes from PLW only.
+    if (!data) return reply(404, { error: 'Este cliente no tiene chat de WhatsApp.' });
+    chat = data;
+  }
 
-  // The caller's own Chatwoot user, so the reply carries their own name.
+  // The caller's own Chatwoot user, so the message carries their own name.
   const { data: mine, error: mineError } = await accounts()
     .select('chatwoot_name, token_ciphertext')
     .eq('staff_id', staff.staffId)
     .maybeSingle();
   if (mineError) throw mineError;
-  if (!mine) {
-    return body.action === 'load' ? reply(200, { connected: false }) : reply(409, { error: NOT_CONNECTED });
-  }
+  if (!mine) return quiet ? reply(200, { connected: false }) : reply(409, { error: NOT_CONNECTED });
   const token = await decryptSecret(mine.token_ciphertext, tokenKey);
   // A token reset or revoked in Chatwoot: forget it, so the agent is asked to connect again.
   const expired = async () => {
     const { error } = await accounts().delete().eq('staff_id', staff.staffId);
     if (error) throw error;
-    return body.action === 'load' ? reply(200, { connected: false }) : reply(409, { error: EXPIRED });
+    return quiet ? reply(200, { connected: false }) : reply(409, { error: EXPIRED });
   };
 
-  const conversationPath = `/api/v1/accounts/${account}/conversations/${chat.chatwoot_conversation_id}`;
-  const templatesPath = `/api/v1/accounts/${account}/inboxes/${inbox}/message_templates`;
+  const accountPath = `/api/v1/accounts/${account}`;
+  const conversationPath = (id) => `${accountPath}/conversations/${id}`;
+  const templatesPath = `${accountPath}/inboxes/${inbox}/message_templates`;
+  const postJson = (value) => ({ method: 'POST', body: JSON.stringify(value) });
+  const SEND_FAILED = reply(502, { error: 'No se pudo enviar el mensaje. Intente de nuevo.' });
 
-  const post = async (message) => {
-    const sent = await chatwoot(`${conversationPath}/messages`, token, {
+  const post = async (conversationId, message) => {
+    const sent = await chatwoot(`${conversationPath(conversationId)}/messages`, token, {
       method: 'POST',
       body: message instanceof FormData ? message : JSON.stringify(message),
     });
     if (sent?.status === 401) return expired();
     if (!sent?.ok) {
       console.error('whatsapp send', sent?.status ?? 'network');
-      return reply(502, { error: 'No se pudo enviar el mensaje. Intente de nuevo.' });
+      return SEND_FAILED;
     }
     return reply(200, { message: chatMessage(await readJson(sent)) });
   };
@@ -161,12 +179,51 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
   };
   const TEMPLATES_FAILED = reply(502, { error: 'No se pudieron cargar las plantillas de Chatwoot.' });
 
-  switch (body.action) {
+  // The message for the template the agent picked. Its text and category come from Chatwoot, never
+  // from the browser.
+  const templateMessage = async (picked) => {
+    const { name, language, values } = picked ?? {};
+    if (typeof name !== 'string' || typeof language !== 'string') {
+      return { failed: reply(400, { error: 'Solicitud no válida.' }) };
+    }
+    const templates = await loadTemplates(name);
+    if (templates === 'expired') return { failed: await expired() };
+    if (!templates) return { failed: TEMPLATES_FAILED };
+    const template = templates.find((item) => item.name === name && item.language === language);
+    if (!template) {
+      return { failed: reply(400, { error: 'Esa plantilla ya no está disponible en Chatwoot.' }) };
+    }
+    const message = renderTemplate(template, values);
+    if (!message) return { failed: reply(400, { error: 'Completa todos los datos de la plantilla.' }) };
+    return { message };
+  };
+
+  // The Chatwoot contact with this number, or a new one under the name the agent typed.
+  const findOrCreateContact = async (phone, name) => {
+    const found = await chatwoot(`${accountPath}/contacts/search?q=${encodeURIComponent(phone)}`, token);
+    if (found?.status === 401) return 'expired';
+    if (!found?.ok) return null;
+    const list = (await readJson(found))?.payload;
+    const existing = Array.isArray(list) ? list.find((contact) => contact?.phone_number === phone) : null;
+    if (Number.isInteger(existing?.id)) return existing.id;
+    const created = await chatwoot(
+      `${accountPath}/contacts`,
+      token,
+      postJson({ name: name || phone, phone_number: phone })
+    );
+    if (created?.status === 401) return 'expired';
+    if (!created?.ok) return null;
+    const id = (await readJson(created))?.payload?.contact?.id;
+    return Number.isInteger(id) ? id : null;
+  };
+
+  switch (action) {
     case 'load': {
       // ponytail: Chatwoot returns the latest 20 messages; page with ?before= if agents need more history.
+      const path = conversationPath(chat.chatwoot_conversation_id);
       const [conversation, messages] = await Promise.all([
-        chatwoot(conversationPath, token),
-        chatwoot(`${conversationPath}/messages`, token),
+        chatwoot(path, token),
+        chatwoot(`${path}/messages`, token),
       ]);
       if (conversation?.status === 401 || messages?.status === 401) return expired();
       if (!conversation?.ok || !messages?.ok) {
@@ -189,22 +246,58 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
     case 'templates': {
       const templates = await loadTemplates();
       if (templates === 'expired') return expired();
-      return templates ? reply(200, { templates }) : TEMPLATES_FAILED;
+      return templates ? reply(200, { connected: true, templates }) : TEMPLATES_FAILED;
     }
     case 'send_template': {
-      const { name, language, values } = body.template ?? {};
-      if (typeof name !== 'string' || typeof language !== 'string') {
-        return reply(400, { error: 'Solicitud no válida.' });
+      const { message, failed } = await templateMessage(body.template);
+      return failed ?? post(chat.chatwoot_conversation_id, message);
+    }
+    case 'start': {
+      const phone = whatsAppNumber(body.phone);
+      if (!phone) return reply(400, { error: BAD_NUMBER });
+      const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) : '';
+      const { message, failed } = await templateMessage(body.template);
+      if (failed) return failed;
+
+      // PLW picks the customer before anything goes out, so no agent writes to another's customer.
+      const { data: target, error } = await admin
+        .rpc('start_whatsapp_customer', { p_agent: staff.staffId, p_phone: phone, p_name: name })
+        .maybeSingle();
+      if (error) throw error;
+      if (!target) return reply(409, { error: NOT_YOURS });
+
+      let conversationId = target.conversation;
+      if (conversationId) {
+        // The customer already has a chat: the template goes there.
+        const sent = await post(conversationId, message);
+        if (sent.status !== 200) return sent;
+      } else {
+        const contactId = await findOrCreateContact(phone, name);
+        if (contactId === 'expired') return expired();
+        if (!contactId) {
+          console.error('whatsapp start contact');
+          return SEND_FAILED;
+        }
+        // WhatsApp identifies the chat by the number without the +.
+        const created = await chatwoot(
+          `${accountPath}/conversations`,
+          token,
+          postJson({ inbox_id: Number(inbox), contact_id: contactId, source_id: phone.slice(1), message })
+        );
+        if (created?.status === 401) return expired();
+        if (!created?.ok) {
+          console.error('whatsapp start', created?.status ?? 'network');
+          return SEND_FAILED;
+        }
+        conversationId = (await readJson(created))?.id;
+        if (!Number.isInteger(conversationId)) throw new Error('chatwoot_conversation_id');
       }
-      // The template's text and category come from Chatwoot, never from the browser.
-      const templates = await loadTemplates(name);
-      if (templates === 'expired') return expired();
-      if (!templates) return TEMPLATES_FAILED;
-      const template = templates.find((item) => item.name === name && item.language === language);
-      if (!template) return reply(400, { error: 'Esa plantilla ya no está disponible en Chatwoot.' });
-      const message = renderTemplate(template, values);
-      if (!message) return reply(400, { error: 'Completa todos los datos de la plantilla.' });
-      return post(message);
+      const { error: linkError } = await admin.rpc('link_whatsapp_chat', {
+        p_conversation_id: conversationId,
+        p_prospect_id: target.customer,
+      });
+      if (linkError) throw linkError;
+      return reply(200, { prospectId: target.customer });
     }
     case 'send': {
       const text = typeof body.text === 'string' ? body.text.trim() : '';
@@ -226,14 +319,12 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
         form.append('message_type', 'outgoing');
         form.append('private', 'false');
         form.append('attachments[]', new File([file], file.name, { type: media.type }));
-        return post(form);
+        return post(chat.chatwoot_conversation_id, form);
       }
       if (!text || text.length > MAX_TEXT) {
         return reply(400, { error: `Escribe un mensaje de hasta ${MAX_TEXT} caracteres.` });
       }
-      return post({ content: text, message_type: 'outgoing', private: false });
+      return post(chat.chatwoot_conversation_id, { content: text, message_type: 'outgoing', private: false });
     }
-    default:
-      return reply(400, { error: 'Acción no válida.' });
   }
 }

@@ -1,5 +1,8 @@
 import type { Prospect } from '@/features/leads/models/prospect';
 
+/** The customer details a template's blanks come from. */
+type TemplateCustomer = Pick<Prospect, 'contactName' | 'businessCategory'>;
+
 /** An approved Chatwoot template whose only blanks are in its body ({{1}} or {{customer_name}}). */
 export interface WhatsAppTemplate {
   name: string;
@@ -20,12 +23,12 @@ export function previewTemplate(
 }
 
 // A WhatsApp profile without a name leaves the number as the contact name: never greet a number.
-const customerName = (prospect: Prospect) =>
+const customerName = (prospect: TemplateCustomer) =>
   /\p{L}/u.test(prospect.contactName) ? prospect.contactName.trim() : '';
 
 // The owner's rules (2026-11-04) for the approved templates. A new template with blanks needs its
 // own entry here; until then the agent types its values.
-const TEMPLATE_FIELDS: Record<string, Record<string, (prospect: Prospect) => string>> = {
+const TEMPLATE_FIELDS: Record<string, Record<string, (prospect: TemplateCustomer) => string>> = {
   plw_seguimiento_conversacion_presencial: { 1: customerName },
   plw_seguimiento_solicitud_web: {
     1: customerName,
@@ -40,7 +43,7 @@ const TEMPLATE_FIELDS: Record<string, Record<string, (prospect: Prospect) => str
 export function suggestTemplateValue(
   param: string,
   template: WhatsAppTemplate,
-  prospect: Prospect
+  prospect: TemplateCustomer
 ): string {
   return TEMPLATE_FIELDS[template.name]?.[param]?.(prospect) ?? '';
 }

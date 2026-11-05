@@ -10,6 +10,7 @@ import {
   suggestTemplateValue,
   type WhatsAppTemplate,
 } from '@/features/whatsapp/models/templates';
+import { ChatwootConnect } from '@/features/whatsapp/components/ChatwootConnect';
 import type { Prospect } from '@/features/leads/models/prospect';
 
 const FIELD =
@@ -18,19 +19,23 @@ const FIELD =
 const readable = (name: string) => name.replace(/_/g, ' ');
 
 interface TemplateComposerProps {
-  prospect: Prospect;
-  onSend: (outgoing: WhatsAppOutgoing) => Promise<void>;
+  /** What fills the blanks before the agent reviews them. */
+  prospect: Pick<Prospect, 'contactName' | 'businessCategory'>;
+  onSend: (outgoing: Extract<WhatsAppOutgoing, { template: unknown }>) => Promise<void>;
 }
 
-/** Outside WhatsApp's 24-hour window: send one of the approved templates from Chatwoot. */
+/**
+ * Sends one of the approved templates from Chatwoot: the only way to write to a customer outside
+ * WhatsApp's 24-hour window, or to a number that has never written.
+ */
 export function TemplateComposer({ prospect, onSend }: TemplateComposerProps) {
-  const templates = useAsync(() => loadWhatsAppTemplates(prospect.id), [prospect.id]);
+  const templates = useAsync(() => loadWhatsAppTemplates(), []);
   const [index, setIndex] = useState(-1);
   const [values, setValues] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const list = templates.state.status === 'ready' ? templates.state.data : [];
+  const list = templates.state.status === 'ready' ? (templates.state.data ?? []) : [];
   const template: WhatsAppTemplate | undefined = list[index];
   const complete = template?.params.every((param) => values[param]?.trim()) ?? false;
 
@@ -62,14 +67,18 @@ export function TemplateComposer({ prospect, onSend }: TemplateComposerProps) {
     }
   };
 
+  if (templates.state.status === 'ready' && templates.state.data === null) {
+    return <ChatwootConnect onConnected={templates.reload} />;
+  }
+
   return (
     <form
       onSubmit={submit}
       className="flex flex-col gap-3 rounded-xl border border-plw-gold/60 bg-plw-gold-soft/15 p-4"
     >
       <p className="text-sm text-plw-ink">
-        Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp solo permite
-        escribirle con una plantilla aprobada; cuando responda, podrás escribirle libremente.
+        WhatsApp solo permite escribirle con una plantilla aprobada hasta que el cliente responda.
+        Desde su respuesta tienes 24 horas para escribirle libremente.
       </p>
       {templates.state.status === 'loading' ? (
         <p className="text-sm text-neutral-500">Cargando plantillas...</p>
@@ -133,7 +142,7 @@ export function TemplateComposer({ prospect, onSend }: TemplateComposerProps) {
           ) : null}
           {error ? (
             <p role="alert" className="text-xs text-danger-700">
-              {error} Revisa el chat antes de enviarla otra vez.
+              {error}
             </p>
           ) : null}
           <Button type="submit" className="self-end" disabled={!complete || sending}>

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PanelLeft, RotateCcw } from 'lucide-react';
+import { MessageCirclePlus, PanelLeft, RotateCcw } from 'lucide-react';
 import { useAgentSession } from '@/features/auth/hooks/useAgentSession';
 import { useAgentNames } from '@/features/auth/hooks/useAgentNames';
 import { useProspects } from '@/features/leads/hooks/useProspects';
@@ -9,7 +9,8 @@ import { useConversations } from '@/features/inbox/hooks/useConversations';
 import { CustomerList } from '@/features/customers/components/CustomerList';
 import { CustomerWorkspace } from '@/features/customers/components/CustomerWorkspace';
 import { buildCustomerEntries } from '@/features/customers/models/customerEntries';
-import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
+import { CUSTOMER_PARAM, CUSTOMER_TAB_PARAM } from '@/features/customers/models/customerLinks';
+import { NewWhatsAppChatDialog } from '@/features/whatsapp/components/NewWhatsAppChatDialog';
 import { Drawer } from '@/components/ui/Drawer';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -26,6 +27,8 @@ export function CustomersPage() {
   const [query, setQuery] = useState('');
   const [listOpen, setListOpen] = useState(false);
   const closeList = useCallback(() => setListOpen(false), []);
+  const [startingChat, setStartingChat] = useState(false);
+  const closeNewChat = useCallback(() => setStartingChat(false), []);
   const selectedId = searchParams.get(CUSTOMER_PARAM);
 
   const entries = useMemo(() => {
@@ -89,6 +92,10 @@ export function CustomersPage() {
         actions={
           <>
             <DemoDataNote />
+            <Button size="sm" onClick={() => setStartingChat(true)}>
+              <MessageCirclePlus size={16} aria-hidden="true" />
+              Nuevo chat de WhatsApp
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -148,6 +155,18 @@ export function CustomersPage() {
       <Drawer open={listOpen} title="Clientes" onClose={closeList}>
         <div className="flex h-full flex-col">{listContent}</div>
       </Drawer>
+
+      {startingChat ? (
+        <NewWhatsAppChatDialog
+          onClose={closeNewChat}
+          onStarted={(prospectId) => {
+            setStartingChat(false);
+            // The customer may be new: load the list again, then open its chat.
+            reloadAll();
+            setSearchParams({ [CUSTOMER_PARAM]: prospectId, [CUSTOMER_TAB_PARAM]: 'whatsapp' });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

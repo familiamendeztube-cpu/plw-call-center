@@ -104,6 +104,17 @@ export function whatsAppFile(name, size) {
   return { type };
 }
 
+/**
+ * A number to start a chat with, as WhatsApp writes it (+ and digits), or null. Costa Rica's eight
+ * digits need no 506; another country is written with + and its code. The website keeps a copy.
+ */
+export function whatsAppNumber(input) {
+  const typed = typeof input === 'string' ? input.replace(/[\s().-]/g, '') : '';
+  const local = /^(?:\+?506)?([2-8]\d{7})$/.exec(typed);
+  if (local) return `+506${local[1]}`;
+  return /^\+(?!506)[1-9]\d{7,14}$/.test(typed) ? typed : null;
+}
+
 export const CONNECT_ERRORS = {
   invalid: 'Ese token de Chatwoot no es válido. Cópialo de nuevo desde tu perfil.',
   other_account: 'Ese usuario de Chatwoot no pertenece a la cuenta de PLW.',

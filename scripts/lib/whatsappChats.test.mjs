@@ -165,3 +165,56 @@ test('several customers and no name to tell them apart: the newest, flagged for 
     assert.equal(count, 2);
   });
 });
+
+const startFor = (q, agent, phone, name) =>
+  q('SELECT customer, conversation FROM public.start_whatsapp_customer($1, $2, $3)', [agent, phone, name]);
+
+test('an agent who writes to a new number gets that customer, already contacted, and nothing unread', async () => {
+  await inTransaction(async (q) => {
+    await signIn(q, 'agent-1');
+    const [{ customer, conversation }] = await startFor(q, 'agent-1', '+50688887777', 'Ana Mora');
+    assert.equal(conversation, null);
+    const [row] = await q(
+      `SELECT p.source, p.business_name, p.contact_name, p.phone, p.owner_id, p.stage, c.status
+       FROM public.prospects p JOIN public.conversations c ON c.prospect_id = p.id WHERE p.id = $1`,
+      [customer]
+    );
+    assert.deepEqual(row, {
+      source: 'whatsapp',
+      business_name: 'Ana Mora',
+      contact_name: 'Ana Mora',
+      phone: '+50688887777',
+      owner_id: 'agent-1',
+      stage: 'contacted',
+      status: 'waiting_customer',
+    });
+    const [history] = await q('SELECT to_owner_id, mechanism FROM public.assignment_history WHERE prospect_id = $1', [
+      customer,
+    ]);
+    assert.deepEqual(history, { to_owner_id: 'agent-1', mechanism: 'manual' });
+
+    await q('SELECT public.link_whatsapp_chat(50, $1)', [customer]);
+    assert.deepEqual(await unreadMarks(q, customer), { chat: false, list: false });
+    // Writing to the number again finds the same customer and its chat.
+    assert.deepEqual(await startFor(q, 'agent-1', '8888-7777', ''), [{ customer, conversation: 50 }]);
+    // When the customer answers, the reply lands in the same chat.
+    assert.equal(await record(q, 50, '+50688887777', 'Anita'), customer);
+  });
+});
+
+test("the agent's own customer keeps its name; another agent's customer is not theirs to write to", async () => {
+  await inTransaction(async (q) => {
+    await signIn(q, 'agent-1');
+    await signIn(q, 'agent-2');
+    const luis = await customerWithPhone(q, 'Luis Mora', '8888-8888', '2026-11-01');
+    assert.deepEqual(await startFor(q, 'agent-1', '+50688888888', 'Otro nombre'), [
+      { customer: luis, conversation: null },
+    ]);
+    const [{ contact_name }] = await q('SELECT contact_name FROM public.prospects WHERE id = $1', [luis]);
+    assert.equal(contact_name, 'Luis Mora');
+
+    assert.deepEqual(await startFor(q, 'agent-2', '+50688888888', 'Luis'), []);
+    const [{ count }] = await q('SELECT count(*)::int AS count FROM public.prospects');
+    assert.equal(count, 1);
+  });
+});

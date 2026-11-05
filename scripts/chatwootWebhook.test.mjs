@@ -8,6 +8,7 @@ import {
   sendableTemplates,
   verifySignature,
   whatsAppFile,
+  whatsAppNumber,
 } from '../supabase/functions/chatwoot-webhook/rules.js';
 
 const SECRET = 'cw_test_secret_for_fixture_only';
@@ -189,4 +190,14 @@ test('accepts the files WhatsApp takes, within its own size limits', () => {
   assert.match(whatsAppFile('programa.exe', MB).error, /no acepta/);
   assert.match(whatsAppFile('sin_extension', MB).error, /no acepta/);
   assert.match(whatsAppFile('vacio.pdf', 0).error, /vacío/);
+});
+
+test('a typed number becomes the number WhatsApp writes to', () => {
+  assert.equal(whatsAppNumber('8888-1234'), '+50688881234');
+  assert.equal(whatsAppNumber(' (506) 8888 1234 '), '+50688881234');
+  assert.equal(whatsAppNumber('+50688881234'), '+50688881234');
+  assert.equal(whatsAppNumber('+1 (305) 555-0100'), '+13055550100');
+  for (const typed of ['', '1234', '18888-1234', '+506 1888 1234', '50612345678', '+0123456789', 'tel:88881234']) {
+    assert.equal(whatsAppNumber(typed), null, typed);
+  }
 });
