@@ -126,12 +126,9 @@ export function ringSamples(sampleRate: number): Float32Array {
   return samples;
 }
 
-// The browser refuses sound from a page nobody has clicked since it loaded.
-const ringLocked = () => navigator.userActivation?.hasBeenActive === false;
-
 // Loops on the audio clock, not a timer, so it keeps ringing in a background tab.
-function startRingtone(): () => void {
-  const context = new AudioContext();
+function startRingtone(context: AudioContext): () => void {
+  void context.resume(); // In case the system paused it since the agent's click.
   const cycle = ringSamples(context.sampleRate);
   const buffer = context.createBuffer(1, cycle.length, context.sampleRate);
   buffer.copyToChannel(cycle, 0);
@@ -140,7 +137,10 @@ function startRingtone(): () => void {
   ring.loop = true;
   ring.connect(context.destination);
   ring.start();
-  return () => void context.close();
+  return () => {
+    ring.stop();
+    ring.disconnect();
+  };
 }
 
 export function createSipTelephonyConnector(): TelephonyConnector {
@@ -167,13 +167,19 @@ export function createSipTelephonyConnector(): TelephonyConnector {
     emit({ type: 'status', status: next, message });
   }
 
-  // The first click unlocks the ringtone, so the warning goes away.
-  const clearRingWarning = () => {
-    if (status === 'registered') setStatus('registered');
+  // The ringtone's sound output, switched on during the agent's own click or key press: Safari
+  // plays sound only from one started there, and Chrome and Edge only after the page was clicked.
+  // Every call reuses it.
+  let ringer: AudioContext | null = null;
+  const ringerReady = () => ringer?.state === 'running';
+  const switchOnRinger = () => {
+    if (ringerReady()) return;
+    ringer ??= new AudioContext();
+    void ringer.resume().then(() => {
+      if (status === 'registered') setStatus('registered'); // Drops the "click once" warning.
+    });
   };
-  for (const type of ['pointerdown', 'keydown']) {
-    window.addEventListener(type, clearRingWarning, { capture: true, once: true });
-  }
+  for (const type of ['click', 'keydown']) window.addEventListener(type, switchOnRinger, true);
 
   function publishCall(next: CallSnapshot | null, message?: string) {
     call = next;
@@ -230,9 +236,9 @@ export function createSipTelephonyConnector(): TelephonyConnector {
         startedAt: null,
         muted: false,
       },
-      inbound && ringLocked() ? RING_LOCKED : undefined
+      inbound && !ringerReady() ? RING_LOCKED : undefined
     );
-    if (inbound) stopRingtone = startRingtone();
+    if (inbound && ringer) stopRingtone = startRingtone(ringer);
 
     // JsSIP creates the connection for an outgoing call before this event, and
     // for an incoming call only when it is answered.
@@ -270,7 +276,7 @@ export function createSipTelephonyConnector(): TelephonyConnector {
     });
     agent.on('connecting', () => setStatus('connecting'));
     agent.on('disconnected', () => setStatus('error', CONNECTION_LOST));
-    agent.on('registered', () => setStatus('registered', ringLocked() ? RING_LOCKED : undefined));
+    agent.on('registered', () => setStatus('registered', ringerReady() ? undefined : RING_LOCKED));
     agent.on('unregistered', () => setStatus('connecting'));
     agent.on('registrationFailed', ({ cause }) =>
       setStatus('error', cause === AUTHENTICATION_ERROR ? LOGIN_REJECTED : REGISTRATION_FAILED)
