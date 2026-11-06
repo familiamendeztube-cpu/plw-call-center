@@ -33,6 +33,8 @@ interface WhatsAppConversationProps {
   agentNames: Record<string, string>;
   /** Called once the chat is on screen: the server has marked it read. */
   onRead?: () => void;
+  /** Called after the stage or details are saved in the header. */
+  onProspectChange?: (prospect: Prospect) => void;
 }
 
 /**
@@ -45,6 +47,7 @@ export function WhatsAppConversation({
   agentId,
   agentNames,
   onRead,
+  onProspectChange,
 }: WhatsAppConversationProps) {
   const { state, reload, send } = useWhatsAppThread(prospect.id);
   // The server marks the chat read only when it could show it.
@@ -131,6 +134,7 @@ export function WhatsAppConversation({
       agentId={agentId}
       agentNames={agentNames}
       chat={chat}
+      onProspectChange={onProspectChange}
     />
   );
 }

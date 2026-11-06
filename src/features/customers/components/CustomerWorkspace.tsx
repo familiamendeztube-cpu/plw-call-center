@@ -13,6 +13,7 @@ import {
 } from '@/features/customers/models/customerLinks';
 import type { CustomerEntry } from '@/features/customers/models/customerEntries';
 import type { AgentId } from '@/features/auth/models/agent';
+import type { Prospect } from '@/features/leads/models/prospect';
 import { cx } from '@/components/ui/cx';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { CopyButton } from '@/components/ui/CopyButton';
@@ -34,9 +35,16 @@ interface CustomerWorkspaceProps {
   entry: CustomerEntry;
   agentId: AgentId;
   agentNames: Record<string, string>;
+  /** The stage or details changed in the chat header, so the customer list can follow. */
+  onProspectChange?: (prospect: Prospect) => void;
 }
 
-export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorkspaceProps) {
+export function CustomerWorkspace({
+  entry,
+  agentId,
+  agentNames,
+  onProspectChange,
+}: CustomerWorkspaceProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [scheduling, setScheduling] = useState(false);
   const { prospect, conversation } = entry;
@@ -175,6 +183,7 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
               agentId={agentId}
               agentNames={agentNames}
               onRead={markRead}
+              onProspectChange={onProspectChange}
             />
           ) : (
             <div className="p-6">
@@ -190,6 +199,7 @@ export function CustomerWorkspace({ entry, agentId, agentNames }: CustomerWorksp
               agentId={agentId}
               agentNames={agentNames}
               channelDetails={callDetails}
+              onProspectChange={onProspectChange}
             />
           ) : callDetails ? (
             <div className="p-5">{callDetails}</div>

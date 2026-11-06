@@ -10,6 +10,7 @@ import { ReplyPanel } from '@/features/inbox/components/ReplyPanel';
 import { Button } from '@/components/ui/Button';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import type { AgentId } from '@/features/auth/models/agent';
+import type { Prospect } from '@/features/leads/models/prospect';
 
 /** A chat channel such as WhatsApp, shown in place of the email thread. */
 export interface ChatChannel {
@@ -32,6 +33,8 @@ interface ConversationPaneProps {
   channelDetails?: ReactNode;
   /** A chat channel: its messages replace the email thread and its reply box replaces email. */
   chat?: ChatChannel;
+  /** Called after the stage or details are saved in the header. */
+  onProspectChange?: (prospect: Prospect) => void;
 }
 
 export function ConversationPane({
@@ -40,6 +43,7 @@ export function ConversationPane({
   agentNames,
   channelDetails,
   chat,
+  onProspectChange,
 }: ConversationPaneProps) {
   const { leads } = useAppServices();
   const { state, reload, updateData } = useConversationView(conversationId);
@@ -102,8 +106,9 @@ export function ConversationPane({
     ? (agentNames[prospect.assignedAgentId] ?? 'Agente')
     : 'Sin asignar';
 
-  const handleProspectChange = (updated: typeof prospect) => {
+  const handleProspectChange = (updated: Prospect) => {
     updateData((current) => (current ? { ...current, prospect: updated } : current));
+    onProspectChange?.(updated);
   };
 
   const handleNoteSaved = async () => {

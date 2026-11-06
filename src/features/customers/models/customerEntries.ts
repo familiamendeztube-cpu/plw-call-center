@@ -18,6 +18,9 @@ export function buildCustomerEntries(
     }
   }
 
+  // Unread first, then the newest message, like WhatsApp: a new chat or reply rises to the top.
+  const lastActivity = ({ prospect, conversation }: CustomerEntry) =>
+    Date.parse(conversation?.lastMessageAt ?? prospect.createdAt);
   return prospects
     .map((prospect) => ({
       prospect,
@@ -26,13 +29,18 @@ export function buildCustomerEntries(
     .sort(
       (a, b) =>
         Number(b.conversation?.unread ?? false) - Number(a.conversation?.unread ?? false) ||
-        a.prospect.businessName.localeCompare(b.prospect.businessName, 'es')
+        lastActivity(b) - lastActivity(a)
     );
 }
 
 export function matchesCustomerQuery(prospect: Prospect, query: string): boolean {
   const normalized = query.trim().toLowerCase();
   if (normalized.length === 0) {
+    return true;
+  }
+  // A number matches however it is written: "8888 1234", "8888-1234" or "+506 88881234".
+  const digits = normalized.replace(/[\s()+.-]/g, '');
+  if (/^\d+$/.test(digits) && prospect.phone.replace(/\D/g, '').includes(digits)) {
     return true;
   }
   return [prospect.businessName, prospect.contactName, prospect.businessCategory].some((value) =>

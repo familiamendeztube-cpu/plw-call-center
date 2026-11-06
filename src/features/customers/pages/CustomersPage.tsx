@@ -4,6 +4,7 @@ import { MessageCirclePlus, PanelLeft, RotateCcw } from 'lucide-react';
 import { useAgentSession } from '@/features/auth/hooks/useAgentSession';
 import { useAgentNames } from '@/features/auth/hooks/useAgentNames';
 import { useProspects } from '@/features/leads/hooks/useProspects';
+import type { Prospect, SalesStage } from '@/features/leads/models/prospect';
 import { useNewAssignments } from '@/features/customers/hooks/useNewAssignments';
 import { useConversations } from '@/features/inbox/hooks/useConversations';
 import { CustomerList } from '@/features/customers/components/CustomerList';
@@ -25,6 +26,7 @@ export function CustomersPage() {
   const agentNames = useAgentNames();
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
+  const [stage, setStage] = useState<SalesStage | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const closeList = useCallback(() => setListOpen(false), []);
   const [startingChat, setStartingChat] = useState(false);
@@ -50,6 +52,14 @@ export function CustomersPage() {
       list.map((item) => (item.prospectId === prospectId ? { ...item, unread: false } : item))
     );
   };
+
+  // A stage changed in the chat moves the customer to its new tag now, not at the next refresh.
+  const { updateData: updateProspects } = prospects;
+  const handleProspectChange = useCallback(
+    (updated: Prospect) =>
+      updateProspects((list) => list.map((item) => (item.id === updated.id ? updated : item))),
+    [updateProspects]
+  );
 
   const failure = [prospects.state, conversations.state].find((state) => state.status === 'error');
   const reloadAll = () => {
@@ -79,6 +89,8 @@ export function CustomersPage() {
         selectedId={selectedId}
         query={query}
         onQueryChange={setQuery}
+        stage={stage}
+        onStageChange={setStage}
         onSelect={handleSelect}
       />
     );
@@ -139,6 +151,7 @@ export function CustomersPage() {
               entry={selected}
               agentId={agentId}
               agentNames={agentNames}
+              onProspectChange={handleProspectChange}
             />
           ) : (
             <div className="flex h-full min-h-[24rem] items-center justify-center">
