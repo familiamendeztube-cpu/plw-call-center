@@ -4,6 +4,7 @@ import { expect, test, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '@/features/auth/context/useAuth';
 import type { Session } from '@/features/auth/models/session';
 import { PhoneScreen } from '@/features/telephony/components/PhoneScreen';
+import { InCallKeypad } from '@/features/telephony/components/InCallKeypad';
 import { RecentCallsList } from '@/features/telephony/components/RecentCallsList';
 import { TelephonyProvider } from '@/features/telephony/context/TelephonyProvider';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
@@ -44,6 +45,7 @@ function createConnector() {
     setMuted: vi.fn(result),
     setOnHold: vi.fn(result),
     transfer: vi.fn(result),
+    sendDtmf: vi.fn(result),
   };
   return { connector, emit };
 }
@@ -57,6 +59,7 @@ function Phone({ connector, session }: { connector: TelephonyConnector; session:
     <AuthContext.Provider value={{ session } as AuthContextValue}>
       <TelephonyProvider connector={connector}>
         <PhoneScreen />
+        <InCallKeypad />
         <RecentCallsList />
         <CommandError />
       </TelephonyProvider>
@@ -142,6 +145,21 @@ test('the administrator does not connect a phone line', () => {
   const { connector } = createConnector();
   render(<Phone connector={connector} session={ADMIN} />);
   expect(connector.start).not.toHaveBeenCalled();
+});
+
+test('during a call the keypad sends the pressed digit to the line', async () => {
+  const { connector, emit } = createConnector();
+  render(<Phone connector={connector} session={AGENT_1} />);
+  act(() => emit({ type: 'call', call: ACTIVE_CALL }));
+
+  await userEvent.click(screen.getByRole('button', { name: 'Enviar 5' }));
+  expect(connector.sendDtmf).toHaveBeenCalledExactlyOnceWith('5');
+});
+
+test('the keypad is hidden when no call is active', () => {
+  const { connector } = createConnector();
+  render(<Phone connector={connector} session={AGENT_1} />);
+  expect(screen.queryByRole('button', { name: 'Enviar 5' })).toBeNull();
 });
 
 test('the next agent does not inherit the number, calls or errors of the last one', () => {

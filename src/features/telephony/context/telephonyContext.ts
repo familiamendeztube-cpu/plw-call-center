@@ -16,6 +16,7 @@ export interface TelephonyContextValue {
   toggleMute: () => Promise<void>;
   toggleHold: () => Promise<void>;
   transferCall: () => Promise<void>;
+  sendDtmf: (digit: string) => Promise<void>;
 }
 
 export const TelephonyContext = createContext<TelephonyContextValue | null>(null);

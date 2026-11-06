@@ -380,6 +380,12 @@ export function createSipTelephonyConnector(): TelephonyConnector {
       return OK;
     },
 
+    async sendDtmf(digits) {
+      if (!session || call?.state !== 'active') return fail(NO_CALL);
+      session.sendDTMF(digits);
+      return OK;
+    },
+
     setOnHold: async () => fail(NOT_AVAILABLE),
     transfer: async () => fail(NOT_AVAILABLE),
   };

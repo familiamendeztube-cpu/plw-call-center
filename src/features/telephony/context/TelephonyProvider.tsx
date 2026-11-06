@@ -115,6 +115,11 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
     [connector, dialNumber, runCommand]
   );
 
+  const sendDtmf = useCallback(
+    (digit: string) => runCommand(() => connector.sendDtmf(digit)),
+    [connector, runCommand]
+  );
+
   const value = useMemo<TelephonyContextValue>(
     () => ({
       connectorStatus,
@@ -130,6 +135,7 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       toggleMute,
       toggleHold,
       transferCall,
+      sendDtmf,
     }),
     [
       connectorStatus,
@@ -145,6 +151,7 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       toggleMute,
       toggleHold,
       transferCall,
+      sendDtmf,
     ]
   );
 

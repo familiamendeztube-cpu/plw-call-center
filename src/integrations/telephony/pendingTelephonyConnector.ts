@@ -13,6 +13,7 @@ export function createPendingTelephonyConnector(): TelephonyConnector {
     hangup: async () => PENDING_RESULT,
     setMuted: async () => PENDING_RESULT,
     setOnHold: async () => PENDING_RESULT,
+    sendDtmf: async () => PENDING_RESULT,
     transfer: async () => PENDING_RESULT,
   };
 }

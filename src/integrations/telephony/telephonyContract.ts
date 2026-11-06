@@ -18,5 +18,6 @@ export interface TelephonyConnector {
   hangup(): Promise<ConnectorResult>;
   setMuted(muted: boolean): Promise<ConnectorResult>;
   setOnHold(onHold: boolean): Promise<ConnectorResult>;
+  sendDtmf(digits: string): Promise<ConnectorResult>;
   transfer(number: string): Promise<ConnectorResult>;
 }

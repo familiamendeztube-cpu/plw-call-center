@@ -4,6 +4,7 @@ import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { ConnectionStatus } from '@/features/telephony/components/ConnectionStatus';
 import { PhoneScreen } from '@/features/telephony/components/PhoneScreen';
 import { CallControls } from '@/features/telephony/components/CallControls';
+import { InCallKeypad } from '@/features/telephony/components/InCallKeypad';
 import { PhoneCustomerActions } from '@/features/telephony/components/PhoneCustomerActions';
 import { RecentCallsList } from '@/features/telephony/components/RecentCallsList';
 import { AudioSettingsButton } from '@/features/telephony/components/AudioSettingsButton';
@@ -39,6 +40,7 @@ export function PhonePanel() {
           {session?.role === 'agent' ? <PhoneAvailabilityToggle /> : null}
           <PhoneScreen />
           <CallControls />
+          <InCallKeypad />
 
           {commandError ? (
             <p role="alert" className="text-xs font-medium text-danger-700">
