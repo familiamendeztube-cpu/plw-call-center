@@ -26,7 +26,18 @@ export function PhonePanel() {
           <ConnectionStatus status={connectorStatus} />
         </header>
 
+        {/* The dialer comes first so it fits on short laptop screens without scrolling. */}
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-5 py-5">
+          <PhoneScreen />
+          <CallControls />
+          <InCallKeypad />
+
+          {commandError ? (
+            <p role="alert" className="text-xs font-medium text-danger-700">
+              {commandError}
+            </p>
+          ) : null}
+
           {connectorStatus === 'pending_configuration' ? (
             <div className="flex gap-3 rounded-lg border border-warning-100 bg-warning-50 px-3 py-2.5 text-xs leading-relaxed text-warning-700">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -38,16 +49,6 @@ export function PhonePanel() {
           ) : null}
 
           {session?.role === 'agent' ? <PhoneAvailabilityToggle /> : null}
-          <PhoneScreen />
-          <CallControls />
-          <InCallKeypad />
-
-          {commandError ? (
-            <p role="alert" className="text-xs font-medium text-danger-700">
-              {commandError}
-            </p>
-          ) : null}
-
           <PhoneCustomerActions />
 
           <section aria-labelledby="recent-calls-title" className="flex flex-col gap-2">

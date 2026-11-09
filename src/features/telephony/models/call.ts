@@ -55,6 +55,23 @@ export function isCallLive(state: CallState): boolean {
   return state === 'dialing' || state === 'ringing' || state === 'active' || state === 'on_hold';
 }
 
+/** What the call buttons can do right now. The full phone and the compact dialer share it. */
+export function callButtons(call: CallSnapshot | null, dialNumber: string, registered: boolean) {
+  const live = call !== null && isCallLive(call.state);
+  const active = call?.state === 'active';
+  const onHold = call?.state === 'on_hold';
+  return {
+    live,
+    incoming: call?.direction === 'inbound' && call.state === 'ringing',
+    canDial: registered && dialNumber.length > 0 && !live,
+    canMute: active,
+    canHold: active || onHold,
+    canTransfer: active && dialNumber.length > 0,
+    onHold,
+    muted: Boolean(call?.muted),
+  };
+}
+
 export function toOperationalStatus(call: CallSnapshot | null): OperationalStatus | null {
   if (!call) {
     return null;

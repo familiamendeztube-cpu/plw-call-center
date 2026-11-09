@@ -24,7 +24,7 @@ export function CallTimer({ startedAt, running }: CallTimerProps) {
       : 0;
 
   return (
-    <span className="font-mono text-sm tabular-nums text-neutral-600" aria-label="Duración">
+    <span className="font-mono text-sm tabular-nums" aria-label="Duración">
       {formatCallDuration(elapsed)}
     </span>
   );

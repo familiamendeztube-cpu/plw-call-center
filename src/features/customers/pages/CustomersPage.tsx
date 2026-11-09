@@ -139,8 +139,10 @@ export function CustomersPage() {
 
       <AiCallAlerts onSelect={handleSelect} />
 
-      {/* Fits the screen, so chats and lists scroll inside it instead of stretching the page. */}
-      <div className="grid h-[calc(100dvh-2rem)] min-h-[34rem] lg:h-[calc(100dvh-16rem)] lg:min-h-[40rem] grid-cols-1 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-panel lg:grid-cols-[20rem_minmax(0,1fr)]">
+      {/* Fits the screen, so chats and lists scroll inside it instead of stretching the page.
+          Scrolled down, it fits between the pinned dialer (below xl) and the page padding, so the
+          customer's details and the reply box are visible together even on a short laptop. */}
+      <div className="grid h-[calc(100dvh-5.5rem)] min-h-[28rem] lg:h-[calc(100dvh-16rem)] lg:min-h-[min(40rem,calc(100dvh-6rem))] xl:min-h-[min(40rem,calc(100dvh-2rem))] grid-cols-1 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-panel lg:grid-cols-[20rem_minmax(0,1fr)]">
         <div className="hidden min-h-0 border-r border-neutral-200 lg:flex lg:flex-col">
           {listContent}
         </div>

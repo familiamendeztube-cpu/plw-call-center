@@ -94,7 +94,9 @@ export function CustomerWorkspace({
           <h2 className="text-lg font-semibold text-plw-ink">{prospect.businessName}</h2>
           <p className="text-sm text-neutral-500">{prospect.contactName}</p>
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm xl:grid-cols-4">
+        {/* Columns follow the room this panel really has (the phone and list take part of the
+            window), not the window width. */}
+        <dl className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-x-6 gap-y-1 text-sm">
           {prospect.phone ? (
             <div>
               <dt className="text-xs text-neutral-500">Teléfono</dt>

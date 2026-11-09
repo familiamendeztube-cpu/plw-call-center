@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '@/features/auth/context/useAuth';
 import type { Session } from '@/features/auth/models/session';
+import { PhoneBar } from '@/features/telephony/components/PhoneBar';
 import { PhoneScreen } from '@/features/telephony/components/PhoneScreen';
 import { InCallKeypad } from '@/features/telephony/components/InCallKeypad';
 import { RecentCallsList } from '@/features/telephony/components/RecentCallsList';
@@ -203,4 +204,44 @@ test('a number typed by the administrator does not reach the next agent', () => 
 
   rerender(<Phone connector={connector} session={AGENT_1} />);
   expect(numberField().value).toBe('');
+});
+
+// The dialer pinned on top when the window is too narrow for the full phone.
+function NarrowPhone({ connector }: { connector: TelephonyConnector }) {
+  return (
+    <AuthContext.Provider value={{ session: AGENT_1 } as AuthContextValue}>
+      <TelephonyProvider connector={connector}>
+        <PhoneBar onOpenPhone={() => undefined} />
+      </TelephonyProvider>
+    </AuthContext.Provider>
+  );
+}
+
+test('the narrow dialer calls, holds and hangs up like the full phone', async () => {
+  const { connector, emit } = createConnector();
+  render(<NarrowPhone connector={connector} />);
+  // Before anyone is on the line, the in-call buttons take no room.
+  expect(screen.queryByRole('button', { name: 'En espera' })).toBeNull();
+
+  await userEvent.type(numberField(), '71301928');
+  await userEvent.click(screen.getByRole('button', { name: 'Llamar' }));
+  expect(connector.dial).toHaveBeenCalledExactlyOnceWith('71301928');
+
+  act(() => emit({ type: 'call', call: ACTIVE_CALL }));
+  await userEvent.click(screen.getByRole('button', { name: 'En espera' }));
+  expect(connector.setOnHold).toHaveBeenCalledWith(true);
+  await userEvent.click(screen.getByRole('button', { name: 'Colgar' }));
+  expect(connector.hangup).toHaveBeenCalledOnce();
+});
+
+test('the narrow dialer answers a ringing call', async () => {
+  const { connector, emit } = createConnector();
+  render(<NarrowPhone connector={connector} />);
+  act(() =>
+    emit({ type: 'call', call: { ...ACTIVE_CALL, direction: 'inbound', state: 'ringing' } })
+  );
+
+  expect(numberField().value).toBe('88887777');
+  await userEvent.click(screen.getByRole('button', { name: 'Contestar' }));
+  expect(connector.answer).toHaveBeenCalledOnce();
 });

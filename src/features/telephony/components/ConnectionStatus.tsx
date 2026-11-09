@@ -3,6 +3,8 @@ import type { TelephonyConnectorStatus } from '@/integrations/telephony/telephon
 
 interface ConnectionStatusProps {
   status: TelephonyConnectorStatus;
+  /** Lets a cramped layout keep only the dot on screen (the label stays for screen readers). */
+  labelClassName?: string;
 }
 
 const STATUS_DISPLAY: Record<
@@ -19,12 +21,15 @@ const STATUS_DISPLAY: Record<
   error: { label: 'Error de conexión', dot: 'bg-danger-600', text: 'text-danger-700' },
 };
 
-export function ConnectionStatus({ status }: ConnectionStatusProps) {
+export function ConnectionStatus({ status, labelClassName }: ConnectionStatusProps) {
   const display = STATUS_DISPLAY[status];
   return (
-    <span className={cx('inline-flex items-center gap-2 text-xs font-medium', display.text)}>
+    <span
+      title={display.label}
+      className={cx('inline-flex shrink-0 items-center gap-2 text-xs font-medium', display.text)}
+    >
       <span aria-hidden="true" className={cx('h-2 w-2 rounded-full', display.dot)} />
-      <span>{display.label}</span>
+      <span className={labelClassName}>{display.label}</span>
     </span>
   );
 }

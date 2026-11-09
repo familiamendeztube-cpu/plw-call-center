@@ -163,11 +163,14 @@ test('the next agent on the same computer starts with a clean workspace', async 
 
   await signIn(user, 'Agente 1');
   await screen.findByText(firstClient);
-  await user.type(screen.getByLabelText('Número marcado'), '71301928');
+  // The narrow-window dialer and the full phone share the number; CSS shows one at a time.
+  await user.type(screen.getAllByLabelText('Número marcado')[0], '71301928');
   await user.click(screen.getByRole('button', { name: 'Salir' }));
 
   await signIn(user, 'Agente 2');
   await screen.findByText(secondClient);
   expect(screen.queryByText(firstClient)).toBeNull();
-  expect(screen.getByLabelText<HTMLInputElement>('Número marcado').value).toBe('');
+  for (const field of screen.getAllByLabelText<HTMLInputElement>('Número marcado')) {
+    expect(field.value).toBe('');
+  }
 });

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Mic, MicOff, Pause, Phone, PhoneForwarded, PhoneOff, Play } from 'lucide-react';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
-import { isCallLive } from '@/features/telephony/models/call';
+import { callButtons } from '@/features/telephony/models/call';
 import { cx } from '@/components/ui/cx';
 
 interface SecondaryButtonProps {
@@ -51,12 +51,11 @@ export function CallControls() {
     toggleHold,
     transferCall,
   } = useTelephony();
-  const live = call !== null && isCallLive(call.state);
-  const incoming = call?.direction === 'inbound' && call.state === 'ringing';
-  const canHold = call?.state === 'active' || call?.state === 'on_hold';
-  const canDial = connectorStatus === 'registered' && dialNumber.length > 0 && !live;
-  const onHold = call?.state === 'on_hold';
-  const muted = Boolean(call?.muted);
+  const { live, incoming, canDial, canMute, canHold, canTransfer, onHold, muted } = callButtons(
+    call,
+    dialNumber,
+    connectorStatus === 'registered'
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -84,7 +83,7 @@ export function CallControls() {
         <SecondaryButton
           label={muted ? 'Reactivar' : 'Silenciar'}
           onClick={toggleMute}
-          disabled={call?.state !== 'active'}
+          disabled={!canMute}
           active={muted}
         >
           {muted ? <MicOff size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
@@ -93,15 +92,11 @@ export function CallControls() {
           label={onHold ? 'Reanudar' : 'En espera'}
           onClick={toggleHold}
           disabled={!canHold}
-          active={Boolean(onHold)}
+          active={onHold}
         >
           {onHold ? <Play size={18} aria-hidden="true" /> : <Pause size={18} aria-hidden="true" />}
         </SecondaryButton>
-        <SecondaryButton
-          label="Transferir"
-          onClick={transferCall}
-          disabled={call?.state !== 'active' || dialNumber.length === 0}
-        >
+        <SecondaryButton label="Transferir" onClick={transferCall} disabled={!canTransfer}>
           <PhoneForwarded size={18} aria-hidden="true" />
         </SecondaryButton>
       </div>
