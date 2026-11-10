@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
-import { runTick, dispatchCall, syncCalls } from './runner.js';
+import { runTick, dispatchCall, syncCalls, reconcileStuckCalls } from './runner.js';
 import { providerRequest, safeAgent, agentConfigFailures, dentalAgentConfig, agentShape, sanitizeProviderError } from './provider.js';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ error: 'Falta configurar ElevenLabs.' }, 503);
     if (input.action === 'sync') {
       await syncCalls(db, apiKey);
+      await reconcileStuckCalls(db, apiKey).catch(() => {});
       return json({ ok: true });
     }
     if (!['agent-2', 'agent-3'].includes(input.staffId))

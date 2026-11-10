@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/context/useAuth';
 import {
+  CALL_DETAIL_LABELS,
+  CALL_OUTCOME,
   CALL_STATE,
   TRANSFER_STATE,
   type DentalCall,
@@ -83,6 +85,11 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
               <p className="mt-1 text-sm">
                 {CALL_STATE[call.state]} · Transferencia: {TRANSFER_STATE[call.transfer_status]}
               </p>
+              {call.outcome && (
+                <p className="mt-1 text-sm font-semibold text-plw-navy">
+                  Resultado: {CALL_OUTCOME[call.outcome] ?? call.outcome}
+                </p>
+              )}
               <p className="mt-1 text-xs text-neutral-500">
                 {new Date(call.created_at).toLocaleString('es-CR', {
                   timeZone: 'America/Costa_Rica',
@@ -115,6 +122,18 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
                 </p>
               ) : (
                 <>
+                  {CALL_DETAIL_LABELS.some(([key]) => detail.details?.[key]) && (
+                    <dl className="grid gap-x-4 gap-y-1 rounded-lg border p-3 text-sm sm:grid-cols-[auto_1fr]">
+                      {CALL_DETAIL_LABELS.filter(([key]) => detail.details?.[key]).map(
+                        ([key, label]) => (
+                          <div key={key} className="contents">
+                            <dt className="font-semibold text-neutral-600">{label}</dt>
+                            <dd className="mb-1 break-words sm:mb-0">{detail.details?.[key]}</dd>
+                          </div>
+                        )
+                      )}
+                    </dl>
+                  )}
                   {detail.summary && (
                     <p className="rounded-lg bg-plw-ivory p-3 text-sm">{detail.summary}</p>
                   )}
@@ -126,7 +145,7 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
                   {detail.transcript.map((line, i) => (
                     <div key={i} className="rounded-lg bg-neutral-50 p-3 text-sm">
                       <p className="mb-1 font-semibold">
-                        {line.role === 'agent' ? 'Ana' : 'Persona llamada'} ·{' '}
+                        {line.role === 'agent' ? 'Anna' : 'Persona llamada'} ·{' '}
                         {Math.floor(line.time_in_call_secs)} s
                       </p>
                       <p className="whitespace-pre-wrap">{line.message}</p>

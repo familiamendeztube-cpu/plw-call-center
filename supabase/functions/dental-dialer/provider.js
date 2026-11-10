@@ -11,12 +11,13 @@ export async function providerRequest(
   path,
   body,
   fetchImpl = fetch,
-  method = body ? 'POST' : 'GET'
+  method = body ? 'POST' : 'GET',
+  timeoutMs = 18000
 ) {
   const response = await fetchImpl(ROOT + path, {
     method,
     headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(18000),
+    signal: AbortSignal.timeout(timeoutMs),
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   return {
@@ -25,9 +26,95 @@ export async function providerRequest(
     data: await response.json().catch(() => null),
   };
 }
+// The owner's 13 call outcomes. ElevenLabs fills these fields from the transcript after the call.
+export const CALL_OUTCOMES = [
+  'APPOINTMENT_CONFIRMED',
+  'APPOINTMENT_REQUESTED',
+  'INTERESTED_FOLLOW_UP',
+  'WHATSAPP_INFO_REQUESTED',
+  'RECEPTIONIST_CONTACT',
+  'DECISION_MAKER_UNAVAILABLE',
+  'CALLBACK_REQUESTED',
+  'NOT_INTERESTED',
+  'DO_NOT_CALL',
+  'WRONG_NUMBER',
+  'NO_ANSWER',
+  'VOICEMAIL',
+  'TECHNICAL_FAILURE',
+];
+const OUTCOME_FIELD = {
+  plw_outcome: {
+    type: 'string',
+    description: `Exactly one code for how the call ended: ${CALL_OUTCOMES.join(', ')}. Anna has no calendar, so an agreed visit is APPOINTMENT_REQUESTED; use APPOINTMENT_CONFIRMED only if a confirmed slot exists. Use DO_NOT_CALL whenever the person asked not to be called again.`,
+  },
+};
+const detail = (description) => ({
+  type: 'string',
+  description: `${description} Write it in Spanish. Leave empty if it was not said in the call; never guess.`,
+});
+const DETAIL_FIELDS = {
+  plw_contact_name: detail('Name of the person Anna spoke with.'),
+  plw_contact_role: detail('Their role, e.g. recepcionista, dueña, administrador, gerente.'),
+  plw_contact_phone: detail('Phone or WhatsApp number the person authorized PLW to use, digits only.'),
+  plw_business_address: detail('Business address given for the visit.'),
+  plw_appointment_date: detail('Preferred visit day the person agreed to, as they said it.'),
+  plw_appointment_time: detail('Preferred visit time or part of day the person agreed to.'),
+  plw_callback_time: detail('Day and time the person asked to be called back.'),
+  plw_pain_point: detail('Main administrative problem the person described, in one sentence.'),
+  plw_services_interest: detail('Services they showed interest in (llamadas, WhatsApp, formularios, citas, publicidad, página web).'),
+  plw_objections: detail('Objections the person raised, as a short list.'),
+  plw_notes: detail('Other important notes for the PLW specialist, briefly.'),
+};
+const OUTCOME_LEAD_STATUS = {
+  APPOINTMENT_CONFIRMED: 'interested',
+  APPOINTMENT_REQUESTED: 'interested',
+  INTERESTED_FOLLOW_UP: 'interested',
+  WHATSAPP_INFO_REQUESTED: 'interested',
+  RECEPTIONIST_CONTACT: 'callback',
+  DECISION_MAKER_UNAVAILABLE: 'callback',
+  CALLBACK_REQUESTED: 'callback',
+  NOT_INTERESTED: 'not_interested',
+  WRONG_NUMBER: 'wrong_number',
+  DO_NOT_CALL: 'do_not_call',
+};
+const isTrue = (value) => value === true || String(value).trim().toLowerCase() === 'true';
+/**
+ * Reads ElevenLabs' post-call fields. Results come keyed by field id or as a list, and
+ * booleans sometimes arrive as the string "true". NO_ANSWER, VOICEMAIL and
+ * TECHNICAL_FAILURE leave the lead pending so a person can decide on a retry.
+ */
+export function callResults(analysis) {
+  const values = new Map();
+  const map = analysis?.data_collection_results;
+  const entries = [
+    ...(map && typeof map === 'object' && !Array.isArray(map) ? Object.entries(map) : []),
+    ...[map, analysis?.data_collection_results_list].flatMap((list) =>
+      Array.isArray(list) ? list.map((entry) => [entry?.data_collection_id, entry]) : []
+    ),
+  ];
+  for (const [id, entry] of entries)
+    if (typeof id === 'string' && entry && typeof entry === 'object' && !values.has(id))
+      values.set(id, entry.value ?? null);
+  const outcomeText = String(values.get('plw_outcome') ?? '').trim().toUpperCase();
+  const outcome = CALL_OUTCOMES.includes(outcomeText) ? outcomeText : null;
+  const details = {};
+  for (const id of Object.keys(DETAIL_FIELDS)) {
+    const value = values.get(id);
+    const clean = typeof value === 'string' || typeof value === 'number'
+      ? String(value).replace(/\s+/g, ' ').trim().slice(0, 300)
+      : '';
+    if (clean && !/^(null|none|n\/a)$/i.test(clean)) details[id.slice(4)] = clean;
+  }
+  const optOut = isTrue(values.get('plw_opt_out')) || outcome === 'DO_NOT_CALL';
+  const leadStatus = optOut
+    ? 'do_not_call'
+    : (OUTCOME_LEAD_STATUS[outcome] ??
+      (isTrue(values.get('plw_callback')) ? 'callback' : isTrue(values.get('plw_interested')) ? 'interested' : null));
+  return { outcome, details, optOut, leadStatus };
+}
 export function dentalAgentConfig(staffName, route, voiceId) {
   return {
-    name: `PLW Dental · Ana · ${staffName} · ${SALES_SCRIPT_VERSION}`,
+    name: `PLW Dental · Anna · ${staffName} · ${SALES_SCRIPT_VERSION}`,
     tags: ['plw-dental'],
     conversation_config: {
       agent: {
@@ -36,7 +123,7 @@ export function dentalAgentConfig(staffName, route, voiceId) {
         prompt: {
           prompt:
             salesPrompt({ dentalMode: true }) +
-            `\nVersión: ${SALES_SCRIPT_VERSION}. Tu único asesor es ${staffName}. Si hay interés, pregunta si desea hablar con ${staffName} ahora. Solo si acepta, usa transfer_to_number hacia ${route.transfer_uri}. Si no acepta, registra que prefiere una devolución de llamada. Nunca transfieras sin aceptación.`,
+            `\nVersión: ${SALES_SCRIPT_VERSION}.\n\nTRANSFERENCIA\nTu asesor es ${staffName}. Cuando la persona encargada muestre interés real, antes de coordinar una visita pregúntale: "¿Le gustaría que le comunique ahora mismo con ${staffName}, nuestro asesor, para que le explique con más detalle?" Solo si acepta, avísale que la vas a comunicar y usa transfer_to_number hacia ${route.transfer_uri}. Si no acepta, no puede hablar en este momento o la transferencia no se completa, coordina la visita de la sección 6 o una llamada de ${staffName} en el día y la hora que prefiera. Nunca transfieras sin aceptación ni digas que la comunicaste si la herramienta no lo confirmó.`,
           tool_ids: [],
           mcp_server_ids: [],
           knowledge_base: [],
@@ -71,10 +158,12 @@ export function dentalAgentConfig(staffName, route, voiceId) {
         },
       },
       tts: { voice_id: voiceId, model_id: SALES_VOICE_MODEL },
-      conversation: { max_duration_seconds: 300 },
+      conversation: { max_duration_seconds: 600 },
     },
     platform_settings: {
       data_collection: {
+        ...OUTCOME_FIELD,
+        ...DETAIL_FIELDS,
         plw_opt_out: {
           type: 'boolean',
           description:
@@ -107,6 +196,18 @@ export function sanitizeProviderError(data) {
     type: String(item?.type ?? '').slice(0, 80),
     message: String(item?.msg ?? '').slice(0, 160),
   }));
+}
+/** Short, safe explanation of a provider answer, stored with the call so failures can be read. */
+export function providerReason(result, timeoutSeconds) {
+  if (!result?.status) return ` (sin respuesta del proveedor en ${timeoutSeconds} s)`;
+  const message =
+    typeof result.data?.message === 'string'
+      ? result.data.message
+      : sanitizeProviderError(result.data)
+          .map((item) => [item.field, item.message].filter(Boolean).join(': '))
+          .join('; ');
+  const text = message.replace(/\s+/g, ' ').trim().slice(0, 200);
+  return ` (HTTP ${result.status}${text ? `: ${text}` : ''})`;
 }
 export function agentShape(config) {
   const p = config?.conversation_config?.agent?.prompt ?? {};

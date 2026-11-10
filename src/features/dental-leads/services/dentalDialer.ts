@@ -42,7 +42,7 @@ export async function loadDialer(signal: AbortSignal) {
     const result = await db
       .from('dental_calls')
       .select(
-        'id,lead_id,staff_id,phone,is_test,state,transfer_status,created_at,finished_at,error'
+        'id,lead_id,staff_id,phone,is_test,state,transfer_status,created_at,finished_at,error,outcome'
       )
       .order('created_at', { ascending: false })
       .order('id')
@@ -71,7 +71,7 @@ export async function dentalServerAction(input: Record<string, unknown>) {
 export async function loadTranscript(id: string, signal: AbortSignal) {
   const { data, error } = await getSupabaseClient()
     .from('dental_calls')
-    .select('transcript,summary,synced_at')
+    .select('transcript,summary,synced_at,outcome,details')
     .eq('id', id)
     .abortSignal(signal)
     .single();

@@ -24,12 +24,44 @@ export interface DentalCall {
   created_at: string;
   finished_at: string | null;
   error: string;
+  outcome?: string | null;
 }
 export interface DentalTranscript {
   transcript: { role: string; message: string; time_in_call_secs: number; tools: string[] }[];
   summary: string;
   synced_at: string | null;
+  outcome?: string | null;
+  details?: Record<string, string>;
 }
+/** Anna's 13 call outcomes, as the owner defined them. */
+export const CALL_OUTCOME: Record<string, string> = {
+  APPOINTMENT_CONFIRMED: 'Cita confirmada',
+  APPOINTMENT_REQUESTED: 'Visita solicitada',
+  INTERESTED_FOLLOW_UP: 'Interesado · dar seguimiento',
+  WHATSAPP_INFO_REQUESTED: 'Pidió información por WhatsApp',
+  RECEPTIONIST_CONTACT: 'Habló con recepción',
+  DECISION_MAKER_UNAVAILABLE: 'Encargado no disponible',
+  CALLBACK_REQUESTED: 'Pidió que lo llamen',
+  NOT_INTERESTED: 'No le interesa',
+  DO_NOT_CALL: 'No volver a llamar',
+  WRONG_NUMBER: 'Número equivocado',
+  NO_ANSWER: 'No contestó',
+  VOICEMAIL: 'Buzón de voz',
+  TECHNICAL_FAILURE: 'Falla técnica',
+};
+export const CALL_DETAIL_LABELS: [key: string, label: string][] = [
+  ['contact_name', 'Contacto'],
+  ['contact_role', 'Puesto'],
+  ['contact_phone', 'Teléfono o WhatsApp autorizado'],
+  ['business_address', 'Dirección'],
+  ['appointment_date', 'Día de la visita'],
+  ['appointment_time', 'Hora de la visita'],
+  ['callback_time', 'Volver a llamar'],
+  ['pain_point', 'Problema principal'],
+  ['services_interest', 'Servicios de interés'],
+  ['objections', 'Objeciones'],
+  ['notes', 'Notas'],
+];
 export const CALL_STATE = {
   reserved: 'Preparando',
   started: 'Iniciada',
