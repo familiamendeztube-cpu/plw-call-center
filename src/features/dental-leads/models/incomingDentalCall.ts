@@ -23,43 +23,37 @@ export type IncomingDentalLookup =
   | { status: 'unknown' }
   | { status: 'ready'; call: IncomingDentalCallRow; lead: IncomingDentalLead | null };
 
-export type IncomingDentalView =
-  | { kind: 'hidden' }
-  | { kind: 'loading'; callId: string }
-  | { kind: 'unknown'; callId: string; reason: string }
-  | { kind: 'ready'; callId: string; call: IncomingDentalCallRow; lead: IncomingDentalLead | null };
+export type IncomingDentalContext =
+  | { kind: 'none' }
+  | { kind: 'loading' }
+  | { kind: 'unavailable' }
+  | { kind: 'ready'; call: IncomingDentalCallRow; lead: IncomingDentalLead | null };
 
-const OPEN_CALL_STATES = ['reserved', 'started', 'uncertain'];
+export function isIncomingRinging(call: CallSnapshot | null): call is CallSnapshot {
+  return call !== null && call.direction === 'inbound' && call.state === 'ringing';
+}
 
-export function incomingDentalView(
+export function showCompactContext(call: CallSnapshot | null): boolean {
+  return call !== null && (call.state === 'active' || call.state === 'on_hold');
+}
+
+export function isPollableDentalCall(call: CallSnapshot | null): boolean {
+  return (
+    call !== null &&
+    call.dentalCallId != null &&
+    (call.state === 'ringing' || call.state === 'active' || call.state === 'on_hold')
+  );
+}
+
+export function dentalContext(
   call: CallSnapshot | null,
   agentId: string | null | undefined,
-  lookup: IncomingDentalLookup
-): IncomingDentalView {
-  const callId = call?.dentalCallId;
-  if (!call || !callId || agentId == null) return { kind: 'hidden' };
-  if (call.direction !== 'inbound' || call.state !== 'ringing') return { kind: 'hidden' };
-  if (lookup.status === 'loading') return { kind: 'loading', callId };
-  if (lookup.status === 'unknown') {
-    return {
-      kind: 'unknown',
-      callId,
-      reason: 'No pudimos confirmar a qué dentista corresponde esta llamada.',
-    };
-  }
-  if (lookup.call.id !== callId || lookup.call.staff_id !== agentId) {
-    return {
-      kind: 'unknown',
-      callId,
-      reason: 'Esta llamada no está asignada a su usuario. No la conteste desde esta pantalla.',
-    };
-  }
-  if (!OPEN_CALL_STATES.includes(lookup.call.state)) {
-    return {
-      kind: 'unknown',
-      callId,
-      reason: 'Esta llamada dental ya no está activa en el marcador.',
-    };
-  }
-  return { kind: 'ready', callId, call: lookup.call, lead: lookup.lead };
+  lookup: IncomingDentalLookup | null
+): IncomingDentalContext {
+  const callId = call?.dentalCallId ?? null;
+  if (!callId || agentId == null || !lookup) return { kind: 'none' };
+  if (lookup.status === 'loading') return { kind: 'loading' };
+  if (lookup.status === 'unknown') return { kind: 'unavailable' };
+  if (lookup.call.id !== callId || lookup.call.staff_id !== agentId) return { kind: 'unavailable' };
+  return { kind: 'ready', call: lookup.call, lead: lookup.lead };
 }

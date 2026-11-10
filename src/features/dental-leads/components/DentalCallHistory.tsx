@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/context/useAuth';
 import {
@@ -10,7 +11,8 @@ import {
 import { confirmTransfer, loadTranscript } from '../services/dentalDialer';
 export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; reload: () => void }) {
   const { session } = useAuth();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const [selected, setSelected] = useState<string | null>(() => searchParams.get('call'));
   const [detail, setDetail] = useState<DentalTranscript | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);

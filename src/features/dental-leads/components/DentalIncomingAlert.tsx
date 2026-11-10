@@ -3,81 +3,118 @@ import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/context/useAuth';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { useIncomingDentalCall } from '../hooks/useIncomingDentalCall';
-import { incomingDentalView } from '../models/incomingDentalCall';
+import {
+  dentalContext,
+  isIncomingRinging,
+  showCompactContext,
+  type IncomingDentalContext,
+} from '../models/incomingDentalCall';
 
 export function DentalIncomingAlert() {
   const { session } = useAuth();
   const { call, answerCall, hangUp } = useTelephony();
   const agentId = session?.role === 'agent' ? session.agentId : null;
   const lookup = useIncomingDentalCall(call, agentId);
-  const view = incomingDentalView(call, agentId, lookup ?? { status: 'loading' });
-  if (view.kind === 'hidden') return null;
+  const context = dentalContext(call, agentId, lookup);
+  const historyLink = call?.dentalCallId
+    ? `/llamadas-dentales?call=${encodeURIComponent(call.dentalCallId)}`
+    : '/llamadas-dentales';
 
-  return (
-    <section
-      role="alertdialog"
-      aria-live="assertive"
-      aria-label="Llamada dental entrante"
-      className="fixed inset-x-4 top-4 z-50 mx-auto grid max-w-2xl gap-4 rounded-2xl border-2 border-plw-navy bg-white p-6 shadow-2xl"
-    >
-      <p className="text-sm font-semibold uppercase tracking-wide text-plw-navy">
-        Llamada dental entrante
+  if (isIncomingRinging(call)) {
+    return (
+      <section
+        role="alertdialog"
+        aria-live="assertive"
+        aria-label="Llamada entrante"
+        className="fixed inset-x-4 top-4 z-50 mx-auto grid max-h-[calc(100dvh-2rem)] max-w-2xl gap-4 overflow-y-auto overscroll-contain rounded-2xl border-2 border-plw-navy bg-white p-6 shadow-2xl sm:p-8"
+      >
+        <p className="text-sm font-semibold uppercase tracking-wide text-plw-navy">
+          Llamada entrante
+        </p>
+        <p className="break-all text-4xl font-bold tabular-nums text-neutral-900 sm:text-5xl">
+          {call.remoteNumber}
+        </p>
+        <DentalDetails context={context} />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="success" size="lg" onClick={() => void answerCall()}>
+            Contestar
+          </Button>
+          <Button variant="danger" size="lg" onClick={() => void hangUp()}>
+            Rechazar
+          </Button>
+          {context.kind === 'ready' && (
+            <Link
+              to={historyLink}
+              className="ml-auto text-sm font-semibold text-plw-navy underline underline-offset-4"
+            >
+              Ver llamada
+            </Link>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  if (showCompactContext(call) && context.kind === 'ready') {
+    return (
+      <aside
+        aria-label="Contexto de la llamada dental"
+        className="fixed inset-x-4 bottom-4 z-40 mx-auto grid max-h-[40dvh] max-w-sm gap-2 overflow-y-auto overscroll-contain rounded-xl border border-plw-navy/20 bg-white p-4 shadow-xl sm:left-auto sm:right-4 sm:mx-0"
+      >
+        <p className="text-xs font-semibold uppercase tracking-wide text-plw-navy">
+          Dentista en esta llamada
+        </p>
+        <DentalDetails context={context} compact />
+        <Link
+          to={historyLink}
+          className="text-sm font-semibold text-plw-navy underline underline-offset-4"
+        >
+          Ver llamada
+        </Link>
+      </aside>
+    );
+  }
+
+  return null;
+}
+
+function DentalDetails({
+  context,
+  compact = false,
+}: {
+  context: IncomingDentalContext;
+  compact?: boolean;
+}) {
+  if (context.kind === 'none') return null;
+  if (context.kind === 'loading') {
+    return (
+      <p role="status" className="text-base text-neutral-700">
+        Buscando el dentista de esta llamada…
       </p>
-      {view.kind === 'loading' && (
-        <p role="status" className="text-lg text-neutral-700">
-          Cargando los datos del dentista…
-        </p>
-      )}
-      {view.kind === 'unknown' && (
-        <p role="alert" className="text-lg text-danger-700">
-          {view.reason}
-        </p>
-      )}
-      {view.kind === 'ready' && (
-        <div className="grid gap-3">
-          <h2 className="text-2xl font-semibold text-plw-navy">
-            {view.lead?.business_name ?? 'Dentista sin nombre registrado'}
-          </h2>
-          <dl className="grid gap-2 text-base sm:grid-cols-2">
-            <div>
-              <dt className="text-sm text-neutral-500">Teléfono del dentista</dt>
-              <dd className="font-semibold">+506 {view.call.phone}</dd>
-            </div>
-            <div>
-              <dt className="text-sm text-neutral-500">Agente asignado</dt>
-              <dd className="font-semibold">{session?.displayName ?? 'Su usuario'}</dd>
-            </div>
-            <div className="sm:col-span-2">
-              <dt className="text-sm text-neutral-500">Ubicación</dt>
-              <dd className="font-semibold">
-                {[view.lead?.address, view.lead?.canton, view.lead?.province]
-                  .filter(Boolean)
-                  .join(', ') || 'Ubicación no registrada'}
-              </dd>
-            </div>
-          </dl>
-          <div className="rounded-lg bg-plw-ivory p-3 text-sm">
-            <p className="mb-1 font-semibold">Resumen de Ana</p>
-            <p className="whitespace-pre-wrap">
-              {view.call.summary?.trim() || 'Resumen todavía no disponible.'}
-            </p>
-          </div>
+    );
+  }
+  if (context.kind === 'unavailable') {
+    return (
+      <p role="status" className="text-sm text-neutral-600">
+        No pudimos vincular esta llamada con un dentista de su lista. Puede contestar igual.
+      </p>
+    );
+  }
+  const { lead, call } = context;
+  const location = [lead?.address, lead?.canton, lead?.province].filter(Boolean).join(', ');
+  const summary = call.summary?.trim();
+  return (
+    <div className="grid gap-3">
+      <h2 className={compact ? 'text-lg font-semibold text-plw-navy' : 'text-2xl font-semibold text-plw-navy'}>
+        {lead?.business_name ?? 'Dentista sin nombre registrado'}
+      </h2>
+      {location && <p className="text-sm text-neutral-700">{location}</p>}
+      {!compact && (
+        <div className="rounded-lg bg-plw-ivory p-3 text-sm">
+          <p className="mb-1 font-semibold">Resumen de Ana</p>
+          <p className="whitespace-pre-wrap">{summary || 'Resumen todavía no disponible.'}</p>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="success" onClick={() => void answerCall()}>
-          Contestar
-        </Button>
-        <Button variant="danger" onClick={() => void hangUp()}>
-          Rechazar
-        </Button>
-        <Link
-          to="/llamadas-dentales"
-          className="ml-auto text-sm font-semibold text-plw-navy underline underline-offset-4"
-        >
-          Ver detalle
-        </Link>
-      </div>
-    </section>
+    </div>
   );
 }
