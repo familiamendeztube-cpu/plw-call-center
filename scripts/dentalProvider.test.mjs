@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  agentConfigFailures,
   dentalAgentConfig,
   safeAgent,
   conversationUpdate,
 } from '../supabase/functions/dental-dialer/provider.js';
+import { SALES_SCRIPT_VERSION } from '../supabase/functions/dental-dialer/salesScript.js';
 import { dispatchCall,syncCalls } from '../supabase/functions/dental-dialer/runner.js';
 import { PLW_AGENT_ID } from '../supabase/functions/elevenlabs-webhook/rules.js';
 const route = {
@@ -51,6 +53,27 @@ test('Ana accepts only her dental script, dedicated agent and fixed transfer des
     assert.equal(safeAgent(other, route), false);
   }
 });
+test('verifier names each failed invariant and accepts only line-ending and edge-whitespace normalization', () => {
+  const base = { agent_id: route.provider_agent_id, ...dentalAgentConfig('Valeska', route, 'voice') };
+  const crlf = structuredClone(base);
+  crlf.conversation_config.agent.prompt.prompt = crlf.conversation_config.agent.prompt.prompt.replace(/\n/g, '\r\n') + '\n';
+  assert.deepEqual(agentConfigFailures(crlf, route), []);
+  const cases = [
+    ['first_message', (c) => (c.conversation_config.agent.first_message = 'Hola')],
+    ['voice_model', (c) => (c.conversation_config.tts.model_id = 'eleven_turbo_v2')],
+    ['script_version', (c) => (c.conversation_config.agent.prompt.prompt = c.conversation_config.agent.prompt.prompt.replace(SALES_SCRIPT_VERSION, 'old'))],
+    ['extra_builtin_tool', (c) => (c.conversation_config.agent.prompt.built_in_tools.skip_turn = { type: 'system' })],
+    ['transfer_count', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers = [])],
+    ['workflow', (c) => (c.workflow = { nodes: { a: {} } })],
+  ];
+  for (const [code, mutate] of cases) {
+    const other = structuredClone(base);
+    mutate(other);
+    assert.ok(agentConfigFailures(other, route).includes(code), code);
+  }
+  assert.deepEqual(agentConfigFailures({ ...base, agent_id: PLW_AGENT_ID }, { ...route, provider_agent_id: PLW_AGENT_ID }), ['agent_identity']);
+});
+
 test('exact conversation/agent/call matching is mandatory; a spoken promise is not a transfer', () => {
   const data = {
     agent_id: call.provider_agent_id,

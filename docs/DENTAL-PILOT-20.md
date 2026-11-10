@@ -6,8 +6,9 @@ Backend exclusivo: `meagbbmittuhdgwnhvxa`. Fecha: 10 de noviembre de 2026.
 ## Resultado de esta actualización
 
 - Alejandro (`agent-2`): máximo 20 intentos nuevos, dos simultáneos, pausa automática al alcanzar el límite. Las llamadas ya iniciadas pueden terminar.
+- Valeska (`agent-3`): el mismo piloto de 20 intentos, dos simultáneos por agente, cuatro en total, pausa automática y sin remarcado automático. Su transferencia sigue NO comprobada hasta que ella confirme una llamada real.
 - Reservas, rechazos del proveedor y resultados inciertos consumen el límite. Una prueba al teléfono del administrador no lo consume. No se repiten automáticamente contactos intentados.
-- Un piloto limitado puede empezar sin una transferencia previa confirmada. Esa transferencia sigue claramente marcada como NO comprobada hasta que Alejandro reciba una llamada y la confirme con su propia sesión.
+- Un piloto limitado puede empezar sin una transferencia previa confirmada. Esa transferencia sigue claramente marcada como NO comprobada hasta que el agente receptor la confirme con su propia sesión.
 - Sigue siendo obligatorio verificar la configuración real de Ana y recibir una señal reciente del servidor. No se inventan marcas de verificación.
 - La pantalla muestra el avance del piloto y los mensajes reales de error. Al alcanzar el límite, deshabilita continuar. El servidor también impide un intento adicional.
 - La migración prepara únicamente a Alejandro, detenido. No activa llamadas ni modifica la configuración de Valeska, el marcador general, WhatsApp, Gmail ni el agente compartido de llamadas entrantes.
@@ -23,11 +24,15 @@ Backend exclusivo: `meagbbmittuhdgwnhvxa`. Fecha: 10 de noviembre de 2026.
 ## Activar en la aplicación
 
 1. Alejandro inicia sesión, selecciona **Activo** y comprueba **Línea registrada** en su teléfono. Debe mantener el teléfono conectado y poder recibir transferencias. No suplantar su sesión ni marcar su disponibilidad directamente en la base de datos.
-2. El administrador abre **Marcador dental**, selecciona **Alejandro** y pulsa **Configurar Ana** una vez. Esta acción usa el secreto existente de ElevenLabs, crea/verifica un agente dental separado con el guion actualizado y habilita el servidor automático.
-3. Esperar una **Última señal del servidor** reciente. Si aparece un error, resolver exactamente ese error. No guardar `config_verified_at`, `transfer_verified_at` o un heartbeat inventado para forzar el botón. Si la creación del proveedor quedó incierta, comprobar ElevenLabs antes de intentar crear otro agente.
-4. Pulsar **Activar piloto de 20**. Se marcan hasta dos contactos simultáneos solo cuando Alejandro está disponible, de lunes a viernes de 9:00 a 17:00, hora de Costa Rica. No es necesario llenar el teléfono de prueba para este piloto limitado; la prueba controlada sigue siendo opcional.
-5. Cuando una persona interesada acepte la transferencia y Alejandro realmente la reciba, él pulsa **Recibí esta transferencia** en su historial. Una transferencia solicitada o una frase de Ana no cuenta como recepción confirmada.
+2. El administrador abre **Marcador dental**, selecciona **Alejandro** y pulsa **Configurar Ana** una vez. Esta acción usa el secreto existente de ElevenLabs, verifica el agente dental separado de Alejandro con el guion actualizado y habilita el servidor automático. Si el agente existente tiene diferencias, el servidor lo actualiza una sola vez; nunca crea un segundo agente ni toca el agente de llamadas entrantes.
+3. Si la verificación falla, la pantalla muestra solo los nombres técnicos de las comprobaciones que no pasaron (por ejemplo `workflow` o `extra_tools_or_knowledge`). Corregir esa causa y volver a pulsar **Configurar Ana**. No guardar `config_verified_at`, `transfer_verified_at` o un heartbeat inventado para forzar el botón. Si la creación del proveedor quedó incierta, comprobar ElevenLabs antes de intentar crear otro agente.
+4. Esperar una **Última señal del servidor** reciente. Pulsar **Activar piloto de 20**. Se marcan hasta dos contactos simultáneos solo cuando Alejandro está disponible, de lunes a viernes de 9:00 a 17:00, hora de Costa Rica. No es necesario llenar el teléfono de prueba para este piloto limitado; la prueba controlada sigue siendo opcional.
+5. Cuando una persona interesada acepte la transferencia y Alejandro realmente la reciba, él pulsa **Recibí esta transferencia** en su historial. Una transferencia solicitada, una frase de Ana o la alerta de llamada entrante no cuentan como recepción confirmada.
 6. El piloto se pausa al alcanzar 20 intentos. Permitir que finalicen las llamadas iniciadas y que se sincronicen sus conversaciones antes de revisar resultados. No eliminar el límite ni preparar otra tanda antes de analizar esta.
+
+## Alerta de llamada entrante
+
+Cuando entra una llamada dental al agente activo, aparece una alerta grande con el nombre del dentista, su teléfono, el agente asignado, la ubicación y el resumen de Ana si ya existe. Los botones Contestar y Rechazar usan el teléfono existente. La alerta solo aparece si la llamada trae el identificador `X-PLW-Dental-Call` válido; si falta, está mal formado, pertenece a otro agente o la búsqueda falla, se muestra un estado honesto y nunca se adivina el dentista. Que el sistema telefónico reenvíe ese encabezado al navegador todavía no está comprobado de extremo a extremo.
 
 ## Ana Chacón Méndez
 
@@ -37,9 +42,9 @@ El código de la función dental de `e6042b3` contiene `ana-2026-11-10-dental`: 
 
 ## Verificación y análisis de las primeras 20
 
-Estado: código preparado y probado localmente; este paquete por sí mismo NO implica publicación, configuración del proveedor, activación ni llamadas realizadas.
+Estado: código preparado; este paquete por sí mismo NO implica publicación, configuración del proveedor, activación ni llamadas realizadas.
 
-Comprobaciones locales: 277 pruebas de servidor/base de datos y 88 de interfaz aprobadas; typecheck, lint y build aprobados. La función dental de `e6042b3` también pasó `deno check`. Vite mantiene un aviso de tamaño del bundle principal; no impide el build. No se ha comprobado desde esta sesión la entrega de audio, la transferencia por SIP ni la disponibilidad del proveedor en producción.
+Comprobaciones locales de la última sesión: 96 pruebas aprobadas (Vitest y node:test), typecheck, lint y build aprobados. Vite mantiene un aviso de tamaño del bundle principal; no impide el build. No se volvió a ejecutar `deno check` en esta sesión. No se ha comprobado desde esta sesión la entrega de audio, la transferencia por SIP ni la disponibilidad del proveedor en producción.
 
 Después de la tanda, revisar en el historial de Alejandro las 20 filas nuevas, su estado final, errores, conversaciones y transcripciones. Separar intentos, conversaciones con respuesta, interesados, transferencias solicitadas y transferencias confirmadas por Alejandro. Revisar: saludo y pronunciación; pregunta y pausa para escuchar; explicación comercial proactiva; respuesta a objeciones; consentimiento antes de transferir; ausencia de datos de otra campaña; opt-out respetado; correspondencia exacta llamada/agente/transcripción. Una transcripción vacía no demuestra que haya sido buzón; registrar la limitación.
 
@@ -64,4 +69,4 @@ La agrupación incluye el historial completo; el contador del piloto descuenta l
 
 ## Detener o revertir
 
-Usar **Congelar / Pausar** o **Detener** para impedir nuevas reservas; las llamadas iniciadas pueden finalizar. Si hace falta revertir la interfaz, conservar la migración y su límite, detener primero a Alejandro y restaurar los archivos desde el respaldo del instalador. No borrar llamadas, transcripciones o la línea de base. No retirar el límite mientras el marcador esté activo.
+Usar **Congelar / Pausar** o **Detener** para impedir nuevas reservas; las llamadas iniciadas pueden finalizar. Si hace falta revertir la interfaz, conservar la migración y su línea de base, detener primero a Alejandro y restaurar los archivos desde el respaldo del instalador. No borrar llamadas, transcripciones o la línea de base. No retirar el límite mientras el marcador esté activo.

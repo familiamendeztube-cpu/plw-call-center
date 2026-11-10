@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
 import { runTick, dispatchCall, syncCalls } from './runner.js';
-import { providerRequest, safeAgent, dentalAgentConfig } from './provider.js';
+import { providerRequest, safeAgent, agentConfigFailures, dentalAgentConfig } from './provider.js';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
         .single();
       if (error || !settings?.voice_id || !settings?.caller_phone_number_id)
         return json({ error: 'Falta configurar la voz y línea de salida.' }, 409);
+      const staffName = input.staffId === 'agent-2' ? 'Alejandro' : 'Valeska';
       let providerId = route.provider_agent_id;
       if (!providerId) {
         const { data: lock, error: lockError } = await db
@@ -71,11 +72,7 @@ Deno.serve(async (req) => {
         const created = await providerRequest(
           apiKey,
           '/agents/create',
-          dentalAgentConfig(
-            input.staffId === 'agent-2' ? 'Alejandro' : 'Valeska',
-            route,
-            settings.voice_id
-          )
+          dentalAgentConfig(staffName, route, settings.voice_id)
         );
         providerId = created.data?.agent_id;
         if (!created.ok || typeof providerId !== 'string')
@@ -93,13 +90,36 @@ Deno.serve(async (req) => {
           .eq('staff_id', input.staffId);
         if (saveError) throw saveError;
       }
-      const response = await providerRequest(
-        apiKey,
-        `/agents/${encodeURIComponent(providerId)}`,
-        undefined
-      );
-      if (!response.ok || !safeAgent(response.data, { ...route, provider_agent_id: providerId }))
-        return json({ error: 'La configuración de transferencia no pasó la verificación.' }, 409);
+      const agentPath = `/agents/${encodeURIComponent(providerId)}`;
+      const dedicatedRoute = { ...route, provider_agent_id: providerId };
+      const verify = async () => {
+        const response = await providerRequest(apiKey, agentPath);
+        return response.ok ? agentConfigFailures(response.data, dedicatedRoute) : ['provider_read'];
+      };
+      let failures = await verify();
+      if (failures.length && !failures.some((f) => ['provider_read', 'agent_identity'].includes(f))) {
+        const patched = await providerRequest(
+          apiKey,
+          agentPath,
+          dentalAgentConfig(staffName, route, settings.voice_id),
+          fetch,
+          'PATCH'
+        );
+        failures = patched.ok ? await verify() : ['provider_update'];
+      }
+      if (failures.length) {
+        const reasons = failures.join(', ');
+        await db
+          .from('dental_agent_dialers')
+          .update({ last_error: `Verificación pendiente: ${reasons}.` })
+          .eq('staff_id', input.staffId);
+        return json(
+          {
+            error: `La configuración de transferencia no pasó la verificación. Motivo técnico: ${reasons}.`,
+          },
+          409
+        );
+      }
       const { error: verifyError } = await db
         .from('dental_agent_dialers')
         .update({ config_verified_at: new Date().toISOString(), last_error: '' })

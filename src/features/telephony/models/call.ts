@@ -11,6 +11,7 @@ export interface CallSnapshot {
   remoteNumber: string;
   startedAt: string | null;
   muted: boolean;
+  dentalCallId?: string | null;
 }
 
 export interface RecentCall {
@@ -34,6 +35,14 @@ export const CALL_STATE_LABELS: Record<CallState, string> = {
 // rule. This copy only lets the agent see why a number can't be dialed.
 const COSTA_RICA_NUMBER = /^(?:\+?506)?([2-8]\d{7})$/;
 const MAX_DIAL_LENGTH = 20;
+
+const DENTAL_CALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The dental call id Ana sends in the SIP header, or null when it is missing or malformed. */
+export function dentalCallIdFromHeader(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  return DENTAL_CALL_ID.test(trimmed) ? trimmed : null;
+}
 
 export function toDialNumber(input: string): string {
   return input.replace(/[^\d*#+]/g, '').slice(0, MAX_DIAL_LENGTH);

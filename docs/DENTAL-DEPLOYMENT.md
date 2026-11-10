@@ -33,6 +33,14 @@ This narrow exception allows a bounded pilot before Alejandro's real transfer co
 - Before activation, Ana's script and voice must be verified in the provider and a fresh server heartbeat must be present. Nothing in the database or this document may be used to fabricate those checks.
 - The pilot's status, error messages and rules are described in `docs/DENTAL-PILOT-20.md`. Rollback is the same as above: stop Alejandro first and keep the migration and its limit in place.
 
+## Configuration verification, Valeska pilot and incoming alert
+
+- `Configurar Ana` reads the existing dedicated agent with server credentials. If it differs from the stored script, voice, recipient or tool rules, the server sends one update to that same dedicated agent and checks again. It never creates a second agent and never touches the shared inbound agent. Failure returns only the failed check names (for example `workflow` or `extra_tools_or_knowledge`); no keys or tokens are shown. Line-ending and edge-whitespace differences are the only normalization accepted.
+- The dedicated agent is now created and updated with explicitly empty tools, MCP servers, knowledge base and workflow, so leftover provider defaults cannot pass as Ana's configuration.
+- Valeska (`agent-3`) has the same bounded first pilot as Alejandro: 20 new non-test attempts, two simultaneous per agent, four overall, automatic pause, no automatic redial. Transfers stay unverified until the receiving agent confirms one. Her pilot labels use her name.
+- Each dialer page has one `Control del marcador` region for the selected agent. Its controls and history use distinct keys per agent.
+- When a call rings the signed-in agent, a large alert shows the dentist's name, phone, assigned agent, location and Ana's summary, with Answer, Reject and a link to the call history. The alert opens only when the SIP invitation carries a valid `X-PLW-Dental-Call` UUID. The lead is loaded by that exact call id and only if it is assigned to the signed-in agent and still open. A missing, malformed, mismatched, or failed lookup shows an unknown state, never a guessed lead. The alert never marks a transfer as received; only **Recibí esta transferencia** does that. The phone system must forward the `X-PLW-Dental-Call` header to the browser; this has not been verified end to end.
+
 ## Remaining live work — not completed
 
 1. Apply migrations `20261110090000_dental_dialer_controls.sql` and `20261110091000_dental_scheduler.sql` to the exact PLW backend. Do not rerun `20261110080000`: it already exists live. Its source in this package restores the schema contract for fresh local test databases; reconcile it with the migration-history SQL before treating it as an exact historical copy.

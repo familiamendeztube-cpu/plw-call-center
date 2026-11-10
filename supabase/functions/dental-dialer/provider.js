@@ -6,9 +6,15 @@ import {
 } from './salesScript.js';
 import { PLW_AGENT_ID } from './rules.js';
 const ROOT = 'https://api.elevenlabs.io/v1/convai';
-export async function providerRequest(apiKey, path, body, fetchImpl = fetch) {
+export async function providerRequest(
+  apiKey,
+  path,
+  body,
+  fetchImpl = fetch,
+  method = body ? 'POST' : 'GET'
+) {
   const response = await fetchImpl(ROOT + path, {
-    method: body ? 'POST' : 'GET',
+    method,
     headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
     signal: AbortSignal.timeout(18000),
     ...(body ? { body: JSON.stringify(body) } : {}),
@@ -32,6 +38,8 @@ export function dentalAgentConfig(staffName, route, voiceId) {
             salesPrompt({ dentalMode: true }) +
             `\nVersión: ${SALES_SCRIPT_VERSION}. Tu único asesor es ${staffName}. Si hay interés, pregunta si desea hablar con ${staffName} ahora. Solo si acepta, usa transfer_to_number hacia ${route.transfer_uri}. Si no acepta, registra que prefiere una devolución de llamada. Nunca transfieras sin aceptación.`,
           tool_ids: [],
+          mcp_server_ids: [],
+          tools: [],
           knowledge_base: [],
           built_in_tools: {
             end_call: {
@@ -66,6 +74,7 @@ export function dentalAgentConfig(staffName, route, voiceId) {
       tts: { voice_id: voiceId, model_id: SALES_VOICE_MODEL },
       conversation: { max_duration_seconds: 300 },
     },
+    workflow: { nodes: {}, edges: {} },
     platform_settings: {
       data_collection: {
         plw_opt_out: {
@@ -86,41 +95,41 @@ export function dentalAgentConfig(staffName, route, voiceId) {
     },
   };
 }
-export function safeAgent(config, route) {
-  if (!config || config.agent_id !== route.provider_agent_id || config.agent_id === PLW_AGENT_ID)
-    return false;
-  const p = config.conversation_config?.agent?.prompt;
-  if (
-    config.conversation_config?.agent?.first_message !== DENTAL_FIRST_MESSAGE ||
-    config.conversation_config?.agent?.language !== 'es' ||
-    config.conversation_config?.tts?.model_id !== SALES_VOICE_MODEL
-  )
-    return false;
-  if (
-    !p?.prompt?.startsWith(salesPrompt({ dentalMode: true })) ||
-    !p.prompt.includes(SALES_SCRIPT_VERSION) ||
-    p.tool_ids?.length ||
-    p.mcp_server_ids?.length ||
-    p.knowledge_base?.length ||
-    (p.tools ?? []).length ||
-    Object.keys(config.workflow?.nodes ?? {}).length
-  )
-    return false;
-  const built = p.built_in_tools ?? {};
+// Line endings and edge whitespace are the only provider normalization accepted.
+const text = (value) => String(value ?? '').replace(/\r\n/g, '\n').trim();
+export function agentConfigFailures(config, route) {
+  if (!config || typeof config !== 'object') return ['provider_read'];
+  if (config.agent_id !== route.provider_agent_id || config.agent_id === PLW_AGENT_ID)
+    return ['agent_identity'];
+  const failures = [];
+  const agent = config.conversation_config?.agent;
+  const p = agent?.prompt;
+  if (text(agent?.first_message) !== text(DENTAL_FIRST_MESSAGE)) failures.push('first_message');
+  if (agent?.language !== 'es') failures.push('language');
+  if (config.conversation_config?.tts?.model_id !== SALES_VOICE_MODEL) failures.push('voice_model');
+  if (!text(p?.prompt).startsWith(text(salesPrompt({ dentalMode: true })))) failures.push('prompt_base');
+  if (!text(p?.prompt).includes(SALES_SCRIPT_VERSION)) failures.push('script_version');
+  if (p?.tool_ids?.length || p?.mcp_server_ids?.length || p?.knowledge_base?.length || (p?.tools ?? []).length)
+    failures.push('extra_tools_or_knowledge');
+  if (Object.keys(config.workflow?.nodes ?? {}).length) failures.push('workflow');
+  const built = p?.built_in_tools ?? {};
   if (
     Object.entries(built).some(
       ([name, value]) => value && !['end_call', 'transfer_to_number'].includes(name)
     )
   )
-    return false;
+    failures.push('extra_builtin_tool');
   const t = built.transfer_to_number?.params?.transfers;
-  return (
-    Array.isArray(t) &&
-    t.length === 1 &&
-    t[0].transfer_type === 'sip_refer' &&
-    t[0].transfer_destination?.type === 'sip_uri' &&
-    t[0].transfer_destination?.sip_uri === route.transfer_uri
-  );
+  if (!Array.isArray(t) || t.length !== 1) failures.push('transfer_count');
+  else {
+    if (t[0].transfer_type !== 'sip_refer') failures.push('transfer_type');
+    if (t[0].transfer_destination?.type !== 'sip_uri') failures.push('transfer_destination_type');
+    if (t[0].transfer_destination?.sip_uri !== route.transfer_uri) failures.push('transfer_destination');
+  }
+  return failures;
+}
+export function safeAgent(config, route) {
+  return agentConfigFailures(config, route).length === 0;
 }
 export function conversationUpdate(data, call, now = new Date().toISOString()) {
   if (

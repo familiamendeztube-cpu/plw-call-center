@@ -8,6 +8,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { AppHeader } from '@/app/shell/AppHeader';
 import { WorkspaceNav } from '@/app/shell/WorkspaceNav';
 import { ADMIN_NAV_ITEMS, AGENT_NAV_ITEMS } from '@/app/shell/navigation';
+import { DentalIncomingAlert } from '@/features/dental-leads/components/DentalIncomingAlert';
 
 export function WorkspaceLayout() {
   const { session } = useAuth();
@@ -55,6 +56,7 @@ export function WorkspaceLayout() {
           <PhonePanel />
         </Drawer>
       ) : null}
+      {isAgent ? <DentalIncomingAlert /> : null}
     </div>
   );
 }

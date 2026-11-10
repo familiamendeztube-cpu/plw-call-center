@@ -112,7 +112,7 @@ export function DentalDialerPage() {
           </p>
           {admin && route && (
             <DentalDialerControls
-              key={staffId}
+              key={`controls-${staffId}`}
               route={route}
               runtime={state.runtime}
               reload={state.reload}
@@ -125,7 +125,7 @@ export function DentalDialerPage() {
               title="Falta configurar la ruta telefónica de este agente."
             />
           )}
-          <DentalCallHistory key={staffId} calls={calls} reload={state.reload} />
+          <DentalCallHistory key={`history-${staffId}`} calls={calls} reload={state.reload} />
         </>
       )}
     </div>

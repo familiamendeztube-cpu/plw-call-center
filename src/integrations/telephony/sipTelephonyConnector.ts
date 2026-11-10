@@ -1,7 +1,11 @@
 import { UA, WebSocketInterface } from 'jssip';
 import type { RTCSession } from 'jssip/lib/RTCSession';
 import type { IncomingRTCSessionEvent, OutgoingRTCSessionEvent } from 'jssip/lib/UA';
-import { toCostaRicaNumber, type CallSnapshot } from '@/features/telephony/models/call';
+import {
+  dentalCallIdFromHeader,
+  toCostaRicaNumber,
+  type CallSnapshot,
+} from '@/features/telephony/models/call';
 import type { ConnectorResult } from '@/integrations/connectorResult';
 import {
   callStaffFunction,
@@ -218,6 +222,7 @@ export function createSipTelephonyConnector(): TelephonyConnector {
   function trackSession({
     session: next,
     originator,
+    request,
   }: IncomingRTCSessionEvent | OutgoingRTCSessionEvent) {
     const inbound = (originator as string) === 'remote';
     if (session) {
@@ -235,6 +240,9 @@ export function createSipTelephonyConnector(): TelephonyConnector {
         remoteNumber: next.remote_identity.uri.user ?? '',
         startedAt: null,
         muted: false,
+        dentalCallId: inbound
+          ? dentalCallIdFromHeader(request.getHeader('X-PLW-Dental-Call'))
+          : null,
       },
       inbound && !ringerReady() ? RING_LOCKED : undefined
     );

@@ -23,7 +23,7 @@
     },
     "dental-dialer": {
       "hasChanged": false,
-      "hash": "8504950f3e2350855e4d5667ac7766b2a00124ed03c32f5ab3cf810b686e4b8e"
+      "hash": "80ae1f3f92d6580ba158c8d23256ecd30e53e568ee28f9c7afd90c3bfc3ffb5f"
     },
     "elevenlabs-webhook": {
       "hasChanged": false,
@@ -47,7 +47,7 @@
     },
     "whatsapp": {
       "hasChanged": false,
-      "hash": "91056feca5c2c9d1564d9f5de136a4322833a0d1de6494c41c0caf16a514d06c"
+      "hash": "07be34126010cc7f64eb0eeb150cd3636a8c48f16471493f9a8d83b943302c6b"
     }
   }
 }

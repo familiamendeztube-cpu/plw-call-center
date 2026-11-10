@@ -6,6 +6,7 @@ import type {
   DentalRuntime,
   DentalTranscript,
 } from '../models/dentalDialer';
+import type { IncomingDentalCallRow, IncomingDentalLead } from '../models/incomingDentalCall';
 export async function loadDialer(signal: AbortSignal) {
   const db = getSupabaseClient();
   const [routes, runtime] = await Promise.all([
@@ -64,6 +65,29 @@ export async function loadTranscript(id: string, signal: AbortSignal) {
     .single();
   if (error) throw new Error('No se pudo cargar la transcripción.');
   return data as DentalTranscript;
+}
+export async function loadIncomingDentalCall(
+  id: string,
+  signal: AbortSignal
+): Promise<{ call: IncomingDentalCallRow; lead: IncomingDentalLead | null }> {
+  const db = getSupabaseClient();
+  const callResult = await db
+    .from('dental_calls')
+    .select('id,lead_id,staff_id,phone,state,transfer_status,summary')
+    .eq('id', id)
+    .abortSignal(signal)
+    .maybeSingle();
+  if (callResult.error) throw new Error('No se pudo cargar la llamada.');
+  if (!callResult.data) throw new Error('La llamada no existe o no está disponible.');
+  const call = callResult.data as IncomingDentalCallRow;
+  const leadResult = await db
+    .from('dental_leads')
+    .select('id,business_name,province,canton,address')
+    .eq('id', call.lead_id)
+    .abortSignal(signal)
+    .maybeSingle();
+  if (leadResult.error) throw new Error('No se pudo cargar el dentista.');
+  return { call, lead: (leadResult.data as IncomingDentalLead | null) ?? null };
 }
 export async function confirmTransfer(id: string) {
   const { error } = await getSupabaseClient().rpc('confirm_dental_transfer', { p_call_id: id });
