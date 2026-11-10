@@ -129,12 +129,6 @@ export function agentShape(config) {
     workflow_edge_count: Object.keys(config?.workflow?.edges ?? {}).length,
   };
 }
-// ElevenLabs gives every agent a placeholder workflow (a lone start node). With no
-// edges nothing can leave the main agent, so only start/end nodes are allowed.
-function workflowIsEmpty(workflow) {
-  if (Object.keys(workflow?.edges ?? {}).length) return false;
-  return Object.values(workflow?.nodes ?? {}).every((node) => ['start', 'end'].includes(node?.type));
-}
 // Line endings and edge whitespace are the only provider normalization accepted.
 const text = (value) => String(value ?? '').replace(/\r\n/g, '\n').trim();
 export function agentConfigFailures(config, route) {
@@ -151,7 +145,7 @@ export function agentConfigFailures(config, route) {
   if (!text(p?.prompt).includes(SALES_SCRIPT_VERSION)) failures.push('script_version');
   if (p?.tool_ids?.length || p?.mcp_server_ids?.length || p?.knowledge_base?.length || (p?.tools ?? []).some((tool) => tool?.type !== 'system'))
     failures.push('extra_tools_or_knowledge');
-  if (!workflowIsEmpty(config.workflow)) failures.push('workflow');
+  if (Object.keys(config.workflow?.nodes ?? {}).length) failures.push('workflow');
   const built = p?.built_in_tools ?? {};
   if (
     Object.entries(built).some(
