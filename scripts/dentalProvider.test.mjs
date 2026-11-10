@@ -83,6 +83,8 @@ test('verifier names each failed invariant and accepts only line-ending and edge
     ['script_version', (c) => (c.conversation_config.agent.prompt.prompt = c.conversation_config.agent.prompt.prompt.replace(SALES_SCRIPT_VERSION, 'old'))],
     ['extra_builtin_tool', (c) => (c.conversation_config.agent.prompt.built_in_tools.skip_turn = { type: 'system' })],
     ['transfer_count', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers = [])],
+    // The braces template is what broke every transfer; it must be detected and re-pushed.
+    ['transfer_headers', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers[0].custom_sip_headers[0].value = '{{plw_dental_call_id}}')],
     ['workflow', (c) => (c.workflow = { nodes: { a: {} } })],
     ['workflow', (c) => (c.workflow = { nodes: { s: { type: 'start' }, a: { type: 'override_agent' } }, edges: {} })],
     ['workflow', (c) => (c.workflow = { nodes: { s: { type: 'start' }, e: { type: 'end' } }, edges: { s_e: { source: 's', target: 'e' } } })],

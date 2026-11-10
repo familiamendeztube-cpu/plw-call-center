@@ -26,6 +26,9 @@ export async function providerRequest(
     data: await response.json().catch(() => null),
   };
 }
+// For a "dynamic" header ElevenLabs wants the variable's NAME, not a {{template}}: the value
+// "{{plw_dental_call_id}}" made every transfer fail with MissingDynamicVariableError.
+const TRANSFER_HEADER = { type: 'dynamic', key: 'X-PLW-Dental-Call', value: 'plw_dental_call_id' };
 // The owner's 13 call outcomes. ElevenLabs fills these fields from the transcript after the call.
 export const CALL_OUTCOMES = [
   'APPOINTMENT_CONFIRMED',
@@ -143,13 +146,7 @@ export function dentalAgentConfig(staffName, route, voiceId) {
                     transfer_destination: { type: 'sip_uri', sip_uri: route.transfer_uri },
                     transfer_type: 'sip_refer',
                     condition: `La persona expresa interés y acepta hablar ahora con ${staffName}.`,
-                    custom_sip_headers: [
-                      {
-                        type: 'dynamic',
-                        key: 'X-PLW-Dental-Call',
-                        value: '{{plw_dental_call_id}}',
-                      },
-                    ],
+                    custom_sip_headers: [TRANSFER_HEADER],
                   },
                 ],
               },
@@ -267,6 +264,13 @@ export function agentConfigFailures(config, route) {
     if (t[0].transfer_type !== 'sip_refer') failures.push('transfer_type');
     if (t[0].transfer_destination?.type !== 'sip_uri') failures.push('transfer_destination_type');
     if (t[0].transfer_destination?.sip_uri !== route.transfer_uri) failures.push('transfer_destination');
+    const h = t[0].custom_sip_headers;
+    if (
+      !Array.isArray(h) ||
+      h.length !== 1 ||
+      ['type', 'key', 'value'].some((field) => h[0]?.[field] !== TRANSFER_HEADER[field])
+    )
+      failures.push('transfer_headers');
   }
   return failures;
 }
