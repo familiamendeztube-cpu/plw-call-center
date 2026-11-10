@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
         const patched = await providerRequest(
           apiKey,
           agentPath,
-          dentalAgentConfig(staffName, route, settings.voice_id),
+          { ...dentalAgentConfig(staffName, route, settings.voice_id), workflow: { nodes: {}, edges: {} } },
           fetch,
           'PATCH'
         );
