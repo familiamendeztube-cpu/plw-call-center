@@ -72,7 +72,7 @@ export function TestCallDialog({ open, onClose }: TestCallDialogProps) {
     <Dialog
       open={open}
       title="Llamada de prueba"
-      description="El asistente llama a este número y se presenta como asistente virtual de PLW."
+      description="El asistente llama a este número para presentar PLW y ofrecer una conversación con un agente."
       onClose={handleClose}
       footer={
         <>
