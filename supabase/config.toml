@@ -32,3 +32,7 @@ verify_jwt = false
 [functions.whatsapp]
 # The caller's session is checked by row-level security inside the handler.
 verify_jwt = false
+
+[functions.ai-outbound-test-call]
+# The admin session is checked inside the handler via authorizeAdmin.
+verify_jwt = false

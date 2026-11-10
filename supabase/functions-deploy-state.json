@@ -1,9 +1,25 @@
 {
-  "projectId": "72547894",
+  "projectId": "72631818",
   "functions": {
     "admin-actions": {
       "hasChanged": false,
       "hash": "b87c2dbc3e287107e34659a97ab2623a421f615db5aa354ed5d36ee8f053a1d7"
+    },
+    "ai-call-audio": {
+      "hasChanged": false,
+      "hash": "7c9ced85372eee7e5801afff67c8937c014d04ba48888580c97764ec540b2021"
+    },
+    "asterisk-bridge": {
+      "hasChanged": false,
+      "hash": "3fb8443f5a2d7563361d4126ed5e8e91f9faa76acc88b57dba32a4fbb1390fd6"
+    },
+    "chatwoot-webhook": {
+      "hasChanged": false,
+      "hash": "804103d211aaf8e6ac05b51fea844812303ee7d39630509cfa23f15a6a550d64"
+    },
+    "elevenlabs-webhook": {
+      "hasChanged": false,
+      "hash": "804d2faa1bccd9d6a721f1801d5a2b56b32929a600ee75533d66c708d287dc4b"
     },
     "google-workspace": {
       "hasChanged": false,
@@ -16,6 +32,18 @@
     "staff-auth": {
       "hasChanged": false,
       "hash": "5befcff18ee7d1d071d72bc94629a877094523ea38811e87f7ccc54671030b19"
+    },
+    "telephony": {
+      "hasChanged": false,
+      "hash": "f4a9548bfb34c7bd1f231fea9e68f2ccd787eb7d12a0de103ae945d80b3f770e"
+    },
+    "whatsapp": {
+      "hasChanged": false,
+      "hash": "91056feca5c2c9d1564d9f5de136a4322833a0d1de6494c41c0caf16a514d06c"
+    },
+    "ai-outbound-setup": {
+      "hasChanged": false,
+      "hash": "8da9362d4f25d2c5f1d14a2eb9bdb53c509bf1ddd26d9a739ec7a9a51e57098d"
     }
   }
 }

@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Phone, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { CampaignDetail } from '@/features/ai-outbound/components/CampaignDetail';
 import { CreateCampaignDialog } from '@/features/ai-outbound/components/CreateCampaignDialog';
+import { TestCallDialog } from '@/features/ai-outbound/components/TestCallDialog';
 import { useOutboundCampaigns } from '@/features/ai-outbound/hooks/useOutboundCampaigns';
 import { cx } from '@/components/ui/cx';
 
 export function AdminAiOutboundPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [testing, setTesting] = useState(false);
   const { state, reload } = useOutboundCampaigns();
 
   const campaigns = state.status === 'ready' ? state.data : [];
@@ -22,10 +24,16 @@ export function AdminAiOutboundPage() {
         title="Marcador IA"
         description="Prepara campañas de llamadas salientes del asistente IA con listas de contactos."
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus size={16} aria-hidden="true" />
-            Nueva campaña
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setTesting(true)}>
+              <Phone size={16} aria-hidden="true" />
+              Llamada de prueba
+            </Button>
+            <Button onClick={() => setCreating(true)}>
+              <Plus size={16} aria-hidden="true" />
+              Nueva campaña
+            </Button>
+          </div>
         }
       />
 
@@ -77,6 +85,8 @@ export function AdminAiOutboundPage() {
         onClose={() => setCreating(false)}
         onCreated={reload}
       />
+
+      <TestCallDialog open={testing} onClose={() => setTesting(false)} />
     </div>
   );
 }
