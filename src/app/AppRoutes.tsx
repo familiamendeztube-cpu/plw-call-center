@@ -18,6 +18,7 @@ import { AdminIntegrationsPage } from '@/features/admin/pages/AdminIntegrationsP
 import { AdminSettingsPage } from '@/features/admin/pages/AdminSettingsPage';
 import { AdminAiCallsPage } from '@/features/ai-calls/pages/AdminAiCallsPage';
 import { AdminAiOutboundPage } from '@/features/ai-outbound/pages/AdminAiOutboundPage';
+import { DentalLeadsPage } from '@/features/dental-leads/pages/DentalLeadsPage';
 
 export function AppRoutes() {
   return (
@@ -33,6 +34,7 @@ export function AppRoutes() {
         }
       >
         <Route path="/clientes" element={<CustomersPage />} />
+        <Route path="/dentistas" element={<DentalLeadsPage />} />
         <Route path="/bandeja" element={<Navigate to="/clientes" replace />} />
         <Route path="/prospectos" element={<Navigate to="/clientes" replace />} />
         <Route path="/seguimientos" element={<FollowupsPage />} />
@@ -52,6 +54,7 @@ export function AppRoutes() {
         <Route path="/admin/asignaciones" element={<AssignmentPage />} />
         <Route path="/admin/solicitudes-ia" element={<AdminAiCallsPage />} />
         <Route path="/admin/marcador-ia" element={<AdminAiOutboundPage />} />
+        <Route path="/admin/dentistas" element={<DentalLeadsPage />} />
         <Route path="/admin/seguimientos" element={<AdminFollowupsPage />} />
         <Route path="/admin/material-comercial" element={<MaterialsPage />} />
         <Route path="/admin/integraciones" element={<AdminIntegrationsPage />} />

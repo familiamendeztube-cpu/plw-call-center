@@ -7,6 +7,7 @@ export const AGENT_HOME = '/clientes';
 export const ADMIN_HOME = '/admin/resumen';
 
 export const AGENT_NAV_ITEMS: NavItem[] = [
+  { to: '/dentistas', label: 'Dentistas' },
   { to: '/clientes', label: 'Clientes' },
   { to: '/seguimientos', label: 'Seguimientos' },
   { to: '/material-comercial', label: 'Material' },
@@ -19,6 +20,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/admin/asignaciones', label: 'Asignaciones' },
   { to: '/admin/solicitudes-ia', label: 'Solicitudes IA' },
   { to: '/admin/marcador-ia', label: 'Marcador IA' },
+  { to: '/admin/dentistas', label: 'Dentistas' },
   { to: '/admin/seguimientos', label: 'Seguimientos' },
   { to: '/admin/material-comercial', label: 'Material comercial' },
   { to: '/admin/integraciones', label: 'Integraciones' },
