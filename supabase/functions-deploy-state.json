@@ -11,7 +11,7 @@
     },
     "ai-outbound-test-call": {
       "hasChanged": false,
-      "hash": "6bb1fd831cce5c5799ad475e51b8ddc76ba4454bea8ee35045b71ab8c3220bdf"
+      "hash": "1fa3c15941e857da6467226342cc3cad42444e424ec86e716d03eb6cd7ea9415"
     },
     "asterisk-bridge": {
       "hasChanged": false,
@@ -20,6 +20,10 @@
     "chatwoot-webhook": {
       "hasChanged": false,
       "hash": "804103d211aaf8e6ac05b51fea844812303ee7d39630509cfa23f15a6a550d64"
+    },
+    "dental-dialer": {
+      "hasChanged": false,
+      "hash": "8504950f3e2350855e4d5667ac7766b2a00124ed03c32f5ab3cf810b686e4b8e"
     },
     "elevenlabs-webhook": {
       "hasChanged": false,

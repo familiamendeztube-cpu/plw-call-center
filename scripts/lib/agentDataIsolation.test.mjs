@@ -35,14 +35,31 @@ const ADMIN_ONLY_TABLES = [
   'admin_audit_events',
   'ai_webhook_failures',
 ];
+const OUTBOUND_ADMIN_TABLES = [
+  'ai_outbound_campaigns',
+  'ai_outbound_leads',
+  'ai_outbound_campaign_agents',
+  'ai_outbound_do_not_call',
+  'ai_outbound_settings',
+  'ai_outbound_test_calls',
+];
+const OUTBOUND_INTAKE_TABLES = OUTBOUND_ADMIN_TABLES.filter(
+  (table) => !['ai_outbound_settings', 'ai_outbound_test_calls'].includes(table)
+);
 const SHARED_TABLES = ['sales_materials', 'settings'];
 
 // Any new entry here is a new way for a browser to reach data, so it needs its own
 // isolation test before it joins these lists.
 const BROWSER_READABLE_TABLES = [
+  'dental_campaigns',
+  'dental_leads',
+  'dental_agent_dialers',
+  'dental_dialer_runtime',
+  'dental_calls',
   ...OWNED_TABLES,
   ...PERSONAL_TABLES.map(([table]) => table),
   ...ADMIN_ONLY_TABLES,
+  ...OUTBOUND_ADMIN_TABLES,
   ...SHARED_TABLES,
   'staff_presence',
   'staff_profiles',
@@ -58,8 +75,11 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'admin_set_gmail_sync',
   'admin_set_setting',
   'admin_update_staff',
+  'assign_dental_leads',
   'can_access_conversation',
   'can_access_prospect',
+  'confirm_dental_transfer',
+  'control_dental_dialer',
   'create_inquiry',
   'current_staff_id',
   'get_reply_target',
@@ -81,6 +101,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'set_payment_status',
   'set_prospect_stage',
   'setting_int',
+  'update_dental_lead',
 ];
 
 const OWNER_ACTIONS = [
@@ -384,7 +405,7 @@ test('no signed-in staff member can read PINs, phone passwords or Chatwoot token
   }
 });
 
-test('a browser cannot write to a table directly', async () => {
+test('browser writes are limited to the admin-only outbound intake tables', async () => {
   await assert.rejects(
     runAs(AGENT_1, `UPDATE public.prospects SET owner_id = 'agent-1' WHERE id = $1`, [CLIENT_OF_2]),
     /permission denied/
@@ -394,7 +415,7 @@ test('a browser cannot write to a table directly', async () => {
     WHERE n.nspname = 'public' AND c.relkind = 'r'
       AND (has_table_privilege('authenticated', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE')
         OR has_table_privilege('anon', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE'))`);
-  assert.deepEqual(rows, []);
+  assert.deepEqual(rows.map((row) => row.relname).sort(), OUTBOUND_INTAKE_TABLES.sort());
 });
 
 test('every table has row level security', async () => {

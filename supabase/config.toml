@@ -36,3 +36,7 @@ verify_jwt = false
 [functions.ai-outbound-test-call]
 # The admin session is checked inside the handler via authorizeAdmin.
 verify_jwt = false
+
+[functions.dental-dialer]
+# Live staff sessions or the dedicated Vault scheduler key are checked in the handler.
+verify_jwt = false

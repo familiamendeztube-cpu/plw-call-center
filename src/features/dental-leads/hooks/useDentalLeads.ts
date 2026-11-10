@@ -28,22 +28,36 @@ export function useDentalLeads(enabled: boolean, admin: boolean) {
       return () => controller.abort();
     }
     setState((v) => ({ ...v, loading: true, error: null }));
-    Promise.all([
-      loadDentalData(controller.signal),
-      admin ? listEnabledAgents() : Promise.resolve([]),
-    ])
-      .then(([data, agents]) => {
-        if (!controller.signal.aborted) setState({ ...data, agents, loading: false, error: null });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setState((v) => ({
-            ...v,
-            loading: false,
-            error: 'No se pudo actualizar la lista dental. Intente nuevamente.',
-          }));
-      });
-    return () => controller.abort();
+    let busy = false;
+    function update() {
+      if (busy) return;
+      busy = true;
+      return Promise.all([
+        loadDentalData(controller.signal),
+        admin ? listEnabledAgents() : Promise.resolve([]),
+      ])
+        .then(([data, agents]) => {
+          if (!controller.signal.aborted)
+            setState({ ...data, agents, loading: false, error: null });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted)
+            setState((v) => ({
+              ...v,
+              loading: false,
+              error: 'No se pudo actualizar la lista dental. Intente nuevamente.',
+            }));
+        })
+        .finally(() => {
+          busy = false;
+        });
+    }
+    void update();
+    const timer = window.setInterval(() => void update(), 15000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
   }, [revision, enabled, admin]);
   return { ...state, reload };
 }

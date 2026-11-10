@@ -19,6 +19,7 @@ import { AdminSettingsPage } from '@/features/admin/pages/AdminSettingsPage';
 import { AdminAiCallsPage } from '@/features/ai-calls/pages/AdminAiCallsPage';
 import { AdminAiOutboundPage } from '@/features/ai-outbound/pages/AdminAiOutboundPage';
 import { DentalLeadsPage } from '@/features/dental-leads/pages/DentalLeadsPage';
+import { DentalDialerPage } from '@/features/dental-leads/pages/DentalDialerPage';
 
 export function AppRoutes() {
   return (
@@ -35,6 +36,7 @@ export function AppRoutes() {
       >
         <Route path="/clientes" element={<CustomersPage />} />
         <Route path="/dentistas" element={<DentalLeadsPage />} />
+        <Route path="/llamadas-dentales" element={<DentalDialerPage />} />
         <Route path="/bandeja" element={<Navigate to="/clientes" replace />} />
         <Route path="/prospectos" element={<Navigate to="/clientes" replace />} />
         <Route path="/seguimientos" element={<FollowupsPage />} />
@@ -53,7 +55,8 @@ export function AppRoutes() {
         <Route path="/admin/prospectos" element={<AdminProspectsPage />} />
         <Route path="/admin/asignaciones" element={<AssignmentPage />} />
         <Route path="/admin/solicitudes-ia" element={<AdminAiCallsPage />} />
-        <Route path="/admin/marcador-ia" element={<AdminAiOutboundPage />} />
+        <Route path="/admin/marcador-ia" element={<DentalDialerPage />} />
+        <Route path="/admin/marcador-general" element={<AdminAiOutboundPage />} />
         <Route path="/admin/dentistas" element={<DentalLeadsPage />} />
         <Route path="/admin/seguimientos" element={<AdminFollowupsPage />} />
         <Route path="/admin/material-comercial" element={<MaterialsPage />} />

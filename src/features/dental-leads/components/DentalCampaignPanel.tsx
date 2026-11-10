@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import type { StaffAgent } from '@/features/ai-outbound/services/outboundCampaigns';
 import { dentalCounts, type DentalCampaign, type DentalLead } from '../models/dentalLead';
@@ -48,9 +49,7 @@ export function DentalCampaignPanel({
           </p>
         </div>
         <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold">
-          {campaign.automation_status === 'not_configured'
-            ? 'Marcación IA pendiente'
-            : campaign.automation_status}
+          Control por agente
         </span>
       </div>
       {campaign.planned_start_at && (
@@ -64,7 +63,12 @@ export function DentalCampaignPanel({
           . La fecha prevista no activa llamadas.
         </p>
       )}
-      <p className="rounded-lg bg-white/10 p-3 text-sm">{campaign.readiness_note}</p>
+      <Link
+        to={admin ? '/admin/marcador-ia' : '/llamadas-dentales'}
+        className="rounded-lg bg-white/10 p-3 text-sm underline"
+      >
+        Abrir marcador: controles, llamadas, transferencias y transcripciones.
+      </Link>
       {admin && (
         <div className="grid gap-3 sm:grid-cols-2">
           {selected.map((agent) => {

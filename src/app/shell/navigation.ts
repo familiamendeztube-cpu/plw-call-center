@@ -8,6 +8,7 @@ export const ADMIN_HOME = '/admin/resumen';
 
 export const AGENT_NAV_ITEMS: NavItem[] = [
   { to: '/dentistas', label: 'Dentistas' },
+  { to: '/llamadas-dentales', label: 'Llamadas IA' },
   { to: '/clientes', label: 'Clientes' },
   { to: '/seguimientos', label: 'Seguimientos' },
   { to: '/material-comercial', label: 'Material' },
