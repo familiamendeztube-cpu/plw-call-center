@@ -18,6 +18,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/admin/prospectos', label: 'Prospectos' },
   { to: '/admin/asignaciones', label: 'Asignaciones' },
   { to: '/admin/solicitudes-ia', label: 'Solicitudes IA' },
+  { to: '/admin/marcador-ia', label: 'Marcador IA' },
   { to: '/admin/seguimientos', label: 'Seguimientos' },
   { to: '/admin/material-comercial', label: 'Material comercial' },
   { to: '/admin/integraciones', label: 'Integraciones' },

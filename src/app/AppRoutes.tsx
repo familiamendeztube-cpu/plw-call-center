@@ -17,6 +17,7 @@ import { AdminFollowupsPage } from '@/features/admin/pages/AdminFollowupsPage';
 import { AdminIntegrationsPage } from '@/features/admin/pages/AdminIntegrationsPage';
 import { AdminSettingsPage } from '@/features/admin/pages/AdminSettingsPage';
 import { AdminAiCallsPage } from '@/features/ai-calls/pages/AdminAiCallsPage';
+import { AdminAiOutboundPage } from '@/features/ai-outbound/pages/AdminAiOutboundPage';
 
 export function AppRoutes() {
   return (
@@ -50,6 +51,7 @@ export function AppRoutes() {
         <Route path="/admin/prospectos" element={<AdminProspectsPage />} />
         <Route path="/admin/asignaciones" element={<AssignmentPage />} />
         <Route path="/admin/solicitudes-ia" element={<AdminAiCallsPage />} />
+        <Route path="/admin/marcador-ia" element={<AdminAiOutboundPage />} />
         <Route path="/admin/seguimientos" element={<AdminFollowupsPage />} />
         <Route path="/admin/material-comercial" element={<MaterialsPage />} />
         <Route path="/admin/integraciones" element={<AdminIntegrationsPage />} />
