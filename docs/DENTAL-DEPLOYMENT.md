@@ -22,6 +22,17 @@ Each agent gets a separate ElevenLabs dental agent. The existing inbound agent a
 
 A transfer tool invocation means **requested**, not delivered. Only the assigned receiving agent can press **Recibí esta transferencia**. An actual test confirmation unlocks that agent's transfer gate. This records the receiving agent's acknowledgement; it is not automatic carrier proof.
 
+## Limited Alejandro pilot exception (migration `20261110151741`)
+
+This narrow exception allows a bounded pilot before Alejandro's real transfer confirmation exists. It does not change the general rule above for the full campaign.
+
+- Scope: Alejandro (`agent-2`) only, at most 20 new non-test attempts, two simultaneous. The limit is enforced in the database. Reservations, provider rejections and uncertain results all consume it. A test call to an administrator's own phone does not.
+- When the limit is reached, the dialer pauses automatically and the server refuses further attempts. Calls already started may finish. Uncertain attempts are never redialed automatically.
+- Transfers made during the pilot stay marked **unverified** until Alejandro receives one and confirms it in his own history. A requested transfer or Ana's spoken words do not count as confirmation.
+- Valeska's dialer, the general dialer, WhatsApp, Gmail and the inbound receptionist are not changed by this exception. Valeska's test is not a prerequisite for Alejandro's pilot.
+- Before activation, Ana's script and voice must be verified in the provider and a fresh server heartbeat must be present. Nothing in the database or this document may be used to fabricate those checks.
+- The pilot's status, error messages and rules are described in `docs/DENTAL-PILOT-20.md`. Rollback is the same as above: stop Alejandro first and keep the migration and its limit in place.
+
 ## Remaining live work — not completed
 
 1. Apply migrations `20261110090000_dental_dialer_controls.sql` and `20261110091000_dental_scheduler.sql` to the exact PLW backend. Do not rerun `20261110080000`: it already exists live. Its source in this package restores the schema contract for fresh local test databases; reconcile it with the migration-history SQL before treating it as an exact historical copy.

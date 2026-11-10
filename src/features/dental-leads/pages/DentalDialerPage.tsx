@@ -18,6 +18,7 @@ export function DentalDialerPage() {
   const route = state.routes.find((r) => r.staff_id === staffId);
   const calls = state.calls.filter((c) => c.staff_id === staffId);
   const live = calls.filter((c) => !c.is_test);
+  const pilotAttempts = Math.max(0, live.length - (route?.pilot_baseline_count ?? 0));
   const own = leads.leads.filter((l) => l.owner_staff_id === staffId);
   const totals = [
     ['Dentistas asignados', own.length],
@@ -31,6 +32,8 @@ export function DentalDialerPage() {
     ],
     ['Sin confirmar', live.filter((c) => c.state === 'uncertain').length],
   ];
+  if (route?.pilot_call_limit)
+    totals.push(['Intentos del piloto', `${pilotAttempts} / ${route.pilot_call_limit}`]);
   return (
     <div className="grid gap-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
@@ -113,6 +116,7 @@ export function DentalDialerPage() {
               route={route}
               runtime={state.runtime}
               reload={state.reload}
+              pilotAttempts={pilotAttempts}
             />
           )}
           {admin && !route && (

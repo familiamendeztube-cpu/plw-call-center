@@ -5,6 +5,8 @@ export interface DentalDialer {
   config_verified_at: string | null;
   transfer_verified_at: string | null;
   last_error: string;
+  pilot_call_limit?: number | null;
+  pilot_baseline_count?: number;
 }
 export interface DentalRuntime {
   last_tick_at: string | null;
@@ -51,7 +53,8 @@ export function dialerReady(
   return Boolean(
     route?.provider_agent_id &&
     route.config_verified_at &&
-    route.transfer_verified_at &&
+    (route.transfer_verified_at ||
+      (route.pilot_call_limit && route.pilot_call_limit >= 1 && route.pilot_call_limit <= 20)) &&
     runtime?.scheduler_ready &&
     age >= -5000 &&
     age < 120000

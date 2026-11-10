@@ -11,7 +11,9 @@ export async function loadDialer(signal: AbortSignal) {
   const [routes, runtime] = await Promise.all([
     db
       .from('dental_agent_dialers')
-      .select('staff_id,state,provider_agent_id,config_verified_at,transfer_verified_at,last_error')
+      .select(
+        'staff_id,state,provider_agent_id,config_verified_at,transfer_verified_at,last_error,pilot_call_limit,pilot_baseline_count'
+      )
       .abortSignal(signal),
     db
       .from('dental_dialer_runtime')
@@ -46,17 +48,12 @@ export async function controlDialer(staffId: string, action: string) {
   });
   if (error)
     throw new Error(
-      'No se pudo guardar la acción. Verifique el servidor y la prueba de transferencia.'
+      error.message ||
+        'No se pudo guardar la acción. Verifique el servidor y la prueba de transferencia.'
     );
 }
 export async function dentalServerAction(input: Record<string, unknown>) {
-  try {
-    return await callStaffFunction('dental-dialer', input);
-  } catch {
-    throw new Error(
-      'El servidor dental no confirmó la operación. Revise su despliegue y el historial antes de repetir una llamada.'
-    );
-  }
+  return await callStaffFunction('dental-dialer', input);
 }
 export async function loadTranscript(id: string, signal: AbortSignal) {
   const { data, error } = await getSupabaseClient()

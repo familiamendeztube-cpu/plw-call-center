@@ -42,3 +42,30 @@ it('resume applies only to the selected agent', async () => {
   await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
   expect(screen.getByRole('status').textContent).toContain('Acción guardada');
 });
+
+it('only a bounded pilot can start without transfer verification, and its status stays explicit', () => {
+  const pending = {
+    ...route,
+    state: 'stopped' as const,
+    transfer_verified_at: null,
+    pilot_call_limit: 20,
+  };
+  expect(dialerReady(pending, runtime)).toBe(true);
+  expect(dialerReady({ ...pending, pilot_call_limit: 21 }, runtime)).toBe(false);
+  expect(dialerReady({ ...pending, config_verified_at: null }, runtime)).toBe(false);
+  expect(dialerReady(pending, { ...runtime, scheduler_ready: false })).toBe(false);
+  const { rerender } = render(
+    <DentalDialerControls route={pending} runtime={runtime} reload={vi.fn()} />
+  );
+  expect(
+    (screen.getByRole('button', { name: 'Activar piloto de 20' }) as HTMLButtonElement).disabled
+  ).toBe(false);
+  expect(screen.getByText(/Transferencia todavía no comprobada/)).toBeTruthy();
+  rerender(
+    <DentalDialerControls route={pending} runtime={runtime} reload={vi.fn()} pilotAttempts={20} />
+  );
+  expect(
+    (screen.getByRole('button', { name: 'Límite del piloto alcanzado' }) as HTMLButtonElement)
+      .disabled
+  ).toBe(true);
+});
