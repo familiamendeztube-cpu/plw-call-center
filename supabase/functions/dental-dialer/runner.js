@@ -259,16 +259,25 @@ export async function runTick(db, apiKey, fetchImpl = fetch) {
   await syncCalls(db, apiKey, fetchImpl);
   await reconcileStuckCalls(db, apiKey, fetchImpl).catch(() => {});
   const routes = await checked(db.from('dental_agent_dialers').select('*').eq('state', 'running'));
-  await Promise.all(
-    routes.map(async (route) => {
-      try {
-        const config = await providerRequest(
-          apiKey,
-          `/agents/${encodeURIComponent(route.provider_agent_id)}`,
-          undefined,
-          fetchImpl
-        );
-        if (!config.ok || !safeAgent(config.data, route)) {
+  const markIncomplete = (route) =>
+    checked(
+      db
+        .from('dental_agent_dialers')
+        .update({ last_error: 'No se pudo completar el ciclo. Las reservas permanecen protegidas.' })
+        .eq('staff_id', route.staff_id)
+    ).catch(() => {});
+  // 1. Each running agent's Anna must still match her verified configuration.
+  const verified = (
+    await Promise.all(
+      routes.map(async (route) => {
+        try {
+          const config = await providerRequest(
+            apiKey,
+            `/agents/${encodeURIComponent(route.provider_agent_id)}`,
+            undefined,
+            fetchImpl
+          );
+          if (config.ok && safeAgent(config.data, route)) return route;
           await checked(
             db
               .from('dental_agent_dialers')
@@ -280,30 +289,50 @@ export async function runTick(db, apiKey, fetchImpl = fetch) {
               })
               .eq('staff_id', route.staff_id)
           );
-          return;
+        } catch {
+          await markIncomplete(route);
         }
-        const dispatched = await Promise.allSettled(
-          [0, 1].map(async () => {
-            // The limited claim enforces the line's simultaneous-call limit (one at a time on
-            // 6198 for now) on top of claim_dental_call's own per-agent rules.
-            const claim = await checked(
-              db.rpc('claim_dental_call_limited', { p_staff_id: route.staff_id })
-            );
-            if (claim) await dispatchCall(db, apiKey, claim, fetchImpl);
-          })
-        );
-        if (dispatched.some((result) => result.status === 'rejected'))
-          throw new Error('Dispatch incomplete');
-      } catch {
-        await checked(
-          db
-            .from('dental_agent_dialers')
-            .update({
-              last_error: 'No se pudo completar el ciclo. Las reservas permanecen protegidas.',
-            })
-            .eq('staff_id', route.staff_id)
-        );
-      }
-    })
+        return null;
+      })
+    )
+  ).filter(Boolean);
+  if (!verified.length) return;
+  // 2. The agents share 4010 6198, so they take turns: whoever's last real call is oldest asks
+  // first. Claims run one after another so the order holds; the limited claim enforces the
+  // line's call limit, and the second pass lets one agent use a free second line.
+  const recent = await checked(
+    db
+      .from('dental_calls')
+      .select('staff_id,created_at')
+      .in('staff_id', verified.map((route) => route.staff_id))
+      .eq('is_test', false)
+      .order('created_at', { ascending: false })
+      .limit(50)
   );
+  const claims = [];
+  for (let pass = 0; pass < 2; pass++)
+    for (const route of takingTurns(verified, recent)) {
+      try {
+        const claim = await checked(
+          db.rpc('claim_dental_call_limited', { p_staff_id: route.staff_id })
+        );
+        if (claim) claims.push({ route, claim });
+      } catch {
+        await markIncomplete(route);
+      }
+    }
+  const results = await Promise.allSettled(
+    claims.map(({ claim }) => dispatchCall(db, apiKey, claim, fetchImpl))
+  );
+  await Promise.all(
+    results.map((result, i) => (result.status === 'rejected' ? markIncomplete(claims[i].route) : null))
+  );
+}
+
+/** Agents whose last real call is oldest go first; an agent with no calls yet goes first of all. */
+export function takingTurns(routes, recentCalls) {
+  const last = new Map();
+  for (const call of recentCalls)
+    if (!last.has(call.staff_id)) last.set(call.staff_id, Date.parse(call.created_at));
+  return [...routes].sort((a, b) => (last.get(a.staff_id) ?? 0) - (last.get(b.staff_id) ?? 0));
 }

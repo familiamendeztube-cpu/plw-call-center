@@ -39,7 +39,7 @@ export function DentalDialerPage() {
     <div className="grid gap-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Marcador dental · Ana"
-        description="Dos llamadas simultáneas por agente. De lunes a viernes, de 9:00 a 17:00, hora de Costa Rica."
+        description="Los agentes activos se turnan las llamadas en la línea 4010 6198. De lunes a viernes, de 9:00 a 17:00, hora de Costa Rica."
         actions={
           <Link
             to={admin ? '/admin/dentistas' : '/dentistas'}

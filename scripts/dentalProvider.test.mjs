@@ -16,6 +16,7 @@ import {
   dispatchCall,
   reconcileStuckCalls,
   syncCalls,
+  takingTurns,
 } from '../supabase/functions/dental-dialer/runner.js';
 import { PLW_AGENT_ID } from '../supabase/functions/elevenlabs-webhook/rules.js';
 const route = {
@@ -289,6 +290,17 @@ test('stuck calls are recovered from ElevenLabs, or closed only after a clean 15
   await reconcileStuckCalls(db, 'k', async () => new Response('down', { status: 500 }), now);
   assert.equal(db.writes[0].value.state, undefined);
   assert.ok(db.writes[0].value.synced_at);
+});
+
+test('agents sharing the line take turns: whoever waited longest asks first', () => {
+  const alejandro = { staff_id: 'agent-2' };
+  const valeska = { staff_id: 'agent-3' };
+  const at = (staff_id, time) => ({ staff_id, created_at: `2026-11-11T${time}:00Z` });
+  // Newest first, as the runner reads them. Alejandro called last, so Valeska is next.
+  assert.deepEqual(takingTurns([alejandro, valeska], [at('agent-2', '15:10'), at('agent-3', '15:05'), at('agent-2', '15:00')]), [valeska, alejandro]);
+  assert.deepEqual(takingTurns([alejandro, valeska], [at('agent-3', '15:12'), at('agent-2', '15:10')]), [alejandro, valeska]);
+  // Someone who hasn't called yet goes first.
+  assert.deepEqual(takingTurns([alejandro, valeska], [at('agent-2', '15:10')]), [valeska, alejandro]);
 });
 
 test('Anna greets by Costa Rica time of day', () => {
