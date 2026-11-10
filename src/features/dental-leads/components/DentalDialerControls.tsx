@@ -134,11 +134,16 @@ export function DentalDialerControls({
               </>
             )}
           </ol>
-          <Button
-            variant="secondary"
-            disabled={busy || route.state === 'running'}
-            onClick={() => void run('configure')}
-          >
+          {!runtime?.scheduler_ready && (
+            <p>Servidor automático pendiente de instalación o configuración.</p>
+          )}
+        </div>
+      )}
+      {/* Configuring and test calls stay available whenever the dialer is not running,
+          including after it is ready, so a new script can be pushed and heard first. */}
+      {route.state !== 'running' && (
+        <div className="grid gap-3 rounded-lg border p-4 text-sm">
+          <Button variant="secondary" disabled={busy} onClick={() => void run('configure')}>
             {route.config_verified_at ? 'Verificar configuración' : 'Configurar Ana'}
           </Button>
           <label className="grid gap-1">
@@ -166,9 +171,6 @@ export function DentalDialerControls({
             El agente debe iniciar sesión, activar su disponibilidad y conectar su teléfono. Una
             transferencia solicitada aún no confirma que llegó al agente.
           </p>
-          {!runtime?.scheduler_ready && (
-            <p>Servidor automático pendiente de instalación o configuración.</p>
-          )}
         </div>
       )}
       {route.last_error && (
