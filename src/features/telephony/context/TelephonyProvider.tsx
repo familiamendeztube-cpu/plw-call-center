@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/context/useAuth';
-import { toDialNumber, type CallSnapshot, type RecentCall } from '@/features/telephony/models/call';
+import {
+  mergeRecentCalls,
+  toDialNumber,
+  type CallSnapshot,
+  type RecentCall,
+} from '@/features/telephony/models/call';
+import { loadSavedCalls } from '@/features/telephony/services/savedCalls';
 import {
   TelephonyContext,
   type TelephonyContextValue,
@@ -25,12 +31,16 @@ function durationSeconds(startedAt: string | null): number {
 export function TelephonyProvider({ connector, children }: TelephonyProviderProps) {
   const { session } = useAuth();
   const agentId = session?.role === 'agent' ? session.agentId : null;
+  const production = session?.source === 'production';
   const [connectorStatus, setConnectorStatus] = useState<TelephonyConnectorStatus>(
     connector.status
   );
   const [call, setCall] = useState<CallSnapshot | null>(null);
   const [dialNumber, setDialNumber] = useState('');
+  // Calls that ended in this tab; savedCalls are the server's records and survive a refresh.
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
+  const [savedCalls, setSavedCalls] = useState<RecentCall[]>([]);
+  const [savedVersion, setSavedVersion] = useState(0);
   const [commandError, setCommandError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -55,9 +65,30 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
           },
           ...current.slice(0, 19),
         ]);
+        // The phone server saves the call within seconds; fetch it so it replaces this one.
+        window.setTimeout(() => setSavedVersion((v) => v + 1), 15_000);
       }
     });
   }, [connector]);
+
+  useEffect(() => {
+    if (!agentId || !production) return undefined;
+    const controller = new AbortController();
+    const load = () =>
+      loadSavedCalls(agentId, controller.signal)
+        .then((calls) => {
+          if (!controller.signal.aborted) setSavedCalls(calls);
+        })
+        .catch(() => {
+          /* Keep what is shown; the next refresh retries. */
+        });
+    void load();
+    const timer = window.setInterval(() => void load(), 60_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [agentId, production, savedVersion]);
 
   useEffect(() => {
     if (!agentId) return undefined;
@@ -71,9 +102,15 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       setCall(null);
       setDialNumber('');
       setRecentCalls([]);
+      setSavedCalls([]);
       setCommandError(null);
     },
     [agentId]
+  );
+
+  const shownCalls = useMemo(
+    () => mergeRecentCalls(recentCalls, savedCalls),
+    [recentCalls, savedCalls]
   );
 
   const runCommand = useCallback(
@@ -125,7 +162,7 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       connectorStatus,
       call,
       dialNumber,
-      recentCalls,
+      recentCalls: shownCalls,
       commandError,
       changeDialNumber,
       clearDialNumber,
@@ -141,7 +178,7 @@ export function TelephonyProvider({ connector, children }: TelephonyProviderProp
       connectorStatus,
       call,
       dialNumber,
-      recentCalls,
+      shownCalls,
       commandError,
       changeDialNumber,
       clearDialNumber,

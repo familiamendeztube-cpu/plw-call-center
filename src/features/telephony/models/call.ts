@@ -22,6 +22,28 @@ export interface RecentCall {
   durationSeconds: number;
 }
 
+const SAME_CALL_WINDOW_MS = 2 * 60_000;
+const lastDigits = (number: string) => number.replace(/\D/g, '').slice(-8);
+
+/**
+ * Calls the server has saved, plus calls that ended in this tab and aren't saved yet.
+ * A live call counts as saved once a record with the same number ended within two minutes
+ * of it, so each call shows once even before and after the server records it.
+ */
+export function mergeRecentCalls(live: RecentCall[], saved: RecentCall[], limit = 20): RecentCall[] {
+  const unsaved = live.filter(
+    (call) =>
+      !saved.some(
+        (record) =>
+          lastDigits(record.remoteNumber) === lastDigits(call.remoteNumber) &&
+          Math.abs(Date.parse(record.endedAt) - Date.parse(call.endedAt)) < SAME_CALL_WINDOW_MS
+      )
+  );
+  return [...unsaved, ...saved]
+    .sort((a, b) => Date.parse(b.endedAt) - Date.parse(a.endedAt))
+    .slice(0, limit);
+}
+
 export const CALL_STATE_LABELS: Record<CallState, string> = {
   idle: 'Sin llamada',
   dialing: 'Marcando',
