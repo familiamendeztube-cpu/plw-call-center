@@ -16,6 +16,7 @@ export function DentalDialerPage() {
   const [selected, setSelected] = useState('agent-2');
   const staffId = session?.role === 'agent' ? session.agentId : selected;
   const route = state.routes.find((r) => r.staff_id === staffId);
+  const agentLabel = staffId === 'agent-3' ? 'Valeska' : 'Alejandro';
   const calls = state.calls.filter((c) => c.staff_id === staffId);
   const live = calls.filter((c) => !c.is_test);
   const pilotAttempts = Math.max(0, live.length - (route?.pilot_baseline_count ?? 0));
@@ -110,6 +111,7 @@ export function DentalDialerPage() {
             Los contadores excluyen las pruebas. El historial y las transcripciones se actualizan
             cada 15 segundos cuando el proveedor entrega los datos.
           </p>
+          <p className="text-sm font-medium text-neutral-700">{`Agente seleccionado: ${agentLabel}`}</p>
           {admin && route && (
             <DentalDialerControls
               key={`controls-${staffId}`}

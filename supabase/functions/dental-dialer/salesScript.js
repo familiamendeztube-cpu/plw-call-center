@@ -1,6 +1,6 @@
 // One versioned script for test calls and the future campaign runner.
 // Applied per conversation; never patch the shared inbound ElevenLabs agent.
-export const SALES_SCRIPT_VERSION = 'ana-2026-11-10-dental';
+export const SALES_SCRIPT_VERSION = 'ana-2026-11-10b-dental';
 export const SALES_VOICE_MODEL = 'eleven_v3_conversational';
 export const SALES_FIRST_MESSAGE =
   'Hola, ¿cómo está? Mi nombre es Ana Chacón, de PLW. Le hago una pregunta rápida: ¿quién atiende las llamadas de su negocio cuando están ocupados o después de cerrar?';
@@ -44,7 +44,9 @@ Si está ocupado, pide un horario conveniente; si no le interesa o pide no recib
 ${
   testMode
     ? 'Esta es una llamada de prueba de voz: no ejecutes transferencias, agendamientos ni herramientas que creen clientes o contacten a terceros. Si pide un asesor, aclara que esta prueba no transfiere ni agenda y que el administrador coordinará el siguiente paso.'
-    : 'Si tiene interés, ofrece hablar con Alejandro o Valeska. Solo anuncia una transferencia o una cita cuando la herramienta correspondiente confirme el resultado. Si no hay una ruta disponible, explica que aún no puedes transferir; nunca finjas haberlo hecho.'
+    : dentalMode
+      ? ''
+      : 'Si tiene interés, ofrece hablar con Alejandro o Valeska. Solo anuncia una transferencia o una cita cuando la herramienta correspondiente confirme el resultado. Si no hay una ruta disponible, explica que aún no puedes transferir; nunca finjas haberlo hecho.'
 }
 Si no sabes algo, dilo brevemente y ofrece que un asesor lo confirme. Cierra con "Muchas gracias por su tiempo. Que tenga un excelente día."`;
 }

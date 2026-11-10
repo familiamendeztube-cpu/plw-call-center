@@ -58,6 +58,9 @@ it('renders one controls region per selected agent and submits to that agent aft
   const select = screen.getByRole('combobox') as HTMLSelectElement;
   for (const staff of ['agent-3', 'agent-2', 'agent-3', 'agent-2']) {
     fireEvent.change(select, { target: { value: staff } });
+    expect(
+      screen.getByText(`Agente seleccionado: ${staff === 'agent-3' ? 'Valeska' : 'Alejandro'}`)
+    ).toBeTruthy();
     const regions = screen.getAllByRole('region', { name: 'Control del marcador' });
     expect(regions).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: 'Continuar' })).toHaveLength(1);

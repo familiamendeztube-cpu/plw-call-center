@@ -7,6 +7,18 @@ import type {
   DentalTranscript,
 } from '../models/dentalDialer';
 import type { IncomingDentalCallRow, IncomingDentalLead } from '../models/incomingDentalCall';
+export interface DialerReadFailure {
+  code?: string;
+  status?: number;
+  message?: string;
+}
+export function dialerReadError(error: DialerReadFailure) {
+  if (error.status === 401 || error.code === 'PGRST301' || /jwt|expired/i.test(error.message ?? ''))
+    return new Error('Su sesión venció. Ingrese de nuevo para continuar.');
+  if (error.code === '42P01' || error.code === 'PGRST205')
+    return new Error('Falta instalar o conectar el control del marcador dental.');
+  return new Error('No se pudo leer el marcador. Reintente en unos segundos.');
+}
 export async function loadDialer(signal: AbortSignal) {
   const db = getSupabaseClient();
   const [routes, runtime] = await Promise.all([
@@ -23,8 +35,8 @@ export async function loadDialer(signal: AbortSignal) {
       .abortSignal(signal)
       .single(),
   ]);
-  if (routes.error || runtime.error)
-    throw new Error('Falta instalar o conectar el control del marcador dental.');
+  if (routes.error) throw dialerReadError(routes.error);
+  if (runtime.error) throw dialerReadError(runtime.error);
   const calls: DentalCall[] = [];
   for (let start = 0; ; start += 1000) {
     const result = await db
@@ -36,7 +48,7 @@ export async function loadDialer(signal: AbortSignal) {
       .order('id')
       .range(start, start + 999)
       .abortSignal(signal);
-    if (result.error) throw new Error('No se pudo cargar el historial.');
+    if (result.error) throw dialerReadError(result.error);
     calls.push(...(result.data as DentalCall[]));
     if (result.data.length < 1000) break;
   }

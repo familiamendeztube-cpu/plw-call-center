@@ -41,6 +41,15 @@ This narrow exception allows a bounded pilot before Alejandro's real transfer co
 - Each dialer page has one `Control del marcador` region for the selected agent. Its controls and history use distinct keys per agent.
 - When a call rings the signed-in agent, a large alert shows the dentist's name, phone, assigned agent, location and Ana's summary, with Answer, Reject and a link to the call history. The alert opens only when the SIP invitation carries a valid `X-PLW-Dental-Call` UUID. The lead is loaded by that exact call id and only if it is assigned to the signed-in agent and still open. A missing, malformed, mismatched, or failed lookup shows an unknown state, never a guessed lead. The alert never marks a transfer as received; only **Recibí esta transferencia** does that. The phone system must forward the `X-PLW-Dental-Call` header to the browser; this has not been verified end to end.
 
+## Diagnostics and provider error detail (this update)
+
+- Diagnosticar Ana is a read-only admin action on the dedicated Alejandro or Valeska agent. It returns the provider HTTP status, counts of tool, MCP and knowledge entries, legacy tool names and types, built-in tool names, workflow node types, and workflow edge count, plus the same failure codes the verifier reports. It never returns prompts, first messages, keys, or other agents.
+- When Configurar Ana's update is rejected, the message and the saved last error now include the provider HTTP status and sanitized field-level errors (path, type, short message). No live provider result has been obtained yet; the owner must run Diagnosticar Ana and retry Configurar Ana to confirm.
+- The verifier is unchanged. The update no longer sends the legacy tool list or a top-level workflow override; whether the provider then passes the `workflow` and `extra_tools_or_knowledge` checks is unconfirmed.
+- Script version is `ana-2026-11-10b-dental` in the deployed function, the verifier, and the test call script.
+- Dialer errors distinguish an expired session (sign in again), a missing dialer table (install), and other read failures (retry). The controls show which agent is selected.
+- Migration reconciliation is not complete: source is missing `20261110160906` and `20261110161013`, and source and live names differ for the pilot and controls migrations. The applied SQL is the authority; no migration was reapplied or reset.
+
 ## Remaining live work — not completed
 
 1. Apply migrations `20261110090000_dental_dialer_controls.sql` and `20261110091000_dental_scheduler.sql` to the exact PLW backend. Do not rerun `20261110080000`: it already exists live. Its source in this package restores the schema contract for fresh local test databases; reconcile it with the migration-history SQL before treating it as an exact historical copy.

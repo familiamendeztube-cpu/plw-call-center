@@ -36,7 +36,7 @@ Cuando entra una llamada dental al agente activo, aparece una alerta grande con 
 
 ## Ana Chacón Méndez
 
-El código de la función dental de `e6042b3` contiene `ana-2026-11-10-dental`: Ana Chacón Méndez, presentación como Ana Chacón, pregunta sobre llamadas mientras el doctor atiende o fuera de horario, recepción 24/7, ejemplo en inglés y francés, formularios antes de las citas, creación de sitio web incluida, oficina en Pinares de Curridabat, San José, y trece años de experiencia en Estados Unidos.
+El código de la función dental de `e6042b3` contiene `ana-2026-11-10b-dental`: Ana Chacón Méndez, presentación como Ana Chacón, pregunta sobre llamadas mientras el doctor atiende o fuera de horario, recepción 24/7, ejemplo en inglés y francés, formularios antes de las citas, creación de sitio web incluida, oficina en Pinares de Curridabat, San José, y trece años de experiencia en Estados Unidos.
 
 `Configurar Ana` debe verificar ese guion, el modelo de voz `eleven_v3_conversational` y el destino fijo de Alejandro en el proveedor real. La presencia del guion en el código no demuestra que ya esté activo en ElevenLabs. La voz debe escucharse en llamadas reales para evaluar naturalidad y pronunciación. El guion responde con claridad que es una asistente virtual si le preguntan; no promete exclusividad nacional, capacidades ilimitadas ni funciones que no estén configuradas.
 

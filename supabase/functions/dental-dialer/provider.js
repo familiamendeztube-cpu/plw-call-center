@@ -39,7 +39,6 @@ export function dentalAgentConfig(staffName, route, voiceId) {
             `\nVersión: ${SALES_SCRIPT_VERSION}. Tu único asesor es ${staffName}. Si hay interés, pregunta si desea hablar con ${staffName} ahora. Solo si acepta, usa transfer_to_number hacia ${route.transfer_uri}. Si no acepta, registra que prefiere una devolución de llamada. Nunca transfieras sin aceptación.`,
           tool_ids: [],
           mcp_server_ids: [],
-          tools: [],
           knowledge_base: [],
           built_in_tools: {
             end_call: {
@@ -74,7 +73,6 @@ export function dentalAgentConfig(staffName, route, voiceId) {
       tts: { voice_id: voiceId, model_id: SALES_VOICE_MODEL },
       conversation: { max_duration_seconds: 300 },
     },
-    workflow: { nodes: {}, edges: {} },
     platform_settings: {
       data_collection: {
         plw_opt_out: {
@@ -93,6 +91,42 @@ export function dentalAgentConfig(staffName, route, voiceId) {
         },
       },
     },
+  };
+}
+export function sanitizeProviderError(data) {
+  const detail = data?.detail;
+  if (typeof detail === 'string') return [{ field: '', type: '', message: detail.slice(0, 160) }];
+  if (!Array.isArray(detail)) return [];
+  return detail.slice(0, 8).map((item) => ({
+    field: (Array.isArray(item?.loc) ? item.loc : [])
+      .filter((part) => typeof part === 'string' || typeof part === 'number')
+      .slice(0, 6)
+      .map(String)
+      .join('.')
+      .slice(0, 160),
+    type: String(item?.type ?? '').slice(0, 80),
+    message: String(item?.msg ?? '').slice(0, 160),
+  }));
+}
+export function agentShape(config) {
+  const p = config?.conversation_config?.agent?.prompt ?? {};
+  const nodes = Object.values(config?.workflow?.nodes ?? {});
+  return {
+    tool_ids: (p.tool_ids ?? []).length,
+    mcp_server_ids: (p.mcp_server_ids ?? []).length,
+    knowledge_base: (p.knowledge_base ?? []).length,
+    legacy_tools: (p.tools ?? []).map((tool) => ({
+      name: String(tool?.name ?? '').slice(0, 80),
+      type: String(tool?.type ?? '').slice(0, 40),
+    })),
+    built_in_tools: Object.entries(p.built_in_tools ?? {})
+      .filter(([, value]) => value)
+      .map(([key, value]) => ({
+        key: key.slice(0, 80),
+        type: String(value?.type ?? '').slice(0, 40),
+      })),
+    workflow_node_types: nodes.map((node) => String(node?.type ?? '').slice(0, 40)),
+    workflow_edge_count: Object.keys(config?.workflow?.edges ?? {}).length,
   };
 }
 // Line endings and edge whitespace are the only provider normalization accepted.

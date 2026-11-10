@@ -15,6 +15,7 @@ export function DentalDialerControls({
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [diagnosis, setDiagnosis] = useState('');
   const [phone, setPhone] = useState('');
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   async function run(action: string) {
@@ -36,6 +37,19 @@ export function DentalDialerControls({
       reload();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'No se pudo completar.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function diagnose() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await dentalServerAction({ action: 'diagnose', staffId: route.staff_id });
+      setDiagnosis(JSON.stringify(result, null, 2));
+    } catch (e) {
+      setDiagnosis('');
+      setMessage(e instanceof Error ? e.message : 'No se pudo diagnosticar Ana.');
     } finally {
       setBusy(false);
     }
@@ -81,6 +95,11 @@ export function DentalDialerControls({
         <Button variant="secondary" disabled={busy} onClick={() => void run('sync')}>
           Actualizar conversaciones
         </Button>
+        {route.provider_agent_id && (
+          <Button variant="secondary" disabled={busy} onClick={() => void diagnose()}>
+            Diagnosticar Ana
+          </Button>
+        )}
       </div>
       {pilot && (
         <p className="rounded-lg bg-blue-50 p-3 text-sm text-plw-navy">
@@ -161,6 +180,11 @@ export function DentalDialerControls({
         <p role="status" className="text-sm text-plw-navy">
           {message}
         </p>
+      )}
+      {diagnosis && (
+        <pre className="max-h-64 overflow-auto rounded-lg bg-neutral-50 p-3 text-xs text-neutral-800">
+          {diagnosis}
+        </pre>
       )}
     </section>
   );

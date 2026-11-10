@@ -221,7 +221,7 @@ export function createProductionAuthService(): AuthService {
       const profile = readStaffProfile(row);
       if (!profile || !profile.isEnabled) {
         signingOut = true;
-        await client.auth.signOut();
+        await client.auth.signOut({ scope: 'local' });
         signingOut = false;
         return { session: null, notice: profile ? ACCESS_UNAVAILABLE : SESSION_ENDED };
       }
@@ -229,7 +229,7 @@ export function createProductionAuthService(): AuthService {
       const session = toSession(profile.id, profile.role, profile.displayName);
       if (!session) {
         signingOut = true;
-        await client.auth.signOut();
+        await client.auth.signOut({ scope: 'local' });
         signingOut = false;
         return { session: null, notice: ACCESS_UNAVAILABLE };
       }
@@ -324,7 +324,7 @@ export function createProductionAuthService(): AuthService {
         if (data.session) {
           await callStaffAuth({ action: 'logout' }, data.session.access_token).catch(() => null);
         }
-        await client.auth.signOut();
+        await client.auth.signOut({ scope: 'local' });
       } finally {
         signingOut = false;
       }

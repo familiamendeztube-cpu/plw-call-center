@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
 import { runTick, dispatchCall, syncCalls } from './runner.js';
-import { providerRequest, safeAgent, agentConfigFailures, dentalAgentConfig } from './provider.js';
+import { providerRequest, safeAgent, agentConfigFailures, dentalAgentConfig, agentShape, sanitizeProviderError } from './provider.js';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -47,6 +47,19 @@ Deno.serve(async (req) => {
       .eq('staff_id', input.staffId)
       .single();
     if (routeError || !route) return json({ error: 'Falta la ruta telefónica del agente.' }, 409);
+    if (input.action === 'diagnose') {
+      if (!route.provider_agent_id)
+        return json({ error: 'Todavía no existe el agente de Ana para este agente.' }, 409);
+      const read = await providerRequest(apiKey, `/agents/${encodeURIComponent(route.provider_agent_id)}`);
+      if (!read.ok)
+        return json({ error: `ElevenLabs respondió HTTP ${read.status} al leer el agente.` }, 502);
+      return json({
+        ok: true,
+        providerStatus: read.status,
+        shape: agentShape(read.data),
+        failures: agentConfigFailures(read.data, route),
+      });
+    }
     if (input.action === 'configure') {
       if (route.state === 'running')
         return json({ error: 'Pause el agente antes de configurarlo.' }, 409);
@@ -97,6 +110,7 @@ Deno.serve(async (req) => {
         return response.ok ? agentConfigFailures(response.data, dedicatedRoute) : ['provider_read'];
       };
       let failures = await verify();
+      let providerDetail = '';
       if (failures.length && !failures.some((f) => ['provider_read', 'agent_identity'].includes(f))) {
         const patched = await providerRequest(
           apiKey,
@@ -105,17 +119,22 @@ Deno.serve(async (req) => {
           fetch,
           'PATCH'
         );
-        failures = patched.ok ? await verify() : ['provider_update'];
+        if (patched.ok) {
+          failures = await verify();
+        } else {
+          failures = ['provider_update'];
+          providerDetail = ` HTTP ${patched.status}: ${JSON.stringify(sanitizeProviderError(patched.data))}`;
+        }
       }
       if (failures.length) {
         const reasons = failures.join(', ');
         await db
           .from('dental_agent_dialers')
-          .update({ last_error: `Verificación pendiente: ${reasons}.` })
+          .update({ last_error: `Verificación pendiente: ${reasons}.${providerDetail}` })
           .eq('staff_id', input.staffId);
         return json(
           {
-            error: `La configuración de transferencia no pasó la verificación. Motivo técnico: ${reasons}.`,
+            error: `La configuración de transferencia no pasó la verificación. Motivo técnico: ${reasons}.${providerDetail}`,
           },
           409
         );
