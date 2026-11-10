@@ -143,7 +143,7 @@ export function agentConfigFailures(config, route) {
   if (config.conversation_config?.tts?.model_id !== SALES_VOICE_MODEL) failures.push('voice_model');
   if (!text(p?.prompt).startsWith(text(salesPrompt({ dentalMode: true })))) failures.push('prompt_base');
   if (!text(p?.prompt).includes(SALES_SCRIPT_VERSION)) failures.push('script_version');
-  if (p?.tool_ids?.length || p?.mcp_server_ids?.length || p?.knowledge_base?.length || (p?.tools ?? []).length)
+  if (p?.tool_ids?.length || p?.mcp_server_ids?.length || p?.knowledge_base?.length || (p?.tools ?? []).some((tool) => tool?.type !== 'system'))
     failures.push('extra_tools_or_knowledge');
   if (Object.keys(config.workflow?.nodes ?? {}).length) failures.push('workflow');
   const built = p?.built_in_tools ?? {};

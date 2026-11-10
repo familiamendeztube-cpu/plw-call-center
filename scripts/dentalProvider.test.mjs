@@ -58,7 +58,14 @@ test('verifier names each failed invariant and accepts only line-ending and edge
   const crlf = structuredClone(base);
   crlf.conversation_config.agent.prompt.prompt = crlf.conversation_config.agent.prompt.prompt.replace(/\n/g, '\r\n') + '\n';
   assert.deepEqual(agentConfigFailures(crlf, route), []);
+  const withSystemTools = structuredClone(base);
+  withSystemTools.conversation_config.agent.prompt.tools = [
+    { name: 'end_call', type: 'system' },
+    { name: 'transfer_to_number', type: 'system' },
+  ];
+  assert.deepEqual(agentConfigFailures(withSystemTools, route), []);
   const cases = [
+    ['extra_tools_or_knowledge', (c) => (c.conversation_config.agent.prompt.tools = [{ name: 'lookup', type: 'webhook' }])],
     ['first_message', (c) => (c.conversation_config.agent.first_message = 'Hola')],
     ['voice_model', (c) => (c.conversation_config.tts.model_id = 'eleven_turbo_v2')],
     ['script_version', (c) => (c.conversation_config.agent.prompt.prompt = c.conversation_config.agent.prompt.prompt.replace(SALES_SCRIPT_VERSION, 'old'))],
