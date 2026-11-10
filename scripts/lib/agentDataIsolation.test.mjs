@@ -51,6 +51,7 @@ const SHARED_TABLES = ['sales_materials', 'settings'];
 // Any new entry here is a new way for a browser to reach data, so it needs its own
 // isolation test before it joins these lists.
 const BROWSER_READABLE_TABLES = [
+  'asterisk_calls',
   'dental_campaigns',
   'dental_leads',
   'dental_agent_dialers',
@@ -215,6 +216,15 @@ async function seed() {
   );
   await db.query(`INSERT INTO public.admin_audit_events (action) VALUES ('prueba')`);
   await db.query(`INSERT INTO public.ai_webhook_failures (reason) VALUES ('prueba')`);
+  // Phone server records: one per agent, plus an unanswered queue call that belongs to nobody.
+  for (const [uniqueId, staffId] of [['call-1', 'agent-1'], ['call-2', 'agent-2'], ['call-queue', null]]) {
+    await db.query(
+      `INSERT INTO public.asterisk_calls (unique_id, linked_id, staff_id, direction, number,
+         disposition, talk_seconds, started_at, ended_at)
+       VALUES ($1, $1, $2, 'inbound', '22223333', 'ANSWERED', 5, now(), now())`,
+      [uniqueId, staffId]
+    );
+  }
 }
 
 async function become(tx, person) {
@@ -285,6 +295,14 @@ for (const table of ['staff_profiles', 'staff_presence']) {
     assert.equal((await visibleIds(ADMIN, table, column)).length, 4);
   });
 }
+
+test('asterisk_calls: an agent sees only their own calls and the administrator sees all', async () => {
+  const ids = (person) => visibleIds(person, 'asterisk_calls', 'unique_id');
+  assert.deepEqual(await ids(AGENT_1), ['call-1']);
+  assert.deepEqual(await ids(AGENT_2), ['call-2']);
+  assert.deepEqual(await ids(AGENT_WITHOUT_CLIENTS), []);
+  assert.deepEqual(await ids(ADMIN), ['call-1', 'call-2', 'call-queue']);
+});
 
 for (const table of ADMIN_ONLY_TABLES) {
   test(`${table}: only the administrator can read it`, async () => {

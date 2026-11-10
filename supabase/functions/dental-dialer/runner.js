@@ -284,8 +284,10 @@ export async function runTick(db, apiKey, fetchImpl = fetch) {
         }
         const dispatched = await Promise.allSettled(
           [0, 1].map(async () => {
+            // The limited claim enforces the line's simultaneous-call limit (one at a time on
+            // 6198 for now) on top of claim_dental_call's own per-agent rules.
             const claim = await checked(
-              db.rpc('claim_dental_call', { p_staff_id: route.staff_id })
+              db.rpc('claim_dental_call_limited', { p_staff_id: route.staff_id })
             );
             if (claim) await dispatchCall(db, apiKey, claim, fetchImpl);
           })
