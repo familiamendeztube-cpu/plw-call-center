@@ -81,6 +81,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'can_access_prospect',
   'confirm_dental_transfer',
   'control_dental_dialer',
+  'control_dental_dialer_if_active',
   'create_inquiry',
   'current_staff_id',
   'get_reply_target',
@@ -295,6 +296,37 @@ for (const table of ['staff_profiles', 'staff_presence']) {
     assert.equal((await visibleIds(ADMIN, table, column)).length, 4);
   });
 }
+
+test('a dental dialer starts only while its agent is Activo with the app open; pausing always works', async () => {
+  const attempt = async (person, action, availability) => {
+    let outcome;
+    await db.transaction(async (tx) => {
+      try {
+        if (availability)
+          await tx.query(
+            `INSERT INTO public.staff_presence (staff_id, availability, last_heartbeat_at)
+             VALUES ('agent-2', $1, now())
+             ON CONFLICT (staff_id) DO UPDATE SET availability = $1, last_heartbeat_at = now()`,
+            [availability]
+          );
+        await become(tx, person);
+        await tx.query(`SELECT public.control_dental_dialer_if_active('agent-2', $1)`, [action]);
+        outcome = 'ok';
+      } catch (error) {
+        outcome = error.message;
+      }
+      await tx.rollback();
+    });
+    return outcome;
+  };
+  const needsActive = /estar en Activo/;
+  assert.match(await attempt(ADMIN, 'activate', 'paused'), needsActive);
+  assert.match(await attempt(ADMIN, 'resume', 'paused'), needsActive);
+  // Activo passes this check; whatever control_dental_dialer says next is its own rule.
+  assert.doesNotMatch(await attempt(ADMIN, 'activate', 'active'), needsActive);
+  assert.doesNotMatch(await attempt(ADMIN, 'pause', 'paused'), needsActive);
+  assert.match(await attempt(AGENT_2, 'activate', 'active'), /Solo administración/);
+});
 
 test('asterisk_calls: an agent sees only their own calls and the administrator sees all', async () => {
   const ids = (person) => visibleIds(person, 'asterisk_calls', 'unique_id');

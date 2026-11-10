@@ -55,7 +55,8 @@ export async function loadDialer(signal: AbortSignal) {
   return { routes: routes.data as DentalDialer[], runtime: runtime.data as DentalRuntime, calls };
 }
 export async function controlDialer(staffId: string, action: string) {
-  const { error } = await getSupabaseClient().rpc('control_dental_dialer', {
+  // Refuses activate/resume unless the agent has the app open and is set to Activo.
+  const { error } = await getSupabaseClient().rpc('control_dental_dialer_if_active', {
     p_staff_id: staffId,
     p_action: action,
   });

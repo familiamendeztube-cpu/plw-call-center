@@ -103,7 +103,7 @@ export function DentalDialerControls({
       </div>
       {pilot && (
         <p className="rounded-lg bg-blue-50 p-3 text-sm text-plw-navy">
-          Piloto de hasta {route.pilot_call_limit} intentos, dos simultáneos. Se pausa
+          Piloto de hasta {route.pilot_call_limit} intentos. Se pausa
           automáticamente al alcanzar el límite.{' '}
           {route.transfer_verified_at
             ? 'Transferencia confirmada por el agente.'

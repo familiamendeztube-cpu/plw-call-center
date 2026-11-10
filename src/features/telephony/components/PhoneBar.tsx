@@ -14,6 +14,7 @@ import { CALL_STATE_LABELS, callButtons } from '@/features/telephony/models/call
 import { CallTimer } from '@/features/telephony/components/CallTimer';
 import { ConnectionStatus } from '@/features/telephony/components/ConnectionStatus';
 import { DialInput } from '@/features/telephony/components/PhoneScreen';
+import { DIAL_REQUIRES_ACTIVE, useCanDial } from '@/features/presence/hooks/useCanDial';
 import { cx } from '@/components/ui/cx';
 
 const MAIN_BUTTON =
@@ -69,6 +70,7 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
     transferCall,
   } = useTelephony();
   const can = callButtons(call, dialNumber, connectorStatus === 'registered');
+  const active = useCanDial();
 
   return (
     <section
@@ -94,7 +96,8 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
           <button
             type="button"
             onClick={can.incoming ? answerCall : placeCall}
-            disabled={!can.incoming && !can.canDial}
+            disabled={!can.incoming && (!can.canDial || !active)}
+            title={!can.incoming && !active ? DIAL_REQUIRES_ACTIVE : undefined}
             className={cx(MAIN_BUTTON, 'bg-success-600 hover:bg-success-700')}
           >
             <Phone size={18} aria-hidden="true" />
@@ -149,6 +152,8 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
         <p role="alert" className="mt-1.5 text-xs font-medium text-danger-700">
           {commandError}
         </p>
+      ) : !active && !can.live && !can.incoming ? (
+        <p className="mt-1.5 text-xs font-medium text-neutral-600">{DIAL_REQUIRES_ACTIVE}</p>
       ) : null}
     </section>
   );

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Mic, MicOff, Pause, Phone, PhoneForwarded, PhoneOff, Play } from 'lucide-react';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { callButtons } from '@/features/telephony/models/call';
+import { DIAL_REQUIRES_ACTIVE, useCanDial } from '@/features/presence/hooks/useCanDial';
 import { cx } from '@/components/ui/cx';
 
 interface SecondaryButtonProps {
@@ -56,6 +57,7 @@ export function CallControls() {
     dialNumber,
     connectorStatus === 'registered'
   );
+  const active = useCanDial();
 
   return (
     <div className="flex flex-col gap-3">
@@ -63,7 +65,8 @@ export function CallControls() {
         <button
           type="button"
           onClick={incoming ? answerCall : placeCall}
-          disabled={!incoming && !canDial}
+          disabled={!incoming && (!canDial || !active)}
+          title={!incoming && !active ? DIAL_REQUIRES_ACTIVE : undefined}
           className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-success-600 text-base font-semibold text-white shadow-sm transition-all hover:bg-success-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 disabled:shadow-none"
         >
           <Phone size={20} aria-hidden="true" />
@@ -79,6 +82,9 @@ export function CallControls() {
           {incoming ? 'Rechazar' : 'Colgar'}
         </button>
       </div>
+      {!active && !live && !incoming ? (
+        <p className="text-xs font-medium text-neutral-600">{DIAL_REQUIRES_ACTIVE}</p>
+      ) : null}
       <div className="grid grid-cols-3 gap-2">
         <SecondaryButton
           label={muted ? 'Reactivar' : 'Silenciar'}

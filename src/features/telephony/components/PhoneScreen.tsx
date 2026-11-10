@@ -1,12 +1,14 @@
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { CALL_STATE_LABELS, isCallLive } from '@/features/telephony/models/call';
 import { CallTimer } from '@/features/telephony/components/CallTimer';
+import { useCanDial } from '@/features/presence/hooks/useCanDial';
 import { cx } from '@/components/ui/cx';
 
 /** The number being dialed. Enter calls it; during a call it shows who is on the line. */
 export function DialInput({ className }: { className: string }) {
   const { call, dialNumber, changeDialNumber, placeCall } = useTelephony();
   const live = call !== null && isCallLive(call.state);
+  const active = useCanDial();
 
   return (
     <input
@@ -18,7 +20,7 @@ export function DialInput({ className }: { className: string }) {
       value={live ? call.remoteNumber : dialNumber}
       onChange={(event) => changeDialNumber(event.target.value)}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' && !live && dialNumber) void placeCall();
+        if (event.key === 'Enter' && !live && dialNumber && active) void placeCall();
       }}
       className={cx(
         'truncate bg-transparent tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0',
