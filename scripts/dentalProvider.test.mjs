@@ -73,6 +73,9 @@ test('verifier names each failed invariant and accepts only line-ending and edge
     { name: 'transfer_to_number', type: 'system' },
   ];
   assert.deepEqual(agentConfigFailures(withSystemTools, route), []);
+  const placeholderWorkflow = structuredClone(base);
+  placeholderWorkflow.workflow = { nodes: { start_node: { type: 'start', edge_order: [] } }, edges: {} };
+  assert.deepEqual(agentConfigFailures(placeholderWorkflow, route), []);
   const cases = [
     ['extra_tools_or_knowledge', (c) => (c.conversation_config.agent.prompt.tools = [{ name: 'lookup', type: 'webhook' }])],
     ['first_message', (c) => (c.conversation_config.agent.first_message = 'Hola')],
@@ -81,6 +84,8 @@ test('verifier names each failed invariant and accepts only line-ending and edge
     ['extra_builtin_tool', (c) => (c.conversation_config.agent.prompt.built_in_tools.skip_turn = { type: 'system' })],
     ['transfer_count', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers = [])],
     ['workflow', (c) => (c.workflow = { nodes: { a: {} } })],
+    ['workflow', (c) => (c.workflow = { nodes: { s: { type: 'start' }, a: { type: 'override_agent' } }, edges: {} })],
+    ['workflow', (c) => (c.workflow = { nodes: { s: { type: 'start' }, e: { type: 'end' } }, edges: { s_e: { source: 's', target: 'e' } } })],
   ];
   for (const [code, mutate] of cases) {
     const other = structuredClone(base);
