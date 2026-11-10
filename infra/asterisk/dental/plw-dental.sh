@@ -243,6 +243,11 @@ install_dental() {
     die "A check failed after loading the setup. Everything was put back from $backup."
   fi
   install -m 700 "$0" /usr/local/sbin/plw-dental
+  # ElevenLabs connects in on 5061 (TLS). Only the login above is accepted there, and
+  # fail2ban's Asterisk jail bans on the browser port, so it can't cut Anna off.
+  if command -v ufw >/dev/null && ufw status | has 'Status: active' && ! ufw status | has '^5061/tcp'; then
+    ufw allow 5061/tcp comment 'ElevenLabs Anna (plw-dental)' >/dev/null
+  fi
 
   cat <<EOF
 
@@ -255,9 +260,6 @@ In ElevenLabs > Phone Numbers > +506 4010 6198 > Outbound, set:
   Password:         on your PC run:  ssh root@207.246.112.58 plw-dental password | Set-Clipboard
 To undo, put back Address sip.vocex.net, TCP, Disabled, user $LINE and its Vocex password.
 EOF
-  if command -v ufw >/dev/null && ufw status | has 'Status: active' && ! ufw status | has '5061'; then
-    echo "WARNING: the firewall is active and has no rule for port 5061. ElevenLabs can't connect until it does."
-  fi
 }
 
 case ${1:-} in
