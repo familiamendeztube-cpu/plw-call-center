@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IS_DEMO_MODE } from '@/app/appConfig';
 import { useAsync } from '@/app/useAsync';
 import {
@@ -50,7 +50,18 @@ export type WhatsAppThread =
       /** False once WhatsApp's reply window has closed: only an approved template can reopen it. */
       canReply: boolean;
       messages: Message[];
+      /** Where the page of older messages starts; null once the chat's first message is shown. */
+      older: number | null;
     };
+
+const olderCursor = (value: unknown) => (typeof value === 'number' ? value : null);
+
+/** Old and new together, each message once; the newer copy wins (e.g. one that has since failed). */
+function mergeMessages(first: Message[], second: Message[]): Message[] {
+  const byId = new Map(first.map((message) => [message.id, message]));
+  for (const message of second) byId.set(message.id, message);
+  return [...byId.values()];
+}
 
 // Row level security returns a chat only to the customer's agent or an admin.
 async function loadChat(prospectId: string): Promise<{ unread: boolean } | null> {
@@ -103,6 +114,7 @@ async function loadThread(prospectId: string): Promise<WhatsAppThread> {
     ambiguous: payload.ambiguous === true,
     canReply: payload.canReply !== false,
     messages: payload.messages.map((message) => toMessage(prospectId, message)),
+    older: olderCursor(payload.older),
   };
 }
 
@@ -158,14 +170,46 @@ export async function startWhatsAppChat(start: {
 
 export function useWhatsAppThread(prospectId: string) {
   const result = useAsync(() => loadThread(prospectId), [prospectId]);
-  const { updateData } = result;
+  const { state, updateData } = result;
 
-  // Updates in place, so the chat stays on screen while it reloads.
+  // Updates in place, so the chat stays on screen while it reloads. Chatwoot sends only the latest
+  // messages, so what is already on screen stays: older pages the agent opened, and messages pushed
+  // out of the latest page by newer ones.
   const refresh = useCallback(() => {
     loadThread(prospectId)
-      .then((data) => updateData(() => data))
+      .then((fresh) =>
+        updateData((current) =>
+          current.connected && fresh.connected
+            ? {
+                ...fresh,
+                messages: mergeMessages(current.messages, fresh.messages),
+                older: current.older,
+              }
+            : fresh
+        )
+      )
       .catch(() => undefined);
   }, [prospectId, updateData]);
+
+  const before = state.status === 'ready' && state.data.connected ? state.data.older : null;
+  /** Adds the page of messages above the oldest one shown. Null once the chat's start is shown. */
+  const loadOlder = useMemo(() => {
+    if (before === null) return null;
+    return async () => {
+      const payload = await callStaffFunction('whatsapp', { action: 'older', prospectId, before });
+      if (!Array.isArray(payload.messages)) throw new Error(INVALID_RESPONSE);
+      const page = payload.messages.map((message) => toMessage(prospectId, message));
+      updateData((thread) =>
+        thread.connected
+          ? {
+              ...thread,
+              messages: mergeMessages(page, thread.messages),
+              older: olderCursor(payload.older),
+            }
+          : thread
+      );
+    };
+  }, [before, prospectId, updateData]);
 
   useEffect(() => {
     const tick = () => {
@@ -196,5 +240,5 @@ export function useWhatsAppThread(prospectId: string) {
     [prospectId, updateData, refresh]
   );
 
-  return { ...result, send };
+  return { ...result, send, loadOlder };
 }

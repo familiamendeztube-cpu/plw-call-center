@@ -49,7 +49,7 @@ export function WhatsAppConversation({
   onRead,
   onProspectChange,
 }: WhatsAppConversationProps) {
-  const { state, reload, send } = useWhatsAppThread(prospect.id);
+  const { state, reload, send, loadOlder } = useWhatsAppThread(prospect.id);
   // The server marks the chat read only when it could show it.
   const shown = state.status === 'ready' && state.data.connected;
   const [disconnecting, setDisconnecting] = useState(false);
@@ -96,15 +96,20 @@ export function WhatsAppConversation({
       ready: true,
       messages: thread.messages,
       replyLabel: REPLY_LABEL,
-      notice: thread.ambiguous ? (
-        <p
-          role="status"
-          className="rounded-lg border border-plw-gold/60 bg-plw-gold-soft/15 px-4 py-3 text-sm text-plw-ink"
-        >
-          Este número de WhatsApp pertenece a varios clientes. Confirma con quién hablas antes de
-          enviar información de su cuenta.
-        </p>
-      ) : undefined,
+      notice: (
+        <>
+          {thread.ambiguous ? (
+            <p
+              role="status"
+              className="rounded-lg border border-plw-gold/60 bg-plw-gold-soft/15 px-4 py-3 text-sm text-plw-ink"
+            >
+              Este número de WhatsApp pertenece a varios clientes. Confirma con quién hablas antes
+              de enviar información de su cuenta.
+            </p>
+          ) : null}
+          {loadOlder ? <OlderMessagesButton onLoad={loadOlder} /> : null}
+        </>
+      ),
       reply: (
         <div className="flex flex-col gap-2">
           {thread.canReply ? (
@@ -136,6 +141,41 @@ export function WhatsAppConversation({
       chat={chat}
       onProspectChange={onProspectChange}
     />
+  );
+}
+
+/** At the top of the chat while older messages remain in Chatwoot. */
+function OlderMessagesButton({ onLoad }: { onLoad: () => Promise<void> }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await onLoad();
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : 'No se pudieron cargar los mensajes anteriores.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <Button variant="secondary" size="sm" disabled={loading} onClick={() => void load()}>
+        {loading ? 'Cargando...' : 'Ver mensajes anteriores'}
+      </Button>
+      {error ? (
+        <p role="alert" className="text-xs text-danger-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

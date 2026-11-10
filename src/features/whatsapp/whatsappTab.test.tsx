@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
@@ -10,11 +10,14 @@ import { NewWhatsAppChatDialog } from '@/features/whatsapp/components/NewWhatsAp
 const requests: Record<string, unknown>[] = [];
 let connected = true;
 let windowOpen = true;
+// Where the older page starts: null when the chat has no more history in Chatwoot.
+let olderStart: number | null = null;
 
 beforeEach(() => {
   requests.length = 0;
   connected = true;
   windowOpen = true;
+  olderStart = null;
 });
 
 // Stands in for the whatsapp function, which reads Chatwoot on the server.
@@ -39,6 +42,18 @@ vi.mock('@/integrations/supabase/callStaffFunction', async (importOriginal) => (
       case 'connect':
         connected = true;
         return { connected: true, sender: 'Alejandro Ruiz' };
+      case 'older':
+        return {
+          messages: [
+            {
+              id: '0',
+              author: 'customer',
+              body: 'Buenas, vi su anuncio en Facebook',
+              sentAt: '2026-11-03T15:00:00Z',
+            },
+          ],
+          older: null,
+        };
       case 'start':
         return { prospectId: 'cliente-nuevo' };
       case 'templates':
@@ -71,6 +86,7 @@ vi.mock('@/integrations/supabase/callStaffFunction', async (importOriginal) => (
           sender: 'Alejandro Ruiz',
           ambiguous: false,
           canReply: windowOpen,
+          older: olderStart,
           messages: [
             {
               id: '1',
@@ -314,4 +330,34 @@ test('an agent without a WhatsApp customer yet connects Chatwoot from the new ch
   );
   await user.click(screen.getByRole('button', { name: 'Conectar' }));
   expect(await screen.findByLabelText('Plantilla')).toBeTruthy();
+});
+
+test('a long chat starts at the newest messages and the agent can go back to its beginning', async () => {
+  olderStart = 41;
+  const prospect = await openWhatsAppCustomer();
+  const user = userEvent.setup();
+  expect(await screen.findByText('Hola, ¿qué planes tienen?')).toBeTruthy();
+  expect(screen.queryByText('Buenas, vi su anuncio en Facebook')).toBeNull();
+
+  await user.click(screen.getByRole('button', { name: 'Ver mensajes anteriores' }));
+  expect(await screen.findByText('Buenas, vi su anuncio en Facebook')).toBeTruthy();
+  expect(requests).toContainEqual({ action: 'older', prospectId: prospect.id, before: 41 });
+  // That was the first message: nothing older to ask for.
+  expect(screen.queryByRole('button', { name: 'Ver mensajes anteriores' })).toBeNull();
+
+  // The chat refreshes with only Chatwoot's latest page; what the agent opened stays.
+  const loads = requests.filter((request) => request.action === 'load').length;
+  document.dispatchEvent(new Event('visibilitychange'));
+  await waitFor(() =>
+    expect(requests.filter((request) => request.action === 'load').length).toBe(loads + 1)
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(screen.getByText('Buenas, vi su anuncio en Facebook')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Ver mensajes anteriores' })).toBeNull();
+});
+
+test('a short chat has nothing older to load', async () => {
+  await openWhatsAppCustomer();
+  expect(await screen.findByText('Hola, ¿qué planes tienen?')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Ver mensajes anteriores' })).toBeNull();
 });

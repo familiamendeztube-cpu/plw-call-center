@@ -53,9 +53,12 @@ export function ConversationPane({
     ? buildTimeline(chat ? chat.messages : view.thread.messages, view.notes)
     : [];
   const last = timeline[timeline.length - 1];
+  // A message, not a note: an old private note can sit above the older messages being added.
+  const oldest = timeline.find((entry) => entry.kind === 'message');
   // Chats read bottom-up, like WhatsApp; email threads and call details keep opening at the top.
   const scroll = useStickToBottom(
     Boolean(chat?.ready && view),
+    oldest?.id,
     last?.id,
     last ? last.kind === 'note' || last.message.author === 'agent' : false
   );

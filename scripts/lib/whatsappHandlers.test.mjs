@@ -223,8 +223,8 @@ test("an agent cannot open or answer another agent's customer", async () => {
   const { chatwoot, act } = setup();
   await act(AGENT_1, { action: 'connect', token: ALEJANDRO });
   const before = chatwoot.calls.length;
-  for (const action of ['load', 'send', 'send_template']) {
-    const result = await act(AGENT_1, { action, prospectId: CLIENT_OF_2, text: 'Hola' });
+  for (const action of ['load', 'older', 'send', 'send_template']) {
+    const result = await act(AGENT_1, { action, prospectId: CLIENT_OF_2, text: 'Hola', before: 5 });
     assert.equal(result.status, 404, action);
   }
   assert.equal(chatwoot.calls.length, before);
@@ -262,6 +262,65 @@ test('the chat shows who the agent replies as and flags a shared number', async 
   assert.equal(result.body.sender, 'Jose Jimenez');
   assert.equal(result.body.ambiguous, true);
   assert.equal(result.body.messages[0].author, 'customer');
+});
+
+// A 45-message chat paged as Chatwoot does: the latest 20, or the 20 before a message id. Every
+// tenth is an activity line ("conversation resolved") that PLW does not show.
+function longChat({ ignoresBefore = false } = {}) {
+  const base = createChatwoot();
+  const raw = Array.from({ length: 45 }, (_, index) => ({
+    id: index + 1,
+    content: `Mensaje ${index + 1}`,
+    message_type: index % 10 === 9 ? 2 : index % 2,
+    created_at: NOW + index,
+  }));
+  const chatwoot = async (path, token, init = {}) => {
+    const page = /\/conversations\/31\/messages(?:\?before=(\d+))?$/.exec(path);
+    if (!page || init.method === 'POST') return base(path, token, init);
+    base.calls.push({ path, token, method: 'GET' });
+    const before = page[1] && !ignoresBefore ? Number(page[1]) : Infinity;
+    return response(200, { payload: raw.filter((message) => message.id < before).slice(-20) });
+  };
+  const admin = createAdmin();
+  const act = (body) =>
+    handleWhatsApp({ staff: AGENT_1, body, admin, db: dbFor(AGENT_1), chatwoot, config: CONFIG });
+  return { act, calls: base.calls };
+}
+
+test('the agent can page back to the very first message of a long chat', async () => {
+  const { act } = longChat();
+  await act({ action: 'connect', token: ALEJANDRO });
+
+  const latest = (await act({ action: 'load', prospectId: CLIENT_OF_1 })).body;
+  const pages = [latest.messages];
+  let older = latest.older;
+  while (older !== null) {
+    const page = await act({ action: 'older', prospectId: CLIENT_OF_1, before: older });
+    assert.equal(page.status, 200);
+    pages.unshift(page.body.messages);
+    older = page.body.older;
+  }
+
+  const shown = pages.flat().map((message) => message.body);
+  const expected = Array.from({ length: 45 }, (_, index) => index + 1)
+    .filter((id) => id % 10 !== 0)
+    .map((id) => `Mensaje ${id}`);
+  assert.deepEqual(shown, expected);
+});
+
+test('paging stops if Chatwoot ignores "before", and a made-up cursor is refused', async () => {
+  const { act, calls } = longChat({ ignoresBefore: true });
+  await act({ action: 'connect', token: ALEJANDRO });
+  const latest = (await act({ action: 'load', prospectId: CLIENT_OF_1 })).body;
+  const again = await act({ action: 'older', prospectId: CLIENT_OF_1, before: latest.older });
+  assert.equal(again.body.older, null);
+
+  const asked = calls.length;
+  for (const before of [undefined, 0, -3, 2.5, '7', '7; DROP']) {
+    const result = await act({ action: 'older', prospectId: CLIENT_OF_1, before });
+    assert.equal(result.status, 400, String(before));
+  }
+  assert.equal(calls.length, asked);
 });
 
 test('agents disconnect only themselves; the administrator sees and manages every link', async () => {

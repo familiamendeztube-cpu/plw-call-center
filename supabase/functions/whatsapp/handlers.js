@@ -25,8 +25,21 @@ const BAD_NUMBER =
 const NOT_YOURS =
   'Ese número es de un cliente que no tienes asignado. Pídele a un administrador que te lo asigne.';
 
+const CHATWOOT_PAGE = 20; // Chatwoot sends a conversation's messages 20 at a time.
+
 const reply = (status, body) => ({ status, body });
 const readJson = (response) => response.json().catch(() => null);
+
+/**
+ * Where the page before this one starts: the oldest message Chatwoot sent, counting the private
+ * notes and activity lines PLW hides. Null at the start of the chat, or if Chatwoot ignored `before`
+ * and sent the same page again, so the browser never asks forever.
+ */
+function olderCursor(payload, before = Infinity) {
+  if (payload.length < CHATWOOT_PAGE) return null;
+  const oldest = Math.min(...payload.map((message) => Number(message?.id)));
+  return Number.isInteger(oldest) && oldest > 0 && oldest < before ? oldest : null;
+}
 
 /**
  * One request from a signed-in staff member.
@@ -105,7 +118,8 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
   }
 
   const action = body.action;
-  const forChat = action === 'load' || action === 'send' || action === 'send_template';
+  const forChat =
+    action === 'load' || action === 'older' || action === 'send' || action === 'send_template';
   if (!forChat && action !== 'templates' && action !== 'start') {
     return reply(400, { error: 'Acción no válida.' });
   }
@@ -219,7 +233,7 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
 
   switch (action) {
     case 'load': {
-      // ponytail: Chatwoot returns the latest 20 messages; page with ?before= if agents need more history.
+      // The latest page only, so the chat opens fast; the agent asks for older pages ('older').
       const path = conversationPath(chat.chatwoot_conversation_id);
       const [conversation, messages] = await Promise.all([
         chatwoot(path, token),
@@ -231,7 +245,8 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
         return reply(502, { error: 'No se pudo cargar el chat de WhatsApp. Intente de nuevo.' });
       }
       const info = await readJson(conversation);
-      const list = await readJson(messages);
+      const list = (await readJson(messages))?.payload;
+      const payload = Array.isArray(list) ? list : [];
       const { error: readError } = await db.rpc('mark_whatsapp_read', { p_prospect_id: prospectId });
       if (readError) console.error('whatsapp mark_read', readError.code);
       return reply(200, {
@@ -240,7 +255,25 @@ export async function handleWhatsApp({ staff, body, admin, db, chatwoot, config 
         ambiguous: chat.ambiguous_match === true,
         // Chatwoot knows each channel's reply window (24 hours for the WhatsApp Business API).
         canReply: info?.can_reply !== false,
-        messages: (Array.isArray(list?.payload) ? list.payload : []).map(chatMessage).filter(Boolean),
+        messages: payload.map(chatMessage).filter(Boolean),
+        older: olderCursor(payload),
+      });
+    }
+    case 'older': {
+      const before = body.before;
+      if (!Number.isInteger(before) || before < 1) return reply(400, { error: 'Solicitud no válida.' });
+      const path = `${conversationPath(chat.chatwoot_conversation_id)}/messages?before=${before}`;
+      const response = await chatwoot(path, token);
+      if (response?.status === 401) return expired();
+      if (!response?.ok) {
+        console.error('whatsapp older', response?.status ?? 'network');
+        return reply(502, { error: 'No se pudieron cargar los mensajes anteriores. Intente de nuevo.' });
+      }
+      const list = (await readJson(response))?.payload;
+      const payload = Array.isArray(list) ? list : [];
+      return reply(200, {
+        messages: payload.map(chatMessage).filter(Boolean),
+        older: olderCursor(payload, before),
       });
     }
     case 'templates': {
