@@ -1,0 +1,74 @@
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { callStaffFunction } from '@/integrations/supabase/callStaffFunction';
+import type {
+  DentalCall,
+  DentalDialer,
+  DentalRuntime,
+  DentalTranscript,
+} from '../models/dentalDialer';
+export async function loadDialer(signal: AbortSignal) {
+  const db = getSupabaseClient();
+  const [routes, runtime] = await Promise.all([
+    db
+      .from('dental_agent_dialers')
+      .select('staff_id,state,provider_agent_id,config_verified_at,transfer_verified_at,last_error')
+      .abortSignal(signal),
+    db
+      .from('dental_dialer_runtime')
+      .select('last_tick_at,scheduler_ready,last_error')
+      .eq('id', 1)
+      .abortSignal(signal)
+      .single(),
+  ]);
+  if (routes.error || runtime.error)
+    throw new Error('Falta instalar o conectar el control del marcador dental.');
+  const calls: DentalCall[] = [];
+  for (let start = 0; ; start += 1000) {
+    const result = await db
+      .from('dental_calls')
+      .select(
+        'id,lead_id,staff_id,phone,is_test,state,transfer_status,created_at,finished_at,error'
+      )
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(start, start + 999)
+      .abortSignal(signal);
+    if (result.error) throw new Error('No se pudo cargar el historial.');
+    calls.push(...(result.data as DentalCall[]));
+    if (result.data.length < 1000) break;
+  }
+  return { routes: routes.data as DentalDialer[], runtime: runtime.data as DentalRuntime, calls };
+}
+export async function controlDialer(staffId: string, action: string) {
+  const { error } = await getSupabaseClient().rpc('control_dental_dialer', {
+    p_staff_id: staffId,
+    p_action: action,
+  });
+  if (error)
+    throw new Error(
+      'No se pudo guardar la acción. Verifique el servidor y la prueba de transferencia.'
+    );
+}
+export async function dentalServerAction(input: Record<string, unknown>) {
+  try {
+    return await callStaffFunction('dental-dialer', input);
+  } catch {
+    throw new Error(
+      'El servidor dental no confirmó la operación. Revise su despliegue y el historial antes de repetir una llamada.'
+    );
+  }
+}
+export async function loadTranscript(id: string, signal: AbortSignal) {
+  const { data, error } = await getSupabaseClient()
+    .from('dental_calls')
+    .select('transcript,summary,synced_at')
+    .eq('id', id)
+    .abortSignal(signal)
+    .single();
+  if (error) throw new Error('No se pudo cargar la transcripción.');
+  return data as DentalTranscript;
+}
+export async function confirmTransfer(id: string) {
+  const { error } = await getSupabaseClient().rpc('confirm_dental_transfer', { p_call_id: id });
+  if (error) throw new Error('Solo el agente que recibió esta transferencia puede confirmarla.');
+}

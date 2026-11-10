@@ -1,0 +1,137 @@
+{
+  "base_commit": "e57709d758dc0e07b562daf4adb168b82304e953",
+  "target_backend": "meagbbmittuhdgwnhvxa",
+  "source_file_count": 24,
+  "verification": {
+    "backend_tests": 276,
+    "ui_tests": 87,
+    "typecheck": "pass",
+    "lint": "pass",
+    "build": "pass",
+    "deno_check": "pass",
+    "live_transfer": "unverified",
+    "published": "not confirmed"
+  },
+  "files": [
+    {
+      "path": "docs/DENTAL-DEPLOYMENT.md",
+      "before": null,
+      "sha256": "80667ff55cf435ede82a38a03a975f59eac22cb72da1a38d860f7ec201cf6099"
+    },
+    {
+      "path": "scripts/dentalProvider.test.mjs",
+      "before": null,
+      "sha256": "46b364813a5c7ca90174285d0c40a128c33cd91225353a71748642b296b8d335"
+    },
+    {
+      "path": "scripts/lib/agentDataIsolation.test.mjs",
+      "before": "a0f539a15f1f80a84fe78330e866ea5b5348e69774b3c7dcd21d70abcd187f2d",
+      "sha256": "6b62477be03d4f1c02334de12320cb5a9588ffe554fa5dbdc5f090f718c4b6c7"
+    },
+    {
+      "path": "scripts/lib/dentalDialer.test.mjs",
+      "before": null,
+      "sha256": "0b2519b5020c5b36583e65052ec81afb06b076adc3bc32f08b4571f3234a4ff5"
+    },
+    {
+      "path": "src/app/AppRoutes.tsx",
+      "before": "95720d810f2bad7cd1573993ab74328bd36a702309adffdbd89fb8eb96050c49",
+      "sha256": "9f14b685cae0e1b7401baafbd9c0aeb80c1edc318842384219d9e55b0d26986a"
+    },
+    {
+      "path": "src/app/shell/navigation.ts",
+      "before": "639ee3ea3cbd507c46797d09068e426320801a3c3e7645740c9c310721193092",
+      "sha256": "18ba7fe61d18d7f61c4728ebcc0e26beed213b057bdebbe61101883fbefdbab5"
+    },
+    {
+      "path": "src/features/dental-leads/components/DentalCallHistory.tsx",
+      "before": null,
+      "sha256": "e1ddd3a22ce6fcfcaa12124aae3729194f3cab90eb2eebe1451f71fdb505584b"
+    },
+    {
+      "path": "src/features/dental-leads/components/DentalCampaignPanel.tsx",
+      "before": "ff34440101bcbbbdcf16e4405d079b89ecf34c6daa33895925fef3d9d73083f5",
+      "sha256": "71e933ff7c44c7461624cb76b6ee3d8e56b93560ea3d21e7a789942cdaea27a0"
+    },
+    {
+      "path": "src/features/dental-leads/components/DentalDialerControls.test.tsx",
+      "before": null,
+      "sha256": "33823b8d7893b5eb1d1ab175f104fa7eb9c0163558f963faa5af253228d1f3e1"
+    },
+    {
+      "path": "src/features/dental-leads/components/DentalDialerControls.tsx",
+      "before": null,
+      "sha256": "fc4801444725383b15d6fbd089cd0109de906b6812f64961afbdebbfc1c6ce87"
+    },
+    {
+      "path": "src/features/dental-leads/hooks/useDentalDialer.ts",
+      "before": null,
+      "sha256": "35c9071c0de76206e8696cc887803aeb046d9ef0926cb8ce18a3b93ffbd942f3"
+    },
+    {
+      "path": "src/features/dental-leads/hooks/useDentalLeads.ts",
+      "before": "2dbffd3a79950066d39a1c5f5ad0ef5e12cb8c47bffb5315149dcada0efde81c",
+      "sha256": "b32821ed1d876614ad6d44559af77df68990b04d2d140e18eefba457186421cc"
+    },
+    {
+      "path": "src/features/dental-leads/models/dentalDialer.ts",
+      "before": null,
+      "sha256": "b0c1e0650f6018ad4ec4c2039be3a13b3ab1e02710e342f76570c1305420e339"
+    },
+    {
+      "path": "src/features/dental-leads/pages/DentalDialerPage.tsx",
+      "before": null,
+      "sha256": "1687e6ecb037ab7ef72ed1298f82cf5aeae785f9d1080acedc6f49e8cc880fa3"
+    },
+    {
+      "path": "src/features/dental-leads/services/dentalDialer.ts",
+      "before": null,
+      "sha256": "0391aa5fd200f7254c9fda7508ef73ff75bfc894e17e764763989e8ce907fb5f"
+    },
+    {
+      "path": "supabase/config.toml",
+      "before": "9b2819a52a5ba40b3da9c0241fece54d8684b3648a1109d3337013a368d1c0a4",
+      "sha256": "ad2eeb5c124c897f7b2e0243b4c3d2ef7fd844f68d113b0320a357389e1e2898"
+    },
+    {
+      "path": "supabase/functions/ai-outbound-test-call/auth.ts",
+      "before": null,
+      "sha256": "5b92bb05031b0b4fb342e831d5d72a21670caf896a3add6e7590f6ed12447ef3"
+    },
+    {
+      "path": "supabase/functions/ai-outbound-test-call/salesScript.js",
+      "before": null,
+      "sha256": "f7fba367730d28d691aeecde2bd8403e8aa226d112ce47472fe08ceee11f74f1"
+    },
+    {
+      "path": "supabase/functions/dental-dialer/index.ts",
+      "before": null,
+      "sha256": "d83294748617cf80e1c6dfa1e3b7f06d11cddea0d7d4f03c770907b359d676a2"
+    },
+    {
+      "path": "supabase/functions/dental-dialer/provider.js",
+      "before": null,
+      "sha256": "85c72e474e4a76ef7c1e3b7df1aabbe3d106c667c25cec4e8951c618e3a5fc90"
+    },
+    {
+      "path": "supabase/functions/dental-dialer/runner.js",
+      "before": null,
+      "sha256": "4d89e352c006b11c66d76410372f36981cce8a3373a254db0528cdbe90d6549f"
+    },
+    {
+      "path": "supabase/migrations/20261110080000_dental_prospecting.sql",
+      "before": null,
+      "sha256": "3d47816c25ba742d0dc5ecc90bfdea27e0ae0fdf2dc88a6976480e0fccbf5e08"
+    },
+    {
+      "path": "supabase/migrations/20261110090000_dental_dialer_controls.sql",
+      "before": null,
+      "sha256": "f65e7f78c12edbe340e098eca75754a8f61cf75ea3293fc0481efd042da4c183"
+    },
+    {
+      "path": "supabase/migrations/20261110091000_dental_scheduler.sql",
+      "before": null,
+      "sha256": "8f96dbdabb45708de4b3fb8024618508ff3458781bfc786ad35cbf25f79042eb"
+    }
+  ]
+}
