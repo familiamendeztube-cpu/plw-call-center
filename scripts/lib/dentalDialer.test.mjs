@@ -307,3 +307,35 @@ test('a number that does not exist gives the pilot attempt back once and marks t
     await as(tx, 0);
     await denied(tx, 'SELECT dental_number_not_found($1)', [bad.call.id], /permission denied/);
   }));
+test('a dentist who did not pick up gets one more call on a later business day, never a third', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    // First calls already made for agent-2's leads id(10)..id(13); id(14) was never called.
+    const first = [
+      [id(10), 'completed', 'NO_ANSWER', '', '2026-11-09T15:00:00Z'], // Monday: retry first
+      [id(11), 'failed', null, 'dial failed with 480 Temporarily Unavailable (SIP 480)', '2026-11-09T16:00:00Z'],
+      [id(12), 'failed', null, 'dial failed with 404 Not Found (SIP 404)', '2026-11-09T15:30:00Z'],
+      [id(13), 'completed', 'NO_ANSWER', '', '2026-11-10T14:00:00Z'], // same day as the claims below
+    ];
+    for (const [lead, state, outcome, error, created] of first)
+      await tx.query(
+        "INSERT INTO dental_calls(lead_id,staff_id,phone,provider_agent_id,transfer_uri,state,outcome,error,created_at) SELECT id,'agent-2',phone,'dental_agent-2','sip:agent-2@phone.example.com',$2,$3,$4,$5 FROM dental_leads WHERE id=$1",
+        [lead, state, outcome, error, created]
+      );
+    const next = async () => {
+      const claimed = await claim(tx);
+      if (claimed)
+        await tx.query("UPDATE dental_calls SET state='completed' WHERE id=$1", [claimed.call.id]);
+      return claimed && [claimed.lead.id, claimed.call.attempt];
+    };
+    assert.deepEqual(await next(), [id(10), 2]); // no answer, oldest first
+    assert.deepEqual(await next(), [id(11), 2]); // phone off
+    assert.deepEqual(await next(), [id(14), 1]); // then new dentists
+    assert.equal(await next(), null); // never the 404 or a same-day retry
+    await denied(
+      tx,
+      "INSERT INTO dental_calls(lead_id,staff_id,phone,provider_agent_id,transfer_uri,attempt) SELECT id,'agent-2',phone,'x','sip:agent-2@phone.example.com',2 FROM dental_leads WHERE id=$1",
+      [id(10)],
+      /duplicate key/
+    );
+  }));
