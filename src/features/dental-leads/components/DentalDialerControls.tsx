@@ -102,7 +102,7 @@ export function DentalDialerControls({
         )}
       </div>
       {pilot && (
-        <p className="rounded-lg bg-blue-50 p-3 text-sm text-plw-navy">
+        <p className="rounded-lg border border-plw-gold/30 bg-plw-gold/15 p-3 text-sm text-plw-gold-soft">
           Piloto de hasta {route.pilot_call_limit} intentos. Se pausa
           automáticamente al alcanzar el límite.{' '}
           {route.transfer_verified_at
@@ -115,7 +115,7 @@ export function DentalDialerControls({
         Continuar conserva el avance y no vuelve a marcar contactos ya intentados.
       </p>
       {!ready && (
-        <div className="grid gap-3 rounded-lg bg-amber-50 p-4 text-sm text-amber-950">
+        <div className="grid gap-3 rounded-lg border border-warning-100 bg-warning-50 p-4 text-sm text-warning-700">
           <p className="font-semibold">Antes de activar este agente</p>
           <ol className="list-inside list-decimal space-y-1">
             <li>Configurar la voz Ana y su destino de transferencia.</li>
@@ -179,7 +179,7 @@ export function DentalDialerControls({
         </p>
       )}
       {message && (
-        <p role="status" className="text-sm text-plw-navy">
+        <p role="status" className="text-sm text-plw-gold-soft">
           {message}
         </p>
       )}

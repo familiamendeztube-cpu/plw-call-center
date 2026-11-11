@@ -49,7 +49,7 @@ export function PhoneCallReport({ agentNames }: { agentNames: Record<string, str
       <button className="text-sm underline" onClick={() => void load()} disabled={loading}>Actualizar</button>
     </div>
     <p className="mt-2 text-sm text-neutral-600">Llamadas finalizadas registradas por el servidor. Los intentos entrantes sin respuesta se cuentan en la cola, no contra un agente.</p>
-    {error ? <p role="alert" className="mt-3 text-red-700">{error}</p> : loading ? <p>Cargando…</p> : <>
+    {error ? <p role="alert" className="mt-3 text-danger-700">{error}</p> : loading ? <p>Cargando…</p> : <>
       {truncated && <p role="alert">Reporte parcial: se alcanzó el límite de 10 000 registros.</p>}
       <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
         <thead><tr>{['Agente', 'Entrantes atendidas', 'Salientes', 'Salientes contestadas', 'Salientes sin conexión', 'Minutos hablados'].map(h => <th className="p-2" key={h}>{h}</th>)}</tr></thead>

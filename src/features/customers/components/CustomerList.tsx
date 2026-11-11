@@ -24,27 +24,27 @@ const ALL_COLORS: TagColors = {
 // Hues spread around the wheel so neighbouring stages never look alike; lost is grey, as closed.
 const STAGE_COLORS: Record<SalesStage, TagColors> = {
   new: {
-    tag: 'bg-sky-50 text-sky-800 ring-sky-200 hover:bg-sky-100',
+    tag: 'bg-sky-400/15 text-sky-200 ring-sky-400/30 hover:bg-sky-400/25',
     active: 'bg-sky-700 text-white ring-sky-700',
   },
   contacted: {
-    tag: 'bg-indigo-50 text-indigo-800 ring-indigo-200 hover:bg-indigo-100',
+    tag: 'bg-indigo-400/15 text-indigo-200 ring-indigo-400/30 hover:bg-indigo-400/25',
     active: 'bg-indigo-600 text-white ring-indigo-600',
   },
   demo_scheduled: {
-    tag: 'bg-fuchsia-50 text-fuchsia-800 ring-fuchsia-200 hover:bg-fuchsia-100',
+    tag: 'bg-fuchsia-400/15 text-fuchsia-200 ring-fuchsia-400/30 hover:bg-fuchsia-400/25',
     active: 'bg-fuchsia-700 text-white ring-fuchsia-700',
   },
   proposal_sent: {
-    tag: 'bg-amber-50 text-amber-800 ring-amber-200 hover:bg-amber-100',
+    tag: 'bg-amber-400/15 text-amber-200 ring-amber-400/30 hover:bg-amber-400/25',
     active: 'bg-amber-700 text-white ring-amber-700',
   },
   follow_up: {
-    tag: 'bg-rose-50 text-rose-800 ring-rose-200 hover:bg-rose-100',
+    tag: 'bg-rose-400/15 text-rose-200 ring-rose-400/30 hover:bg-rose-400/25',
     active: 'bg-rose-700 text-white ring-rose-700',
   },
   won: {
-    tag: 'bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100',
+    tag: 'bg-emerald-400/15 text-emerald-200 ring-emerald-400/30 hover:bg-emerald-400/25',
     active: 'bg-emerald-700 text-white ring-emerald-700',
   },
   lost: {

@@ -62,7 +62,7 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
   }
   return (
     <section className="grid gap-3" aria-label="Historial de llamadas dentales">
-      <h2 className="text-lg font-semibold text-plw-navy">
+      <h2 className="text-lg font-semibold text-plw-gold-soft">
         Llamadas, transferencias y transcripciones
       </h2>
       {error && (
@@ -86,7 +86,7 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
                 {CALL_STATE[call.state]} · Transferencia: {TRANSFER_STATE[call.transfer_status]}
               </p>
               {call.outcome && (
-                <p className="mt-1 text-sm font-semibold text-plw-navy">
+                <p className="mt-1 text-sm font-semibold text-plw-gold-soft">
                   Resultado: {CALL_OUTCOME[call.outcome] ?? call.outcome}
                 </p>
               )}

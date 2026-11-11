@@ -132,7 +132,7 @@ export function LoginScreen({
             <div className="mt-6 flex justify-center border-t border-neutral-200 pt-6">
               <Link
                 to="/acceso-administrador"
-                className="inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-plw-navy transition-colors hover:text-plw-gold"
+                className="inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-plw-gold-soft transition-colors hover:text-white"
               >
                 Acceso de administrador
                 <ArrowRight size={14} aria-hidden="true" />
