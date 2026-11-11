@@ -48,7 +48,7 @@ export function Drawer({ open, title, onClose, children, side = 'left' }: Drawer
         tabIndex={-1}
         className={cx(
           'glass-panel-strong absolute bottom-0 top-0 flex w-[min(20rem,88vw)] flex-col rounded-none shadow-raised outline-none',
-          side === 'left' ? 'left-0 animate-slide-in-right' : 'right-0 animate-slide-in-right'
+          side === 'left' ? 'left-0 animate-slide-in-left' : 'right-0 animate-slide-in-right'
         )}
       >
         <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">

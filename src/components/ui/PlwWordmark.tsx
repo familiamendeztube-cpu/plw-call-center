@@ -15,7 +15,7 @@ export function PlwWordmark({ tone = 'light', className }: PlwWordmarkProps) {
           isLight ? 'border-plw-gold-soft/70 text-plw-gold-soft' : 'border-plw-gold text-plw-gold'
         )}
       >
-        <span className="font-display text-lg font-medium leading-none tracking-tight">PLW</span>
+        <span className="font-display text-[15px] font-medium leading-none tracking-tight">PLW</span>
       </div>
       <div className="leading-tight">
         <p

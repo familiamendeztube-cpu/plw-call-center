@@ -37,7 +37,8 @@ export function Button({
       type={type}
       className={cx(
         'inline-flex select-none items-center justify-center rounded-lg font-medium',
-        'transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50',
+        'transition-[color,background-color,border-color,transform] duration-150 ease-out enabled:active:scale-[0.97]',
+        'disabled:cursor-not-allowed disabled:opacity-50',
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
         className

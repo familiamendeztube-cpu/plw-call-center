@@ -16,7 +16,7 @@ export function MaterialCard({ material }: MaterialCardProps) {
 
   return (
     <Panel as="article" className="flex h-full flex-col gap-4 p-5">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <Badge tone="navy">{MATERIAL_KIND_LABELS[material.kind]}</Badge>
         {approved ? null : <Badge tone="warning">Pendiente de configuración</Badge>}
       </div>

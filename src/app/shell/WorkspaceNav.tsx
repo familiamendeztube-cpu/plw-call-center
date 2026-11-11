@@ -11,7 +11,7 @@ export function WorkspaceNav({ items, label }: WorkspaceNavProps) {
   return (
     <nav
       aria-label={label}
-      className="glass-panel mx-3 mb-3 overflow-x-auto p-1.5 scrollbar-thin sm:mx-5 sm:mb-4"
+      className="glass-panel mx-3 my-3 overflow-x-auto p-1.5 sm:mx-5 sm:my-4"
     >
       <ul className="flex min-w-max gap-1">
         {items.map((item) => (

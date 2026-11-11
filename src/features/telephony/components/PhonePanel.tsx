@@ -19,7 +19,7 @@ export function PhonePanel() {
       aria-label="Teléfono"
       className="flex h-full min-h-0 flex-col p-3 sm:p-4"
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.03] shadow-panel">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px]">
         <header className="flex flex-col items-center gap-1 border-b border-neutral-200 px-5 pb-3 pt-4">
           <span aria-hidden="true" className="h-1.5 w-16 rounded-full bg-neutral-300" />
           <h2 className="pt-1 text-sm font-semibold text-plw-ink">Teléfono</h2>

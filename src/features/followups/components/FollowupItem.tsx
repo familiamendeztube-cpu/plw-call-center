@@ -36,7 +36,7 @@ export function FollowupItem({
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/50',
             followup.completed
               ? 'border-success-600 bg-success-600 text-white'
-              : 'border-neutral-300 bg-white hover:border-plw-gold'
+              : 'border-neutral-400 bg-white hover:border-plw-gold'
           )}
         >
           {followup.completed ? <Check size={12} aria-hidden="true" /> : null}
@@ -48,7 +48,7 @@ export function FollowupItem({
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
             followup.completed
               ? 'border-success-600 bg-success-600 text-white'
-              : 'border-neutral-300 bg-white'
+              : 'border-neutral-400 bg-white'
           )}
         >
           {followup.completed ? <Check size={12} /> : null}

@@ -8,9 +8,23 @@
 }
 
 @layer base {
+  /* Windows draws scrollbars, select menus, date pickers and checkboxes in light mode
+     unless the page declares dark; macOS hides most of this behind overlay scrollbars. */
   html {
     -webkit-text-size-adjust: 100%;
     background-color: #1b1f26;
+    color-scheme: dark;
+    accent-color: #2f6bff;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  }
+
+  * {
+    scrollbar-width: thin;
+  }
+
+  option {
+    background-color: #1d222b;
+    color: #edf1f7;
   }
 
   body {
@@ -43,7 +57,6 @@
       radial-gradient(ellipse 55% 40% at 80% 70%, rgba(104, 116, 136, 0.2), transparent 70%),
       radial-gradient(ellipse 40% 30% at 62% 18%, rgba(47, 107, 255, 0.14), transparent 70%),
       radial-gradient(ellipse 50% 35% at 8% 92%, rgba(47, 107, 255, 0.1), transparent 70%);
-    animation: smoke-drift 46s ease-in-out infinite alternate;
   }
 
   body::after {
@@ -117,20 +130,6 @@
   .font-display {
     font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
   }
-
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: #3a4350 transparent;
-  }
-}
-
-@keyframes smoke-drift {
-  from {
-    transform: translate3d(-2%, -1%, 0) scale(1);
-  }
-  to {
-    transform: translate3d(2%, 2%, 0) scale(1.04);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -139,9 +138,5 @@
   *::after {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
-  }
-
-  body::before {
-    animation: none;
   }
 }

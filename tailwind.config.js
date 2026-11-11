@@ -46,6 +46,11 @@ export default {
           700: '#DCE2EA',
         },
       },
+      // On the dark theme the brand blue fails contrast as text (about 2.2:1 on the glass), so
+      // text-plw-navy uses the light blue; bg-plw-navy and the borders keep the brand blue.
+      textColor: {
+        plw: { navy: '#9CC2FF' },
+      },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
         serif: ['Fraunces', 'Georgia', 'Times New Roman', 'serif'],
@@ -63,10 +68,15 @@ export default {
           from: { opacity: '0', transform: 'translateX(16px)' },
           to: { opacity: '1', transform: 'translateX(0)' },
         },
+        'slide-in-left': {
+          from: { opacity: '0', transform: 'translateX(-16px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 200ms ease-out',
         'slide-in-right': 'slide-in-right 220ms ease-out',
+        'slide-in-left': 'slide-in-left 220ms ease-out',
       },
     },
   },
