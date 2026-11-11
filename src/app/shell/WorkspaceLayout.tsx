@@ -23,7 +23,7 @@ export function WorkspaceLayout() {
   // wide windows, a dialer pinned to the top on narrow ones (a laptop split between windows).
   // Administrators never place calls, and their phone line never connects.
   return (
-    <div className="flex min-h-dvh bg-plw-ivory">
+    <div className="flex min-h-dvh">
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader
           displayName={session?.displayName ?? ''}
@@ -46,7 +46,7 @@ export function WorkspaceLayout() {
       {isAgent ? (
         <aside
           aria-label="Panel de teléfono"
-          className="sticky top-0 hidden h-dvh w-[22rem] shrink-0 border-l border-neutral-200 xl:flex xl:flex-col"
+          className="glass-panel sticky top-4 my-5 mr-5 hidden h-[calc(100dvh-2.5rem)] w-[22rem] shrink-0 overflow-hidden shadow-panel xl:flex xl:flex-col"
         >
           <PhonePanel />
         </aside>

@@ -32,17 +32,17 @@ export function AgentCardSelector({
             disabled={disabled}
             onClick={() => onSelect(agent.id)}
             className={cx(
-              'group relative flex items-center gap-3 rounded-xl border p-4 text-left transition-all duration-200',
+              'group relative flex items-center gap-3 rounded-[18px] border p-4 text-left transition-all duration-200',
               'hover:-translate-y-0.5 hover:shadow-panel disabled:cursor-not-allowed disabled:opacity-60',
               selected
-                ? 'border-plw-gold bg-white shadow-panel ring-1 ring-plw-gold/40'
-                : 'border-neutral-200 bg-white/70 hover:border-plw-gold/60'
+                ? 'border-plw-gold bg-plw-surface-strong shadow-panel ring-1 ring-plw-gold/40'
+                : 'border-white/12 bg-white/[0.04] hover:border-plw-gold/60'
             )}
           >
             <span
               className={cx(
                 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors',
-                selected ? 'bg-plw-navy text-white' : 'bg-plw-ivory text-plw-navy'
+                selected ? 'bg-plw-navy text-white' : 'bg-white/10 text-plw-gold-soft'
               )}
             >
               <UserRound size={18} aria-hidden="true" />

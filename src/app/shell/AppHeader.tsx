@@ -13,7 +13,7 @@ export function AppHeader({ displayName, roleLabel, statusControl }: AppHeaderPr
   const { signOut } = useAuth();
 
   return (
-    <header className="bg-plw-deep text-white">
+    <header className="glass-panel-strong sticky top-3 z-40 mx-3 mt-3 text-white shadow-panel sm:mx-5 sm:mt-5">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-4">
           <p className="truncate font-serif text-lg font-semibold tracking-wide text-white">

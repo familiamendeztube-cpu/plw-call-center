@@ -76,8 +76,8 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
     <section
       aria-label="Marcador"
       className={cx(
-        'border-b border-neutral-200 px-4 py-2 shadow-sm sm:px-6 lg:px-8',
-        can.incoming ? 'bg-plw-gold-soft' : 'bg-white'
+        'glass-panel-strong rounded-none border-x-0 border-t-0 px-4 py-2 shadow-sm sm:px-6 lg:px-8',
+        can.incoming ? 'bg-plw-navy text-white' : ''
       )}
     >
       {/* When the buttons don't fit beside the number, they wrap below it instead of crushing it. */}

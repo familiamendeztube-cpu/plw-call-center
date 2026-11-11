@@ -9,19 +9,22 @@ interface WorkspaceNavProps {
 
 export function WorkspaceNav({ items, label }: WorkspaceNavProps) {
   return (
-    <nav aria-label={label} className="overflow-x-auto bg-plw-navy scrollbar-thin">
-      <ul className="flex min-w-max gap-1 px-4 sm:px-6 lg:px-8">
+    <nav
+      aria-label={label}
+      className="glass-panel mx-3 mb-3 overflow-x-auto p-1.5 scrollbar-thin sm:mx-5 sm:mb-4"
+    >
+      <ul className="flex min-w-max gap-1">
         {items.map((item) => (
           <li key={item.to}>
             <NavLink
               to={item.to}
               className={({ isActive }) =>
                 cx(
-                  'relative flex h-12 items-center whitespace-nowrap rounded-t-md px-3 text-sm font-medium',
+                  'flex h-11 items-center whitespace-nowrap rounded-[14px] px-4 text-sm font-medium',
                   'transition-colors duration-150 focus-visible:outline-none',
                   'focus-visible:ring-2 focus-visible:ring-plw-gold-soft focus-visible:ring-inset',
                   isActive
-                    ? 'text-white after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-plw-gold-soft'
+                    ? 'bg-plw-navy text-white shadow-sm shadow-black/30'
                     : 'text-white/70 hover:bg-white/5 hover:text-white'
                 )
               }

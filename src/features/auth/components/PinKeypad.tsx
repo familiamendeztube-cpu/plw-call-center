@@ -55,7 +55,7 @@ export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKey
           />
         ))}
       </div>
-      <div className="w-full max-w-[19rem] rounded-2xl border border-plw-gold/40 bg-plw-ivory/70 p-4 sm:p-5">
+      <div className="w-full max-w-[19rem] rounded-[22px] border border-white/12 bg-white/[0.04] p-4 sm:p-5">
         <div className="grid grid-cols-3 gap-3" role="group" aria-label="Teclado numérico">
           {KEYS.map((key, index) => {
             if (key === '') {
@@ -71,7 +71,7 @@ export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKey
                   aria-label="Borrar último dígito"
                   className={cx(
                     KEY_BASE,
-                    'border-transparent bg-transparent text-plw-navy shadow-none hover:bg-plw-navy/5'
+                    'border-transparent bg-transparent text-plw-gold-soft shadow-none hover:bg-white/5'
                   )}
                 >
                   <Delete size={24} aria-hidden="true" />
@@ -87,7 +87,7 @@ export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKey
                 aria-label={`Dígito ${key}`}
                 className={cx(
                   KEY_BASE,
-                  'border-neutral-200 bg-white text-plw-navy hover:border-plw-gold hover:bg-plw-gold-soft/20 active:bg-plw-gold-soft/40'
+                  'border-white/12 bg-white/[0.06] text-plw-ink hover:border-plw-gold hover:bg-plw-gold/15 active:bg-plw-gold/25'
                 )}
               >
                 {key}
