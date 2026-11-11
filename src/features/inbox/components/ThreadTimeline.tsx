@@ -63,7 +63,7 @@ export function ThreadTimeline({ entries, contactName, agentNames }: ThreadTimel
               key={entry.id}
               className="rounded-xl border border-dashed border-plw-gold/60 bg-plw-gold-soft/15 px-4 py-3"
             >
-              <p className="flex items-center gap-2 text-xs font-semibold text-[#7A5A16]">
+              <p className="flex items-center gap-2 text-xs font-semibold text-plw-gold-soft">
                 <LockKeyhole size={12} aria-hidden="true" />
                 Nota privada · {authorName}
               </p>
@@ -91,7 +91,7 @@ export function ThreadTimeline({ entries, contactName, agentNames }: ThreadTimel
                 className={
                   fromCustomer
                     ? 'text-xs font-semibold text-neutral-500'
-                    : 'text-xs font-semibold text-white/75'
+                    : 'text-xs font-semibold text-white'
                 }
               >
                 {fromCustomer ? contactName : 'Agente'}
@@ -115,7 +115,7 @@ export function ThreadTimeline({ entries, contactName, agentNames }: ThreadTimel
                 className={
                   fromCustomer
                     ? 'mt-2 block text-xs text-neutral-500'
-                    : 'mt-2 block text-xs text-white/70'
+                    : 'mt-2 block text-xs text-white'
                 }
               >
                 {formatDateTime(entry.message.sentAt)}

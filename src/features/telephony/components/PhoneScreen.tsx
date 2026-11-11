@@ -41,7 +41,7 @@ export function PhoneScreen() {
         <span>{CALL_STATE_LABELS[state]}</span>
         <CallTimer startedAt={call?.startedAt ?? null} running={call?.state === 'active'} />
       </span>
-      <DialInput className="mt-3 h-9 w-full text-center text-3xl font-light tracking-wide placeholder:text-lg placeholder:text-white/30" />
+      <DialInput className="mt-3 h-9 w-full text-center text-3xl font-light tracking-wide placeholder:text-lg placeholder:text-white/50" />
       <span aria-live="polite" className="mt-1 block h-4 text-center text-xs text-plw-gold-soft">
         {live ? (call.direction === 'outbound' ? 'Llamada saliente' : 'Llamada entrante') : ''}
       </span>

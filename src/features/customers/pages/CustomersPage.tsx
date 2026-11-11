@@ -124,7 +124,7 @@ export function CustomersPage() {
       {newAssignments.count > 0 ? (
         <div
           role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-plw-gold/40 bg-plw-gold-soft/40 px-5 py-3"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-plw-gold/30 bg-plw-gold/15 px-5 py-3"
         >
           <p className="text-sm font-medium text-plw-navy">
             {newAssignments.count === 1

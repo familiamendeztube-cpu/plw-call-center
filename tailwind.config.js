@@ -3,10 +3,14 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      // Fills that carry white text (navy, navy-hover, success-600/800, danger-600/800) keep at
+      // least 4.5:1. The 700 shades are light text colors for the dark theme, never fills: hover
+      // fills go darker to 800. Amber is too light for white, so text on warning-600 is plw-deep.
       colors: {
         plw: {
           deep: '#06080C',
-          navy: '#2F6BFF',
+          navy: '#2A62F0',
+          'navy-hover': '#2257DF',
           gold: '#4D8DFF',
           'gold-soft': '#9CC2FF',
           ivory: '#1B1F26',
@@ -19,8 +23,9 @@ export default {
           50: '#0E2418',
           100: '#143421',
           500: '#22C55E',
-          600: '#16A34A',
+          600: '#15803D',
           700: '#86EFAC',
+          800: '#166534',
         },
         danger: {
           50: '#2A1214',
@@ -28,6 +33,7 @@ export default {
           500: '#EF4444',
           600: '#DC2626',
           700: '#FCA5A5',
+          800: '#B91C1C',
         },
         warning: {
           50: '#2B2111',
@@ -40,7 +46,7 @@ export default {
           100: '#171B22',
           200: '#232937',
           300: '#303846',
-          400: '#8E98A8',
+          400: '#9DA6B5',
           500: '#A9B2C0',
           600: '#C0C7D2',
           700: '#DCE2EA',

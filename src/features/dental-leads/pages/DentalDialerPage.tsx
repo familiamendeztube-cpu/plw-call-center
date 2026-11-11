@@ -80,11 +80,11 @@ export function DentalDialerPage() {
                   ? 'En pausa'
                   : 'Detenido'}
             </p>
-            <p className="mt-1 text-sm text-white/80">
+            <p className="mt-1 text-sm text-white">
               Se marca únicamente cuando el agente está activo y disponible. El avance queda
               guardado al cerrar esta página.
             </p>
-            <p className="mt-2 text-xs text-white/70">
+            <p className="mt-2 text-xs text-white">
               Última señal del servidor:{' '}
               {state.runtime?.last_tick_at
                 ? new Date(state.runtime.last_tick_at).toLocaleString('es-CR', {

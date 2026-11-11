@@ -74,7 +74,7 @@ function StageTag({ label, count, active, colors, onClick }: StageTagProps) {
       )}
     >
       {/* The space makes screen readers say "Nuevo 3", not "Nuevo3"; flex hides it on screen. */}
-      {label} <span className="tabular-nums opacity-80">{count}</span>
+      {label} <span className={cx('tabular-nums', !active && 'opacity-80')}>{count}</span>
     </button>
   );
 }

@@ -28,9 +28,10 @@ function SecondaryButton({
       aria-pressed={active}
       className={cx(
         'flex h-14 flex-col items-center justify-center gap-1 rounded-2xl border text-xs font-semibold transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60 disabled:cursor-not-allowed disabled:opacity-40',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60',
+        'disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-neutral-400',
         active
-          ? 'border-plw-gold bg-plw-gold text-white'
+          ? 'border-plw-navy bg-plw-navy text-white'
           : 'border-neutral-200 bg-white text-plw-navy hover:border-plw-gold'
       )}
     >
@@ -67,7 +68,7 @@ export function CallControls() {
           onClick={incoming ? answerCall : placeCall}
           disabled={!incoming && (!canDial || !active)}
           title={!incoming && !active ? DIAL_REQUIRES_ACTIVE : undefined}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-success-600 text-base font-semibold text-white shadow-sm transition-all hover:bg-success-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 disabled:shadow-none"
+          className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-success-600 text-base font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-out hover:bg-success-800 enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 disabled:shadow-none"
         >
           <Phone size={20} aria-hidden="true" />
           {incoming ? 'Contestar' : 'Llamar'}
@@ -76,7 +77,7 @@ export function CallControls() {
           type="button"
           onClick={hangUp}
           disabled={!live}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-danger-600 text-base font-semibold text-white shadow-sm transition-all hover:bg-danger-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 disabled:shadow-none"
+          className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-danger-600 text-base font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-out hover:bg-danger-800 enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 disabled:shadow-none"
         >
           <PhoneOff size={20} aria-hidden="true" />
           {incoming ? 'Rechazar' : 'Colgar'}

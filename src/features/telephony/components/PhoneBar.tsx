@@ -39,9 +39,10 @@ function IconButton({ label, onClick, disabled = false, pressed, children }: Ico
       disabled={disabled}
       className={cx(
         'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60 disabled:cursor-not-allowed disabled:opacity-40',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60',
+        'disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-neutral-400',
         pressed
-          ? 'border-plw-gold bg-plw-gold text-white'
+          ? 'border-plw-navy bg-plw-navy text-white'
           : 'border-neutral-200 bg-white text-plw-navy hover:border-plw-gold'
       )}
     >
@@ -89,7 +90,7 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
               <span>{CALL_STATE_LABELS[call?.state ?? 'idle']}</span>
               <CallTimer startedAt={call?.startedAt ?? null} running={call?.state === 'active'} />
             </span>
-            <DialInput className="h-full min-w-0 flex-1 text-lg placeholder:text-sm placeholder:text-white/40" />
+            <DialInput className="h-full min-w-0 flex-1 text-lg placeholder:text-sm placeholder:text-white/55" />
           </label>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -98,7 +99,7 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
             onClick={can.incoming ? answerCall : placeCall}
             disabled={!can.incoming && (!can.canDial || !active)}
             title={!can.incoming && !active ? DIAL_REQUIRES_ACTIVE : undefined}
-            className={cx(MAIN_BUTTON, 'bg-success-600 hover:bg-success-700')}
+            className={cx(MAIN_BUTTON, 'bg-success-600 hover:bg-success-800')}
           >
             <Phone size={18} aria-hidden="true" />
             <span className="sr-only md:not-sr-only">{can.incoming ? 'Contestar' : 'Llamar'}</span>
@@ -107,7 +108,7 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
             type="button"
             onClick={hangUp}
             disabled={!can.live}
-            className={cx(MAIN_BUTTON, 'bg-danger-600 hover:bg-danger-700')}
+            className={cx(MAIN_BUTTON, 'bg-danger-600 hover:bg-danger-800')}
           >
             <PhoneOff size={18} aria-hidden="true" />
             <span className="sr-only md:not-sr-only">{can.incoming ? 'Rechazar' : 'Colgar'}</span>

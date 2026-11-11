@@ -44,11 +44,11 @@ export function DentalCampaignPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{campaign.name}</h2>
-          <p className="mt-1 text-sm text-white/80">
+          <p className="mt-1 text-sm text-white">
             {campaign.concurrent_per_agent} llamadas IA simultáneas por agente · Costa Rica
           </p>
         </div>
-        <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold">
+        <span className="rounded-full bg-black/15 px-3 py-1.5 text-xs font-semibold">
           Control por agente
         </span>
       </div>
@@ -65,7 +65,7 @@ export function DentalCampaignPanel({
       )}
       <Link
         to={admin ? '/admin/marcador-ia' : '/llamadas-dentales'}
-        className="rounded-lg bg-white/10 p-3 text-sm underline"
+        className="rounded-lg bg-black/15 p-3 text-sm underline"
       >
         Abrir marcador: controles, llamadas, transferencias y transcripciones.
       </Link>
@@ -74,7 +74,7 @@ export function DentalCampaignPanel({
           {selected.map((agent) => {
             const counts = dentalCounts(leads.filter((l) => l.owner_staff_id === agent.id));
             return (
-              <div key={agent.id} className="rounded-xl bg-white/10 p-4">
+              <div key={agent.id} className="rounded-xl bg-black/15 p-4">
                 <p className="font-semibold">{agent.display_name}</p>
                 <p className="my-2 text-3xl font-bold">
                   {counts.total} <span className="text-sm font-normal">dentistas</span>
