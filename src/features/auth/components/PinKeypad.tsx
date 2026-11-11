@@ -13,7 +13,7 @@ interface PinKeypadProps {
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'delete'] as const;
 
 const KEY_BASE =
-  'flex h-14 w-full items-center justify-center rounded-xl border text-2xl font-semibold shadow-sm transition-all duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 sm:h-16';
+  'flex h-14 w-full items-center justify-center rounded-xl border text-2xl font-semibold shadow-sm transition-[transform,background-color,border-color] duration-150 ease-out enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 sm:h-16';
 
 export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKeypadProps) {
   useEffect(() => {
@@ -47,15 +47,15 @@ export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKey
             key={index}
             aria-hidden="true"
             className={cx(
-              'h-3.5 w-3.5 rounded-full border-2 transition-all duration-150',
+              'h-3.5 w-3.5 rounded-full border-2 transition-[transform,background-color,border-color] duration-150 ease-out',
               index < value.length
-                ? 'scale-110 border-plw-navy bg-plw-navy'
-                : 'border-plw-navy/30 bg-transparent'
+                ? 'scale-110 border-plw-gold-soft bg-plw-gold-soft'
+                : 'border-neutral-400 bg-transparent'
             )}
           />
         ))}
       </div>
-      <div className="w-full max-w-[19rem] rounded-[22px] border border-white/12 bg-white/[0.04] p-4 sm:p-5">
+      <div className="w-full max-w-[16.5rem]">
         <div className="grid grid-cols-3 gap-3" role="group" aria-label="Teclado numérico">
           {KEYS.map((key, index) => {
             if (key === '') {
@@ -87,7 +87,7 @@ export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKey
                 aria-label={`Dígito ${key}`}
                 className={cx(
                   KEY_BASE,
-                  'border-white/12 bg-white/[0.06] text-plw-ink hover:border-plw-gold hover:bg-plw-gold/15 active:bg-plw-gold/25'
+                  'border-white/10 bg-white/[0.06] text-plw-ink hover:border-plw-gold hover:bg-plw-gold/15 active:bg-plw-gold/25'
                 )}
               >
                 {key}

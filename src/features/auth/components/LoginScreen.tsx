@@ -70,7 +70,7 @@ export function LoginScreen({
           <div className="glass-panel-strong rounded-2xl p-6 shadow-raised sm:p-8">
             <header className="mb-6">
               <h2 className="text-xl font-semibold text-plw-ink">Ingreso de agentes</h2>
-              <p className="mt-1 text-sm text-neutral-500">
+              <p className="mt-1 text-sm text-neutral-600">
                 Selecciona tu agente e ingresa tu PIN de cuatro dígitos.
               </p>
             </header>

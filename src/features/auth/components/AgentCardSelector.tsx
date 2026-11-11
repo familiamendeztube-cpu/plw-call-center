@@ -32,7 +32,9 @@ export function AgentCardSelector({
             disabled={disabled}
             onClick={() => onSelect(agent.id)}
             className={cx(
-              'group relative flex items-center gap-3 rounded-[18px] border p-4 text-left transition-all duration-200',
+              // Three across leaves about 160px a card, so the name goes under the avatar there.
+              'group relative flex items-center gap-3 rounded-[18px] border p-4 text-left sm:flex-col sm:gap-2 sm:text-center',
+              'transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out',
               'hover:-translate-y-0.5 hover:shadow-panel disabled:cursor-not-allowed disabled:opacity-60',
               selected
                 ? 'border-plw-gold bg-plw-surface-strong shadow-panel ring-1 ring-plw-gold/40'
@@ -47,12 +49,15 @@ export function AgentCardSelector({
             >
               <UserRound size={18} aria-hidden="true" />
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-plw-ink">{agent.displayName}</span>
-              <span className="block text-xs text-neutral-500">Espacio de trabajo</span>
+            <span className="min-w-0 max-w-full truncate text-sm font-semibold text-plw-ink">
+              {agent.displayName}
             </span>
             {selected ? (
-              <CheckCircle2 size={18} className="text-plw-gold" aria-hidden="true" />
+              <CheckCircle2
+                size={18}
+                className="absolute right-3 top-3 text-plw-gold-soft"
+                aria-hidden="true"
+              />
             ) : null}
           </button>
         );
