@@ -1,5 +1,5 @@
 import { UA, WebSocketInterface } from 'jssip';
-import type { RTCSession } from 'jssip/lib/RTCSession';
+import type { IncomingEvent, OutgoingEvent, RTCSession } from 'jssip/lib/RTCSession';
 import type { IncomingRTCSessionEvent, OutgoingRTCSessionEvent } from 'jssip/lib/UA';
 import {
   dentalCallIdFromHeader,
@@ -130,10 +130,18 @@ export function ringSamples(sampleRate: number): Float32Array {
   return samples;
 }
 
+/** One cycle of the ringback an agent hears while their call rings: 425 Hz, 1 s on, 4 s off. */
+export function ringbackSamples(sampleRate: number): Float32Array {
+  const samples = new Float32Array(5 * sampleRate);
+  for (let index = 0; index < sampleRate; index += 1) {
+    samples[index] = Math.sin((2 * Math.PI * 425 * index) / sampleRate) * 0.2;
+  }
+  return samples;
+}
+
 // Loops on the audio clock, not a timer, so it keeps ringing in a background tab.
-function startRingtone(context: AudioContext): () => void {
+function loopTone(context: AudioContext, cycle: Float32Array): () => void {
   void context.resume(); // In case the system paused it since the agent's click.
-  const cycle = ringSamples(context.sampleRate);
   const buffer = context.createBuffer(1, cycle.length, context.sampleRate);
   buffer.copyToChannel(cycle, 0);
   const ring = context.createBufferSource();
@@ -246,15 +254,22 @@ export function createSipTelephonyConnector(): TelephonyConnector {
       },
       inbound && !ringerReady() ? RING_LOCKED : undefined
     );
-    if (inbound && ringer) stopRingtone = startRingtone(ringer);
+    if (inbound && ringer) stopRingtone = loopTone(ringer, ringSamples(ringer.sampleRate));
 
     // JsSIP creates the connection for an outgoing call before this event, and
     // for an incoming call only when it is answered.
     if (next.connection) playRemoteAudio(next.connection);
     else next.on('peerconnection', ({ peerconnection }) => playRemoteAudio(peerconnection));
 
-    next.on('progress', () => {
-      if (!inbound && call) publishCall({ ...call, state: 'ringing' });
+    next.on('progress', (event: IncomingEvent | OutgoingEvent) => {
+      if (inbound || !call) return;
+      publishCall({ ...call, state: 'ringing' });
+      // Vocex's "ringing" carries no sound, so agents heard silence. Play a ringback here,
+      // but let the network's own audio through when it sends some (early media), since
+      // that can be a recording such as "el número marcado no existe".
+      const earlyMedia = 'response' in event && Boolean(event.response?.body);
+      if (earlyMedia) silenceRingtone();
+      else if (!stopRingtone && ringer) stopRingtone = loopTone(ringer, ringbackSamples(ringer.sampleRate));
     });
     next.on('accepted', () => {
       silenceRingtone();
