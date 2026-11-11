@@ -101,6 +101,17 @@ export function DentalDialerControls({
           </Button>
         )}
       </div>
+      {/* Right under the buttons: an activation refusal at the bottom of the panel went unseen. */}
+      {message && (
+        <p role="status" className="text-sm font-semibold text-plw-gold-soft">
+          {message}
+        </p>
+      )}
+      {route.last_error && (
+        <p role="alert" className="text-sm text-danger-700">
+          {route.last_error}
+        </p>
+      )}
       {pilot && (
         <p className="rounded-lg border border-plw-gold/30 bg-plw-gold/15 p-3 text-sm text-plw-gold-soft">
           Piloto de hasta {route.pilot_call_limit} intentos. Se pausa
@@ -172,16 +183,6 @@ export function DentalDialerControls({
             transferencia solicitada aún no confirma que llegó al agente.
           </p>
         </div>
-      )}
-      {route.last_error && (
-        <p role="alert" className="text-sm text-danger-700">
-          {route.last_error}
-        </p>
-      )}
-      {message && (
-        <p role="status" className="text-sm text-plw-gold-soft">
-          {message}
-        </p>
       )}
       {diagnosis && (
         <pre className="max-h-64 overflow-auto rounded-lg bg-neutral-50 p-3 text-xs text-neutral-800">
