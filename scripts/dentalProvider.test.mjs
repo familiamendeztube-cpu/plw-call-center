@@ -84,6 +84,7 @@ test('verifier names each failed invariant and accepts only line-ending and edge
     ['script_version', (c) => (c.conversation_config.agent.prompt.prompt = c.conversation_config.agent.prompt.prompt.replace(SALES_SCRIPT_VERSION, 'old'))],
     ['extra_builtin_tool', (c) => (c.conversation_config.agent.prompt.built_in_tools.skip_turn = { type: 'system' })],
     ['transfer_count', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers = [])],
+    ['voicemail_detection', (c) => delete c.conversation_config.agent.prompt.built_in_tools.voicemail_detection],
     // The braces template is what broke every transfer; it must be detected and re-pushed.
     ['transfer_headers', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers[0].custom_sip_headers[0].value = '{{plw_dental_call_id}}')],
     ['workflow', (c) => (c.workflow = { nodes: { a: {} } })],
@@ -122,8 +123,14 @@ test('exact conversation/agent/call matching is mandatory; a spoken promise is n
 });
 function fakeDb({ blocked = false, state = 'running' } = {}) {
   const writes = [];
+  const rpcs = [];
   return {
     writes,
+    rpcs,
+    rpc(name, args) {
+      rpcs.push([name, args]);
+      return Promise.resolve({ data: null, error: null });
+    },
     from(table) {
       let update;
       const q = {
@@ -225,6 +232,22 @@ test('a provider refusal is stored with its reason so the history explains it', 
   );
   assert.equal(db.writes.at(-1).update.state, 'failed');
   assert.match(db.writes.at(-1).update.error, /HTTP 200: dial failed with 404 User Not Found/);
+});
+
+test('only a real lead whose number the network says does not exist (SIP 404) is refunded', async () => {
+  const dial = async (callFields, response) => {
+    const db = fakeDb();
+    await dispatchCall(db, 'k', { call: { ...call, ...callFields }, route, lead: {} }, async () => response);
+    return db.rpcs;
+  };
+  const sip404 = () => Response.json({ success: false, message: 'dial failed with 404 Not Found (SIP 404)' });
+  assert.deepEqual(await dial({ is_test: false }, sip404()), [
+    ['dental_number_not_found', { p_call_id: call.id }],
+  ]);
+  assert.deepEqual(await dial({ is_test: true }, sip404()), []);
+  // Phone off (480) and an ElevenLabs HTTP 404 are not bad numbers.
+  assert.deepEqual(await dial({ is_test: false }, Response.json({ success: false, message: 'dial failed with 480 Temporarily Unavailable (SIP 480)' })), []);
+  assert.deepEqual(await dial({ is_test: false }, Response.json({ detail: 'Agent not found' }, { status: 404 })), []);
 });
 
 // Chainable stand-in for the Supabase client: reads return `rows`, writes are recorded.
@@ -330,6 +353,7 @@ test('call results keep only known outcomes and spoken details, and map them to 
   assert.equal(r({ plw_outcome: { value: 'DO_NOT_CALL' } }).optOut, true);
   // No answer leaves the lead pending; old boolean fields still work without an outcome.
   assert.equal(r({ plw_outcome: { value: 'NO_ANSWER' } }).leadStatus, null);
+  assert.equal(r({ plw_outcome: { value: 'VOICEMAIL' } }).leadStatus, 'callback');
   assert.equal(r({ plw_callback: { value: true } }).leadStatus, 'callback');
   // The list form is read the same way.
   const list = callResults({

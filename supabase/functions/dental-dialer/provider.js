@@ -76,6 +76,7 @@ const OUTCOME_LEAD_STATUS = {
   RECEPTIONIST_CONTACT: 'callback',
   DECISION_MAKER_UNAVAILABLE: 'callback',
   CALLBACK_REQUESTED: 'callback',
+  VOICEMAIL: 'callback', // Owner's rule: the lead's agent calls back.
   NOT_INTERESTED: 'not_interested',
   WRONG_NUMBER: 'wrong_number',
   DO_NOT_CALL: 'do_not_call',
@@ -83,8 +84,8 @@ const OUTCOME_LEAD_STATUS = {
 const isTrue = (value) => value === true || String(value).trim().toLowerCase() === 'true';
 /**
  * Reads ElevenLabs' post-call fields. Results come keyed by field id or as a list, and
- * booleans sometimes arrive as the string "true". NO_ANSWER, VOICEMAIL and
- * TECHNICAL_FAILURE leave the lead pending so a person can decide on a retry.
+ * booleans sometimes arrive as the string "true". VOICEMAIL becomes a callback for the lead's
+ * agent; NO_ANSWER and TECHNICAL_FAILURE leave the lead pending so a person can decide.
  */
 export function callResults(analysis) {
   const values = new Map();
@@ -126,7 +127,7 @@ export function dentalAgentConfig(staffName, route, voiceId) {
         prompt: {
           prompt:
             salesPrompt({ dentalMode: true }) +
-            `\nVersión: ${SALES_SCRIPT_VERSION}.\n\nTRANSFERENCIA\nTu asesor es ${staffName}. Cuando la persona encargada muestre interés real, antes de coordinar una visita pregúntale: "¿Le gustaría que le comunique ahora mismo con ${staffName}, nuestro asesor, para que le explique con más detalle?" Solo si acepta, avísale que la vas a comunicar y usa transfer_to_number hacia ${route.transfer_uri}. Si no acepta, no puede hablar en este momento o la transferencia no se completa, coordina la visita de la sección 6 o una llamada de ${staffName} en el día y la hora que prefiera. Nunca transfieras sin aceptación ni digas que la comunicaste si la herramienta no lo confirmó.`,
+            `\nVersión: ${SALES_SCRIPT_VERSION}.\n\nTRANSFERENCIA\nTu asesor es ${staffName}. Cuando la persona encargada muestre interés real, antes de coordinar una visita pregúntale: "¿Le gustaría que le comunique ahora mismo con ${staffName}, nuestro asesor, para que le explique con más detalle?" Solo si acepta, avísale que la vas a comunicar y usa transfer_to_number hacia ${route.transfer_uri}. Si no acepta, no puede hablar en este momento o la transferencia no se completa, coordina la visita de la sección 6 o una llamada de ${staffName} en el día y la hora que prefiera. Nunca transfieras sin aceptación ni digas que la comunicaste si la herramienta no lo confirmó.\n\nBUZÓN DE VOZ\nSi contesta un buzón de voz, una contestadora o una grabación, no hagas la presentación ni dejes mensaje: usa voicemail_detection de inmediato.`,
           tool_ids: [],
           mcp_server_ids: [],
           knowledge_base: [],
@@ -135,6 +136,12 @@ export function dentalAgentConfig(staffName, route, voiceId) {
               type: 'system',
               name: 'end_call',
               params: { system_tool_type: 'end_call' },
+            },
+            // Without a voicemail_message ElevenLabs hangs up as soon as it detects voicemail.
+            voicemail_detection: {
+              type: 'system',
+              name: 'voicemail_detection',
+              params: { system_tool_type: 'voicemail_detection' },
             },
             transfer_to_number: {
               type: 'system',
@@ -254,10 +261,12 @@ export function agentConfigFailures(config, route) {
   const built = p?.built_in_tools ?? {};
   if (
     Object.entries(built).some(
-      ([name, value]) => value && !['end_call', 'transfer_to_number'].includes(name)
+      ([name, value]) =>
+        value && !['end_call', 'transfer_to_number', 'voicemail_detection'].includes(name)
     )
   )
     failures.push('extra_builtin_tool');
+  if (!built.voicemail_detection) failures.push('voicemail_detection');
   const t = built.transfer_to_number?.params?.transfers;
   if (!Array.isArray(t) || t.length !== 1) failures.push('transfer_count');
   else {

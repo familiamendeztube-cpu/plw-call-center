@@ -106,6 +106,12 @@ export async function dispatchCall(db, apiKey, claim, fetchImpl = fetch) {
       .eq('id', call.id)
       .eq('state', 'reserved')
   );
+  // A SIP 404 is a bad number in the list: the lead becomes a wrong number and the pilot
+  // attempt is given back. Only the phone network's 404, never an ElevenLabs HTTP 404.
+  if (rejected && !call.is_test && /SIP 404/.test(reason)) {
+    const { error } = await db.rpc('dental_number_not_found', { p_call_id: call.id });
+    if (error) console.error('dental wrong number not saved', error.code);
+  }
 }
 export async function syncCalls(db, apiKey, fetchImpl = fetch) {
   const cutoff = new Date(Date.now() - 120000).toISOString();
@@ -143,6 +149,12 @@ export async function syncCalls(db, apiKey, fetchImpl = fetch) {
               .eq('transfer_status', 'none')
           );
         const results = callResults(r.data.analysis);
+        // ElevenLabs' voicemail tool hung up: the lead's agent calls back, even before the
+        // post-call analysis arrives.
+        if (update.transcript.some((line) => line.tools.includes('voicemail_detection'))) {
+          results.outcome ??= 'VOICEMAIL';
+          results.leadStatus ??= 'callback';
+        }
         if (results.outcome || Object.keys(results.details).length) {
           // Separate write: if the outcome columns are missing, the call still syncs.
           const { error } = await db

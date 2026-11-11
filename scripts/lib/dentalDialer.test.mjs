@@ -280,3 +280,30 @@ test('Alejandro pilot stops at 20 new attempts, preserves the twentieth dispatch
       ).rows[0].transfer_verified_at
     );
   }));
+test('a number that does not exist gives the pilot attempt back once and marks the lead', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    const bad = await claim(tx);
+    const good = await claim(tx);
+    await tx.exec(
+      "UPDATE dental_agent_dialers SET pilot_call_limit=20,pilot_baseline_count=0 WHERE staff_id='agent-2'"
+    );
+    await tx.query(
+      "UPDATE dental_calls SET state='failed',error='dial failed with 404 Not Found (SIP 404)' WHERE id=$1",
+      [bad.call.id]
+    );
+    await tx.query("UPDATE dental_calls SET state='completed' WHERE id=$1", [good.call.id]);
+    for (const callId of [bad.call.id, bad.call.id, good.call.id])
+      await tx.query('SELECT dental_number_not_found($1)', [callId]);
+    const one = async (sql, args) => (await tx.query(sql, args)).rows[0];
+    // Refunded exactly once, and only for the failed call.
+    assert.equal(
+      Number((await one("SELECT pilot_baseline_count FROM dental_agent_dialers WHERE staff_id='agent-2'")).pilot_baseline_count),
+      1
+    );
+    assert.equal((await one('SELECT status FROM dental_leads WHERE id=$1', [bad.lead.id])).status, 'wrong_number');
+    assert.equal((await one('SELECT status FROM dental_leads WHERE id=$1', [good.lead.id])).status, 'pending');
+    // Browsers can't hand out refunds.
+    await as(tx, 0);
+    await denied(tx, 'SELECT dental_number_not_found($1)', [bad.call.id], /permission denied/);
+  }));
