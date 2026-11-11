@@ -31,8 +31,11 @@ export async function setAiCallStatus(requestId: string, status: AiCallStatus): 
   if (error) throw new Error('No se pudo cambiar el estado.');
 }
 
+/** A customer's AI request, or one of Anna's dental calls. */
+export type CallAudioTarget = { requestId: string } | { dentalCallId: string };
+
 /** The call recording, fetched through the server so the ElevenLabs key never reaches the browser. */
-export async function loadAiCallAudio(requestId: string): Promise<Blob> {
+export async function loadAiCallAudio(target: CallAudioTarget): Promise<Blob> {
   const { data } = await getSupabaseClient().auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error('Tu sesión venció. Ingresa de nuevo para continuar.');
@@ -43,7 +46,7 @@ export async function loadAiCallAudio(requestId: string): Promise<Blob> {
       apikey: supabaseAnonKeyValue,
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ requestId }),
+    body: JSON.stringify(target),
   }).catch(() => null);
   if (!response?.ok) {
     const payload: unknown = await response?.json().catch(() => null);

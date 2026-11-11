@@ -7,10 +7,13 @@ export function DentalLeadList({
   leads,
   agentNames,
   reload,
+  callNotes = {},
 }: {
   leads: DentalLead[];
   agentNames: Record<string, string>;
   reload: () => void;
+  /** Anna's result per lead id, shown under the clinic's name. */
+  callNotes?: Record<string, string>;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
@@ -39,6 +42,11 @@ export function DentalLeadList({
                 {[lead.canton, lead.province].filter(Boolean).join(', ') || 'Costa Rica'}
               </p>
               {lead.contact_name && <p className="mt-1 text-sm">{lead.contact_name}</p>}
+              {callNotes[lead.id] && (
+                <p className="mt-1 text-sm font-semibold text-plw-gold-soft">
+                  {callNotes[lead.id]}
+                </p>
+              )}
               <p className="mt-1 text-sm text-neutral-600">
                 Responsable:{' '}
                 {lead.owner_staff_id

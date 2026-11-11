@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/context/useAuth';
+import { CallRecording } from '@/features/ai-calls/components/AiCallCard';
 import {
   CALL_DETAIL_LABELS,
   CALL_OUTCOME,
@@ -97,14 +98,22 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
               </p>
               {call.error && <p className="mt-2 text-sm text-danger-700">{call.error}</p>}
             </div>
-            <Button
-              variant="secondary"
-              onClick={() => setSelected(selected === call.id ? null : call.id)}
-              aria-expanded={selected === call.id}
-            >
-              Ver transcripción
-            </Button>
+            {/* A call that never reached ElevenLabs has no transcript or recording. */}
+            {call.conversation_id && (
+              <Button
+                variant="secondary"
+                onClick={() => setSelected(selected === call.id ? null : call.id)}
+                aria-expanded={selected === call.id}
+              >
+                Ver transcripción
+              </Button>
+            )}
           </div>
+          {call.conversation_id && call.finished_at && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <CallRecording target={{ dentalCallId: call.id }} />
+            </div>
+          )}
           {session?.role === 'agent' &&
             call.staff_id === session.agentId &&
             call.transfer_status === 'requested' && (

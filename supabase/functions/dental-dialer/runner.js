@@ -183,6 +183,12 @@ export async function syncCalls(db, apiKey, fetchImpl = fetch) {
             results.optOut ? lead.neq('status', 'do_not_call') : lead.eq('status', 'pending')
           );
         }
+        // A finished call where the dentist wanted something becomes a customer in Clientes for
+        // the lead's agent. The database decides which calls qualify and ignores repeats.
+        if (update.state) {
+          const { error } = await db.rpc('dental_call_to_customer', { p_call_id: call.id });
+          if (error) console.error('dental customer not created', error.code);
+        }
       } catch {
         /* Retain reservations until the provider can be reconciled. */
       }

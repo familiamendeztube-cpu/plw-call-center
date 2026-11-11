@@ -8,6 +8,7 @@ import { useDentalDialer } from '../hooks/useDentalDialer';
 import { useDentalLeads } from '../hooks/useDentalLeads';
 import { DentalDialerControls } from '../components/DentalDialerControls';
 import { DentalCallHistory } from '../components/DentalCallHistory';
+import { DentalFollowUps } from '../components/DentalFollowUps';
 export function DentalDialerPage() {
   const { session } = useAuth();
   const admin = session?.role === 'admin';
@@ -35,11 +36,18 @@ export function DentalDialerPage() {
   ];
   if (route?.pilot_call_limit)
     totals.push(['Intentos del piloto', `${pilotAttempts} / ${route.pilot_call_limit}`]);
+  // Agents see only their to-do list and their calls; the dialer's controls and counters are
+  // for administrators.
+  const agentNames = session?.role === 'agent' ? { [session.agentId]: session.displayName } : {};
   return (
     <div className="grid gap-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="Marcador dental · Ana"
-        description="Los agentes activos se turnan las llamadas en la línea 4010 6198. De lunes a viernes, de 9:00 a 17:00, hora de Costa Rica."
+        title={admin ? 'Marcador dental · Ana' : 'Llamadas de Anna'}
+        description={
+          admin
+            ? 'Los agentes activos se turnan las llamadas en la línea 4010 6198. De lunes a viernes, de 9:00 a 17:00, hora de Costa Rica.'
+            : 'Los dentistas que Anna dejó para usted y el historial de sus llamadas, con transcripción y grabación.'
+        }
         actions={
           <Link
             to={admin ? '/admin/dentistas' : '/dentistas'}
@@ -70,7 +78,7 @@ export function DentalDialerPage() {
           title={state.error}
           action={<Button onClick={state.reload}>Reintentar</Button>}
         />
-      ) : (
+      ) : admin ? (
         <>
           <div className="rounded-xl bg-plw-navy p-5 text-white">
             <p className="text-lg font-semibold">
@@ -112,7 +120,7 @@ export function DentalDialerPage() {
             cada 15 segundos cuando el proveedor entrega los datos.
           </p>
           <p className="text-sm font-medium text-neutral-700">{`Agente seleccionado: ${agentLabel}`}</p>
-          {admin && route && (
+          {route ? (
             <DentalDialerControls
               key={`controls-${staffId}`}
               route={route}
@@ -120,14 +128,33 @@ export function DentalDialerPage() {
               reload={state.reload}
               pilotAttempts={pilotAttempts}
             />
-          )}
-          {admin && !route && (
+          ) : (
             <StatusMessage
               tone="info"
               title="Falta configurar la ruta telefónica de este agente."
             />
           )}
           <DentalCallHistory key={`history-${staffId}`} calls={calls} reload={state.reload} />
+        </>
+      ) : (
+        <>
+          {leads.loading ? (
+            <StatusMessage tone="loading" title="Cargando sus dentistas…" />
+          ) : leads.error ? (
+            <StatusMessage
+              tone="error"
+              title={leads.error}
+              action={<Button onClick={leads.reload}>Reintentar</Button>}
+            />
+          ) : (
+            <DentalFollowUps
+              leads={own}
+              calls={calls}
+              agentNames={agentNames}
+              reload={leads.reload}
+            />
+          )}
+          <DentalCallHistory calls={calls} reload={state.reload} />
         </>
       )}
     </div>

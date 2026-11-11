@@ -339,3 +339,79 @@ test('a dentist who did not pick up gets one more call on a later business day, 
       /duplicate key/
     );
   }));
+test('a dentist who wanted something becomes one customer for the lead agent, with the call pending', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    const one = async (sql, args) => (await tx.query(sql, args)).rows[0];
+    const addCall = (lead, conversation, outcome, details = {}, extra = '') =>
+      one(
+        `INSERT INTO dental_calls(lead_id,staff_id,phone,provider_agent_id,transfer_uri,state,outcome,details,conversation_id,summary,finished_at${extra ? ',attempt' : ''})
+         SELECT id,owner_staff_id,phone,'dental_x','sip:agent-2@phone.example.com','completed',$2,$3,$4,'Pidió precios.',now()${extra ? ',2' : ''}
+         FROM dental_leads WHERE id=$1 RETURNING id`,
+        [lead, outcome, JSON.stringify(details), conversation]
+      ).then((row) => row.id);
+    const toCustomer = (callId) =>
+      one('SELECT dental_call_to_customer($1) AS id', [callId]).then((row) => row.id);
+    // The server role can't read these tables directly; the checks read as the owner.
+    const check = async (sql, args) => {
+      await tx.exec('RESET ROLE');
+      const row = await one(sql, args);
+      await as(tx);
+      return row;
+    };
+
+    // Agent-3's dentist asked for WhatsApp info: a customer for agent-3, never round-robin.
+    const good = await addCall(id(15), 'conv_good', 'WHATSAPP_INFO_REQUESTED', {
+      contact_name: 'Dra. Solís',
+      contact_phone: '8888-7777',
+      callback_time: 'mañana a las 10',
+    });
+    const request = await toCustomer(good);
+    assert.ok(request);
+    assert.equal(await toCustomer(good), request); // repeats change nothing
+    const saved = await check(
+      `SELECT r.status, r.preferred_contact, r.callback_phone, r.preferred_time, r.summary,
+              p.owner_id, p.source, p.phone, p.contact_name, p.business_category
+       FROM ai_call_requests r JOIN prospects p ON p.id = r.prospect_id WHERE r.id = $1`,
+      [request]
+    );
+    assert.deepEqual(saved, {
+      status: 'pending',
+      preferred_contact: 'whatsapp',
+      callback_phone: '88887777',
+      preferred_time: 'mañana a las 10',
+      summary: 'Pidió precios.',
+      owner_id: 'agent-3',
+      source: 'ai_call',
+      phone: '22221105',
+      contact_name: 'Dra. Solís',
+      business_category: 'Clínica dental',
+    });
+    assert.equal(
+      (await check("SELECT count(*)::int AS n FROM assignment_queue q JOIN prospects p ON p.id=q.prospect_id WHERE p.idempotency_key=$1 AND q.status='assigned' AND q.assigned_to='agent-3'", [`dental:${id(15)}`])).n,
+      1
+    );
+
+    // Anna's second good call to the same dentist joins the same customer.
+    const again = await addCall(id(15), 'conv_again', 'CALLBACK_REQUESTED', {}, 'retry');
+    await toCustomer(again);
+    assert.equal(
+      (await check("SELECT count(DISTINCT prospect_id)::int AS n FROM ai_call_requests WHERE conversation_id IN ('conv_good','conv_again')")).n,
+      1
+    );
+
+    // Voicemail and no-interest calls stay on the dentist list only.
+    for (const [lead, outcome] of [[id(16), 'VOICEMAIL'], [id(17), 'NOT_INTERESTED']])
+      assert.equal(await toCustomer(await addCall(lead, `conv_${outcome}`, outcome)), null);
+    // A transfer counts even when the analysis has no outcome yet.
+    const transfer = await addCall(id(18), 'conv_transfer', null);
+    await tx.query("UPDATE dental_calls SET transfer_status='requested' WHERE id=$1", [transfer]);
+    assert.ok(await toCustomer(transfer));
+
+    // Agents see only their own dentist's request; browsers cannot create customers.
+    await as(tx, 1);
+    assert.equal((await one('SELECT count(*)::int AS n FROM ai_call_requests')).n, 0);
+    await as(tx, 2);
+    assert.equal((await one('SELECT count(*)::int AS n FROM ai_call_requests')).n, 3);
+    await denied(tx, 'SELECT dental_call_to_customer($1)', [good], /permission denied/);
+  }));

@@ -25,6 +25,10 @@ export interface DentalCall {
   finished_at: string | null;
   error: string;
   outcome?: string | null;
+  /** What Anna noted: contact, callback time, visit day... (CALL_DETAIL_LABELS keys). */
+  details?: Record<string, string>;
+  /** Set once ElevenLabs took the call, so there is a transcript and a recording. */
+  conversation_id?: string | null;
 }
 export interface DentalTranscript {
   transcript: { role: string; message: string; time_in_call_secs: number; tools: string[] }[];

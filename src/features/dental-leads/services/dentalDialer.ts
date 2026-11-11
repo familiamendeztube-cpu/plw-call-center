@@ -42,7 +42,7 @@ export async function loadDialer(signal: AbortSignal) {
     const result = await db
       .from('dental_calls')
       .select(
-        'id,lead_id,staff_id,phone,is_test,state,transfer_status,created_at,finished_at,error,outcome'
+        'id,lead_id,staff_id,phone,is_test,state,transfer_status,created_at,finished_at,error,outcome,details,conversation_id'
       )
       .order('created_at', { ascending: false })
       .order('id')

@@ -31,7 +31,7 @@ export function AiCallAlerts({ onSelect }: { onSelect: (prospectId: string) => v
       <div className="flex flex-wrap gap-2">
         {pending.slice(0, 5).map((call) => (
           <Button key={call.id} variant="secondary" size="sm" onClick={() => void open(call)}>
-            {call.customerName ?? contactNumber(call) ?? 'Llamada IA'}
+            {call.customerName ?? call.businessName ?? contactNumber(call) ?? 'Llamada IA'}
           </Button>
         ))}
       </div>

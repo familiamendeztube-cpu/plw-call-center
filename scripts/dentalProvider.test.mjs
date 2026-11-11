@@ -362,3 +362,41 @@ test('call results keep only known outcomes and spoken details, and map them to 
   assert.equal(list.leadStatus, 'wrong_number');
   assert.deepEqual(callResults(null), { outcome: null, details: {}, optOut: false, leadStatus: null });
 });
+
+test('a finished real call asks the database to make the customer; a call still running does not', async () => {
+  const record = { ...call, is_test: false, lead_id: 'lead1' };
+  for (const [status, expected] of [['done', 1], ['in-progress', 0]]) {
+    const rpcs = [];
+    const q = {
+      select: () => q,
+      not: () => q,
+      or: () => q,
+      order: () => q,
+      limit: () => q,
+      eq: () => q,
+      neq: () => q,
+      update: () => q,
+      upsert: () => q,
+      then: (resolve) => Promise.resolve({ data: [record], error: null }).then(resolve),
+    };
+    const db = {
+      from: () => q,
+      rpc(name, args) {
+        rpcs.push([name, args]);
+        return Promise.resolve({ error: null });
+      },
+    };
+    const response = {
+      agent_id: record.provider_agent_id,
+      conversation_id: record.conversation_id,
+      status,
+      conversation_initiation_client_data: { dynamic_variables: { plw_dental_call_id: record.id } },
+      transcript: [{ role: 'user', message: 'Mándeme la información por WhatsApp' }],
+      analysis: { data_collection_results: { plw_outcome: { value: 'WHATSAPP_INFO_REQUESTED' } } },
+    };
+    await syncCalls(db, 'test-key', async () => Response.json(response));
+    const made = rpcs.filter(([name]) => name === 'dental_call_to_customer');
+    assert.equal(made.length, expected, status);
+    if (expected) assert.deepEqual(made[0][1], { p_call_id: record.id });
+  }
+});

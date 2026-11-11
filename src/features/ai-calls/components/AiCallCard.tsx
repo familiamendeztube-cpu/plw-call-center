@@ -8,7 +8,11 @@ import { cx } from '@/components/ui/cx';
 import { useAuth } from '@/features/auth/context/useAuth';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { toCostaRicaNumber } from '@/features/telephony/models/call';
-import { loadAiCallAudio, setAiCallStatus } from '@/features/ai-calls/hooks/useAiCalls';
+import {
+  loadAiCallAudio,
+  setAiCallStatus,
+  type CallAudioTarget,
+} from '@/features/ai-calls/hooks/useAiCalls';
 import {
   AI_CALL_STATUSES,
   AI_CALL_STATUS_LABELS,
@@ -40,7 +44,7 @@ type Recording =
   | { status: 'error'; message: string };
 
 /** Loads the recording only when asked: it is a few MB and most cards are never played. */
-function CallRecording({ requestId }: { requestId: string }) {
+export function CallRecording({ target }: { target: CallAudioTarget }) {
   const [recording, setRecording] = useState<Recording>({ status: 'idle' });
   useEffect(
     () => () => {
@@ -52,7 +56,7 @@ function CallRecording({ requestId }: { requestId: string }) {
   async function load() {
     setRecording({ status: 'loading' });
     try {
-      setRecording({ status: 'ready', url: URL.createObjectURL(await loadAiCallAudio(requestId)) });
+      setRecording({ status: 'ready', url: URL.createObjectURL(await loadAiCallAudio(target)) });
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo cargar la grabación.';
       setRecording({ status: 'error', message });
@@ -194,7 +198,7 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
             Marcar en el teléfono
           </Button>
         ) : null}
-        <CallRecording requestId={call.id} />
+        <CallRecording target={{ requestId: call.id }} />
         {call.prospectId ? (
           <label className="flex items-center gap-2 text-sm">
             Estado
