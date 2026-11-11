@@ -67,7 +67,7 @@ export function LoginScreen({
       <BrandPanel />
       <main className="flex items-center justify-center px-4 py-10 sm:px-8 lg:py-14">
         <div className="w-full max-w-xl animate-fade-in">
-          <div className="rounded-2xl border border-neutral-200/80 bg-white p-6 shadow-raised sm:p-8">
+          <div className="glass-panel-strong rounded-2xl p-6 shadow-raised sm:p-8">
             <header className="mb-6">
               <h2 className="text-xl font-semibold text-plw-ink">Ingreso de agentes</h2>
               <p className="mt-1 text-sm text-neutral-500">
@@ -107,8 +107,8 @@ export function LoginScreen({
             ) : null}
 
             {IS_DEMO_MODE ? (
-              <div className="mt-8 rounded-xl border border-dashed border-plw-gold/50 bg-plw-ivory/70 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-plw-navy">
+              <div className="mt-8 rounded-xl border border-dashed border-plw-gold/50 bg-white/[0.04] p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-plw-gold-soft">
                   <FlaskConical size={16} aria-hidden="true" className="text-plw-gold" />
                   Acceso de demostración
                 </div>

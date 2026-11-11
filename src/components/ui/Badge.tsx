@@ -12,7 +12,7 @@ interface BadgeProps {
 const TONE_CLASSES: Record<BadgeTone, string> = {
   neutral: 'bg-neutral-100 text-neutral-700 ring-neutral-200',
   navy: 'bg-plw-navy/10 text-plw-navy ring-plw-navy/15',
-  gold: 'bg-plw-gold-soft/25 text-[#7A5A16] ring-plw-gold/30',
+  gold: 'bg-plw-gold/15 text-plw-gold-soft ring-plw-gold/30',
   success: 'bg-success-50 text-success-700 ring-success-100',
   danger: 'bg-danger-50 text-danger-700 ring-danger-100',
   warning: 'bg-warning-50 text-warning-700 ring-warning-100',

@@ -3,14 +3,14 @@ import { DemoModeBadge } from '@/components/ui/DemoModeBadge';
 
 export function BrandPanel() {
   return (
-    <section className="relative flex flex-col justify-between overflow-hidden bg-plw-deep px-8 py-10 text-white sm:px-12 lg:px-16 lg:py-14">
+    <section className="glass-panel relative m-3 flex flex-col justify-between overflow-hidden rounded-[28px] px-8 py-10 text-white sm:px-12 lg:m-6 lg:px-16 lg:py-14">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full border border-plw-gold/20"
+        className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full border border-plw-gold/25"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full border border-plw-gold-soft/10"
+        className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full border border-white/10"
       />
       <div className="relative flex items-center justify-between gap-4">
         <PlwWordmark tone="light" />

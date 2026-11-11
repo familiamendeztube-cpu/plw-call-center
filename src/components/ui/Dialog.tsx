@@ -51,7 +51,7 @@ export function Dialog({
       <button
         type="button"
         aria-label="Cerrar"
-        className="absolute inset-0 bg-plw-deep/50 backdrop-blur-[2px] animate-fade-in"
+        className="absolute inset-0 bg-black/60 backdrop-blur-[2px] animate-fade-in"
         onClick={onClose}
       />
       <div
@@ -60,7 +60,7 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`relative flex max-h-[90dvh] w-full ${widthClass} flex-col rounded-t-2xl bg-white shadow-raised outline-none animate-fade-in sm:rounded-2xl`}
+        className={`relative flex max-h-[90dvh] w-full ${widthClass} flex-col glass-panel-strong rounded-t-2xl shadow-raised outline-none animate-fade-in sm:rounded-2xl`}
       >
         <header className="flex items-start justify-between gap-4 border-b border-neutral-200 px-6 py-5">
           <div className="min-w-0">

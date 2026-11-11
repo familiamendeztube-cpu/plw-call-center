@@ -9,7 +9,7 @@ interface PanelProps {
 
 export function Panel({ children, className, as: Tag = 'div' }: PanelProps) {
   return (
-    <Tag className={cx('rounded-xl border border-neutral-200/80 bg-white shadow-panel', className)}>
+    <Tag className={cx('glass-panel rounded-xl', className)}>
       {children}
     </Tag>
   );

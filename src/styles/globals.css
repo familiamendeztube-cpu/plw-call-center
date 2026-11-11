@@ -2,15 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Feature screens use bg-white for light cards; keep them on the graphite glass surface. */
+.bg-white {
+  background-color: rgba(24, 28, 36, 0.82);
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    background-color: #0b0d11;
   }
 
   body {
-    @apply bg-plw-ivory font-sans text-plw-ink antialiased;
+    @apply font-sans text-plw-ink antialiased;
     line-height: 1.5;
     overflow-x: hidden;
+    min-height: 100dvh;
+    background-color: #0b0d11;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 12% -8%, rgba(47, 107, 255, 0.18), transparent 60%),
+      radial-gradient(ellipse 70% 55% at 100% 105%, rgba(47, 107, 255, 0.12), transparent 60%),
+      radial-gradient(ellipse 120% 90% at 50% 40%, #161b23 0%, #0b0d11 72%);
+    background-attachment: fixed;
   }
 
   h1,
@@ -25,7 +38,31 @@
   }
 
   ::selection {
-    @apply bg-plw-gold-soft/40 text-plw-ink;
+    @apply bg-plw-gold/40 text-white;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, rgba(34, 39, 49, 0.7), rgba(16, 19, 25, 0.78));
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 20px 60px rgba(0, 0, 0, 0.45);
+  }
+
+  .glass-panel-strong {
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(180deg, rgba(40, 46, 58, 0.82), rgba(14, 17, 23, 0.88));
+    backdrop-filter: blur(28px) saturate(150%);
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 24px 70px rgba(0, 0, 0, 0.55);
   }
 }
 
@@ -36,7 +73,7 @@
 
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #cbd2da transparent;
+    scrollbar-color: #3a4350 transparent;
   }
 }
 

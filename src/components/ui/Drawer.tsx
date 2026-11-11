@@ -37,7 +37,7 @@ export function Drawer({ open, title, onClose, children, side = 'left' }: Drawer
       <button
         type="button"
         aria-label="Cerrar panel"
-        className="absolute inset-0 bg-plw-deep/50 animate-fade-in"
+        className="absolute inset-0 bg-black/60 animate-fade-in"
         onClick={onClose}
       />
       <aside
@@ -47,7 +47,7 @@ export function Drawer({ open, title, onClose, children, side = 'left' }: Drawer
         aria-label={title}
         tabIndex={-1}
         className={cx(
-          'absolute bottom-0 top-0 flex w-[min(20rem,88vw)] flex-col bg-white shadow-raised outline-none',
+          'glass-panel-strong absolute bottom-0 top-0 flex w-[min(20rem,88vw)] flex-col rounded-none shadow-raised outline-none',
           side === 'left' ? 'left-0 animate-slide-in-right' : 'right-0 animate-slide-in-right'
         )}
       >

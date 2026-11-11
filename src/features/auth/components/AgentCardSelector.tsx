@@ -36,7 +36,7 @@ export function AgentCardSelector({
               'hover:-translate-y-0.5 hover:shadow-panel disabled:cursor-not-allowed disabled:opacity-60',
               selected
                 ? 'border-plw-gold bg-plw-surface-strong shadow-panel ring-1 ring-plw-gold/40'
-                : 'border-white/12 bg-white/[0.04] hover:border-plw-gold/60'
+                : 'border-white/10 bg-white/[0.04] hover:border-plw-gold/60'
             )}
           >
             <span

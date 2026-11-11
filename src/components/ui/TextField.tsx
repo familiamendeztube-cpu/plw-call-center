@@ -20,10 +20,10 @@ export function TextField({ label, hint, trailing, className, ...rest }: TextFie
           id={inputId}
           aria-describedby={hint ? hintId : undefined}
           className={cx(
-            'h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm text-plw-ink',
+            'h-10 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-plw-ink',
             'placeholder:text-neutral-400 transition-colors duration-150',
-            'hover:border-neutral-400 focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30',
-            'disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500',
+            'hover:border-white/20 focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30',
+            'disabled:cursor-not-allowed disabled:bg-white/[0.02] disabled:text-neutral-500',
             trailing ? 'pr-10' : undefined
           )}
           {...rest}
