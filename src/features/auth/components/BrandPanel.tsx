@@ -16,22 +16,20 @@ export function BrandPanel() {
         <PlwWordmark tone="light" />
         <DemoModeBadge />
       </div>
-      <div className="relative mt-12 max-w-xl lg:mt-0">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-plw-gold-soft">
+      <div className="relative mt-10 max-w-lg lg:mt-0">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-plw-gold-soft">
           Espacio interno de ventas
         </p>
-        <h1 className="font-display mt-4 text-4xl font-medium leading-[1.2] text-white sm:text-5xl">
+        <h1 className="mt-3 text-3xl font-semibold leading-[1.15] tracking-tight text-white sm:text-4xl">
           Professional Latino Workers
         </h1>
-        <p className="font-display mt-2 text-2xl font-medium leading-[1.2] text-plw-gold-soft sm:text-3xl">
-          Call Center
-        </p>
-        <p className="mt-6 max-w-md text-base leading-relaxed text-white/75">
+        <p className="mt-1.5 text-lg font-medium text-plw-gold-soft">Call Center</p>
+        <p className="mt-5 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
           Gestiona conversaciones, prospectos y llamadas desde un único espacio de trabajo diseñado
           para el equipo de ventas.
         </p>
       </div>
-      <p className="relative mt-12 text-xs text-white/50 lg:mt-0">
+      <p className="relative mt-10 text-xs text-white/60 lg:mt-0">
         Uso exclusivo del personal de PLW · Costa Rica
       </p>
     </section>
