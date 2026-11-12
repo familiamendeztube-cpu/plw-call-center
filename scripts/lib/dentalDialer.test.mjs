@@ -447,3 +447,37 @@ test('a dentist who wanted something becomes one customer for the lead agent, wi
     await as(tx, 2);
     await denied(tx, 'SELECT dental_call_to_customer($1)', [good], /permission denied/);
   }));
+test('the admin starts the next batch once the current one is used up, only under the activation rules', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    const first = await claim(tx);
+    await tx.query("UPDATE dental_calls SET state='completed' WHERE id=$1", [first.call.id]);
+    await tx.exec(
+      "UPDATE dental_agent_dialers SET pilot_call_limit=1,pilot_baseline_count=0,state='paused' WHERE staff_id='agent-2';UPDATE dental_dialer_runtime SET scheduler_ready=true,last_tick_at=now()"
+    );
+    const dialer = async () => {
+      await tx.exec('RESET ROLE');
+      const row = (
+        await tx.query(
+          "SELECT state,pilot_baseline_count::int AS baseline FROM dental_agent_dialers WHERE staff_id='agent-2'"
+        )
+      ).rows[0];
+      await as(tx, 0);
+      return row;
+    };
+    const next = "SELECT start_next_dental_batch('agent-2')";
+    await as(tx, 1);
+    await denied(tx, next, [], /Solo administración/);
+    // Agent's app closed: refused, and the used-up batch stays as it was.
+    await as(tx, 0);
+    await denied(tx, next, [], /Activo/);
+    assert.deepEqual(await dialer(), { state: 'paused', baseline: 0 });
+    await tx.exec('RESET ROLE');
+    await tx.exec("UPDATE staff_presence SET last_heartbeat_at=now() WHERE staff_id='agent-2'");
+    await as(tx, 0);
+    await tx.query(next);
+    assert.deepEqual(await dialer(), { state: 'running', baseline: 1 });
+    // The new batch has attempts left, so there is nothing to start yet.
+    await denied(tx, next, [], /todavía tiene intentos/);
+    await denied(tx, "SELECT start_next_dental_batch('agent-3')", [], /no trabaja por tandas/);
+  }));

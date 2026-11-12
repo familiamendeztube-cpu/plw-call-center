@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { controlDialer, dentalServerAction } from '../services/dentalDialer';
+import { controlDialer, dentalServerAction, startNextBatch } from '../services/dentalDialer';
 import { dialerReady, type DentalDialer, type DentalRuntime } from '../models/dentalDialer';
 export function DentalDialerControls({
   route,
@@ -24,15 +24,18 @@ export function DentalDialerControls({
     try {
       if (['configure', 'test', 'sync'].includes(action))
         await dentalServerAction({ action, staffId: route.staff_id, phone, requestId });
+      else if (action === 'next_batch') await startNextBatch(route.staff_id);
       else await controlDialer(route.staff_id, action);
       setMessage(
         action === 'test'
           ? 'Prueba registrada. Compruebe el resultado en el historial.'
           : action === 'configure'
             ? route.pilot_call_limit
-              ? 'Ana configurada. Espere la señal del servidor para activar el piloto.'
+              ? 'Ana configurada. Espere la señal del servidor para activar la tanda.'
               : 'Voz configurada. Haga una prueba de transferencia.'
-            : 'Acción guardada.'
+            : action === 'next_batch'
+              ? `Nueva tanda de ${route.pilot_call_limit} iniciada.`
+              : 'Acción guardada.'
       );
       reload();
     } catch (e) {
@@ -67,15 +70,17 @@ export function DentalDialerControls({
       <div className="flex flex-wrap gap-2">
         <Button
           variant="success"
-          disabled={busy || !ready || exhausted || route.state === 'running'}
-          onClick={() => void run(route.state === 'paused' ? 'resume' : 'activate')}
+          disabled={busy || !ready || route.state === 'running'}
+          onClick={() =>
+            void run(exhausted ? 'next_batch' : route.state === 'paused' ? 'resume' : 'activate')
+          }
         >
           {exhausted
-            ? 'Límite del piloto alcanzado'
+            ? `Iniciar siguiente tanda de ${route.pilot_call_limit}`
             : route.state === 'paused'
               ? 'Continuar'
               : pilot
-                ? `Activar piloto de ${route.pilot_call_limit}`
+                ? `Activar tanda de ${route.pilot_call_limit}`
                 : 'Activar'}
         </Button>
         <Button
@@ -114,8 +119,8 @@ export function DentalDialerControls({
       )}
       {pilot && (
         <p className="rounded-lg border border-plw-gold/30 bg-plw-gold/15 p-3 text-sm text-plw-gold-soft">
-          Piloto de hasta {route.pilot_call_limit} intentos. Se pausa
-          automáticamente al alcanzar el límite.{' '}
+          Tandas de {route.pilot_call_limit} intentos. Al terminar una tanda el marcador se pausa;
+          revise los resultados y pulse “Iniciar siguiente tanda” para seguir.{' '}
           {route.transfer_verified_at
             ? 'Transferencia confirmada por el agente.'
             : 'Transferencia todavía no comprobada; Alejandro debe confirmar las llamadas que realmente reciba.'}

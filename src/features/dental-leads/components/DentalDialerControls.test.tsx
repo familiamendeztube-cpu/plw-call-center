@@ -2,10 +2,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { DentalDialerControls } from './DentalDialerControls';
 import { dialerReady, type DentalDialer } from '../models/dentalDialer';
-const { controlDialer } = vi.hoisted(() => ({
+const { controlDialer, startNextBatch } = vi.hoisted(() => ({
   controlDialer: vi.fn().mockResolvedValue(undefined),
+  startNextBatch: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../services/dentalDialer', () => ({ controlDialer, dentalServerAction: vi.fn() }));
+vi.mock('../services/dentalDialer', () => ({
+  controlDialer,
+  startNextBatch,
+  dentalServerAction: vi.fn(),
+}));
 const route: DentalDialer = {
   staff_id: 'agent-2',
   state: 'paused',
@@ -43,7 +48,7 @@ it('resume applies only to the selected agent', async () => {
   expect(screen.getByRole('status').textContent).toContain('Acción guardada');
 });
 
-it('only a bounded pilot can start without transfer verification, and its status stays explicit', () => {
+it('only a bounded pilot can start without transfer verification, and a used-up batch starts the next', async () => {
   const pending = {
     ...route,
     state: 'stopped' as const,
@@ -58,14 +63,21 @@ it('only a bounded pilot can start without transfer verification, and its status
     <DentalDialerControls route={pending} runtime={runtime} reload={vi.fn()} />
   );
   expect(
-    (screen.getByRole('button', { name: 'Activar piloto de 20' }) as HTMLButtonElement).disabled
+    (screen.getByRole('button', { name: 'Activar tanda de 20' }) as HTMLButtonElement).disabled
   ).toBe(false);
   expect(screen.getByText(/Transferencia todavía no comprobada/)).toBeTruthy();
   rerender(
-    <DentalDialerControls route={pending} runtime={runtime} reload={vi.fn()} pilotAttempts={20} />
+    <DentalDialerControls
+      route={{ ...pending, state: 'paused' }}
+      runtime={runtime}
+      reload={vi.fn()}
+      pilotAttempts={20}
+    />
   );
-  expect(
-    (screen.getByRole('button', { name: 'Límite del piloto alcanzado' }) as HTMLButtonElement)
-      .disabled
-  ).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Iniciar siguiente tanda de 20' }));
+  await waitFor(() => expect(startNextBatch).toHaveBeenCalledWith('agent-2'));
+  expect(controlDialer).not.toHaveBeenCalledWith('agent-2', 'resume');
+  await waitFor(() =>
+    expect(screen.getByRole('status').textContent).toContain('Nueva tanda de 20 iniciada')
+  );
 });

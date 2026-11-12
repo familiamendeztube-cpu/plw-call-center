@@ -104,6 +104,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'set_prospect_details',
   'set_prospect_stage',
   'setting_int',
+  'start_next_dental_batch',
   'update_dental_lead',
 ];
 

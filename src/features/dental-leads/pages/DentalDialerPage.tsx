@@ -35,7 +35,7 @@ export function DentalDialerPage() {
     ['Sin confirmar', live.filter((c) => c.state === 'uncertain').length],
   ];
   if (route?.pilot_call_limit)
-    totals.push(['Intentos del piloto', `${pilotAttempts} / ${route.pilot_call_limit}`]);
+    totals.push(['Intentos de esta tanda', `${pilotAttempts} / ${route.pilot_call_limit}`]);
   // Agents see only their to-do list and their calls; the dialer's controls and counters are
   // for administrators.
   const agentNames = session?.role === 'agent' ? { [session.agentId]: session.displayName } : {};

@@ -66,6 +66,13 @@ export async function controlDialer(staffId: string, action: string) {
         'No se pudo guardar la acción. Verifique el servidor y la prueba de transferencia.'
     );
 }
+export async function startNextBatch(staffId: string) {
+  // Same activation rules as Continuar; refused activation leaves the batch unchanged.
+  const { error } = await getSupabaseClient().rpc('start_next_dental_batch', {
+    p_staff_id: staffId,
+  });
+  if (error) throw new Error(error.message || 'No se pudo iniciar la siguiente tanda.');
+}
 export async function dentalServerAction(input: Record<string, unknown>) {
   return await callStaffFunction('dental-dialer', input);
 }
