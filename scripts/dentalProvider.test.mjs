@@ -422,7 +422,10 @@ test('an ElevenLabs refusal shows its reason, and the fallback config keeps only
   );
   const full = dentalAgentConfig('Alejandro', route, 'voice');
   const basic = dentalAgentConfig('Alejandro', route, 'voice', { basicTurn: true });
-  assert.ok(full.conversation_config.turn.interruption_ignore_terms.includes('gracias'));
+  const terms = full.conversation_config.turn.interruption_ignore_terms;
+  assert.ok(terms.includes('gracias'));
+  // ElevenLabs refuses the whole update if one term is longer than 20 characters.
+  assert.deepEqual(terms.filter((term) => term.length > 20), []);
   assert.deepEqual(basic.conversation_config.turn, { turn_eagerness: 'patient' });
   // Both pass verification, so the fallback never blocks the dialer.
   for (const config of [full, basic])

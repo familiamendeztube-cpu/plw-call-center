@@ -1,7 +1,8 @@
 // One versioned script for test calls and the campaign runner.
 // Applied per conversation; never patch the shared inbound ElevenLabs agent.
 // Source: owner's "Master AI Sales Agent Command" for Anna Chacón (2026-11-10).
-export const SALES_SCRIPT_VERSION = 'anna-2026-11-12c-ventas';
+// "d": same script as "c"; the new version makes Configurar Ana push the fixed interruption list.
+export const SALES_SCRIPT_VERSION = 'anna-2026-11-12d-ventas';
 export const SALES_VOICE_MODEL = 'eleven_v3_conversational';
 // {{saludo}} is filled per call by greetingFor(): calls run in the morning and afternoon.
 export const SALES_FIRST_MESSAGE =

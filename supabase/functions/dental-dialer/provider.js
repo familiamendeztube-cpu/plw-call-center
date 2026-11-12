@@ -87,12 +87,13 @@ const OUTCOME_LEAD_STATUS = {
 const TIMEZONE = 'America/Costa_Rica';
 // Calls of 2026-11-12: Anna was cut off mid-sentence 64 times in ~80 calls, mostly by a
 // "gracias", "bueno" or "sí" said over her, and restarted the sentence each time. These short
-// replies no longer interrupt her (ElevenLabs matches the whole reply, ignoring case). "No" and
+// replies no longer interrupt her (ElevenLabs matches the whole reply, ignoring case; each term
+// 20 characters at most, or the whole update is refused). "No" and
 // "aló" stay out: they must stop her. A 10 s silence (not 7) before she checks "¿Me escucha?".
 const IGNORED_REPLIES = [
   'sí', 'si', 'ajá', 'aja', 'mhm', 'ujum', 'ok', 'okey', 'okay', 'ya', 'bueno', 'claro',
   'claro que sí', 'listo', 'está bien', 'sí, está bien', 'perfecto', 'de acuerdo', 'entiendo',
-  'gracias', 'muchas gracias', 'igualmente', 'muchas gracias, igualmente', 'mucho gusto',
+  'gracias', 'muchas gracias', 'igualmente', 'gracias, igualmente', 'mucho gusto',
   'con mucho gusto', 'por favor', 'me parece', 'pura vida', 'sí, claro', 'sí, señora',
 ];
 // ElevenLabs accepted this turn setting on 2026-11-12; Configurar Ana falls back to it when the
