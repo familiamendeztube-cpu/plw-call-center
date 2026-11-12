@@ -6,7 +6,11 @@ import type {
   DentalRuntime,
   DentalTranscript,
 } from '../models/dentalDialer';
-import type { IncomingDentalCallRow, IncomingDentalLead } from '../models/incomingDentalCall';
+import type {
+  DentalCallMatch,
+  IncomingDentalCallRow,
+  IncomingDentalLead,
+} from '../models/incomingDentalCall';
 export interface DialerReadFailure {
   code?: string;
   status?: number;
@@ -86,23 +90,36 @@ export async function loadTranscript(id: string, signal: AbortSignal) {
   if (error) throw new Error('No se pudo cargar la transcripción.');
   return data as DentalTranscript;
 }
+// A transfer reaches the agent minutes after Anna dialed; a call to the same number long after
+// that is an ordinary call and shouldn't show an old conversation.
+const RECENT_DENTAL_CALL_MS = 30 * 60_000;
+/** The dental call behind a live call, or null when a number matches no recent dental call. */
 export async function loadIncomingDentalCall(
-  id: string,
+  match: DentalCallMatch,
   signal: AbortSignal
-): Promise<{ call: IncomingDentalCallRow; lead: IncomingDentalLead | null }> {
+): Promise<{ call: IncomingDentalCallRow; lead: IncomingDentalLead | null } | null> {
   const db = getSupabaseClient();
-  const callResult = await db
+  const query = db
     .from('dental_calls')
-    .select('id,lead_id,staff_id,phone,state,transfer_status,summary')
-    .eq('id', id)
-    .abortSignal(signal)
-    .maybeSingle();
+    .select('id,lead_id,staff_id,phone,state,transfer_status,summary,transcript,details')
+    .abortSignal(signal);
+  const callResult = await (match.id
+    ? query.eq('id', match.id)
+    : query
+        .eq('phone', match.phone ?? '')
+        .gte('created_at', new Date(Date.now() - RECENT_DENTAL_CALL_MS).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+  ).maybeSingle();
   if (callResult.error) throw new Error('No se pudo cargar la llamada.');
-  if (!callResult.data) throw new Error('La llamada no existe o no está disponible.');
+  if (!callResult.data) {
+    if (match.id) throw new Error('La llamada no existe o no está disponible.');
+    return null;
+  }
   const call = callResult.data as IncomingDentalCallRow;
   const leadResult = await db
     .from('dental_leads')
-    .select('id,business_name,province,canton,address')
+    .select('id,business_name,contact_name,province,canton,address')
     .eq('id', call.lead_id)
     .abortSignal(signal)
     .maybeSingle();

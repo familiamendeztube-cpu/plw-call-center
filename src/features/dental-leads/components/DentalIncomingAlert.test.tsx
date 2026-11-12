@@ -80,14 +80,37 @@ it('shows the real number, the owned lead and answers through the phone', async 
   expect(telephony.answerCall).toHaveBeenCalledTimes(1);
 });
 
-it('keeps the generic alert and its controls when there is no dental header', () => {
+it("finds Anna's transfer by the dentist's number when Asterisk drops the header", async () => {
+  loadIncomingDentalCall.mockResolvedValue({
+    call: dbRow({
+      summary: '',
+      details: { contact_name: 'Marta' },
+      transcript: [
+        { role: 'agent', message: '¿Quién contesta mientras hace una limpieza?', time_in_call_secs: 20, tools: [] },
+        { role: 'user', message: 'Nadie, se pierden llamadas.', time_in_call_secs: 25, tools: [] },
+        { role: 'agent', message: '', time_in_call_secs: 40, tools: ['transfer_to_number'] },
+      ],
+    }),
+    lead,
+  });
   setCall('ringing', { dentalCallId: null });
   renderAlert();
+  expect(await screen.findByRole('heading', { name: 'Clínica Demo' })).toBeTruthy();
+  expect(loadIncomingDentalCall).toHaveBeenCalledWith({ id: null, phone: '22223333' }, expect.anything());
+  expect(screen.getByText('Marta')).toBeTruthy();
+  expect(screen.getByText('Nadie, se pierden llamadas.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Contestar' })).toBeTruthy();
+});
+
+it('keeps the plain alert for an ordinary call whose number matches no dental call', async () => {
+  loadIncomingDentalCall.mockResolvedValue(null);
+  setCall('ringing', { dentalCallId: null });
+  renderAlert();
+  await waitFor(() => expect(loadIncomingDentalCall).toHaveBeenCalledTimes(1));
   expect(screen.getByRole('alertdialog')).toBeTruthy();
   expect(screen.getByText('22223333')).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Contestar' })).toBeTruthy();
+  expect(screen.queryByText(/No pudimos vincular|Buscando/)).toBeNull();
   expect(screen.getByRole('button', { name: 'Rechazar' })).toBeTruthy();
-  expect(loadIncomingDentalCall).not.toHaveBeenCalled();
 });
 
 it('does not expose another agent’s lead and keeps the controls', async () => {
@@ -130,7 +153,7 @@ it('refreshes the correlated row while ringing so a delayed summary appears', as
     .mockResolvedValueOnce({ call: dbRow({ summary: 'Resumen tardío' }), lead });
   setCall('ringing');
   renderAlert();
-  expect(await screen.findByText('Resumen todavía no disponible.')).toBeTruthy();
+  expect(await screen.findByText(/La conversación todavía no llega/)).toBeTruthy();
   await act(async () => {
     await vi.advanceTimersByTimeAsync(3000);
   });

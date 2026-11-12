@@ -10,6 +10,8 @@ import {
   type IncomingDentalContext,
 } from '../models/incomingDentalCall';
 
+const RECENT_LINES = 8;
+
 export function DentalIncomingAlert() {
   const { session } = useAuth();
   const { call, answerCall, hangUp } = useTelephony();
@@ -102,19 +104,36 @@ function DentalDetails({
   }
   const { lead, call } = context;
   const location = [lead?.address, lead?.canton, lead?.province].filter(Boolean).join(', ');
+  const contact = call.details?.contact_name || lead?.contact_name;
   const summary = call.summary?.trim();
+  // The end of the conversation is what the dentist agreed to before the transfer.
+  const lines = (call.transcript ?? [])
+    .filter((line) => line.message.trim())
+    .slice(-RECENT_LINES);
   return (
     <div className="grid gap-3">
       <h2 className={compact ? 'text-lg font-semibold text-plw-navy' : 'text-2xl font-semibold text-plw-navy'}>
         {lead?.business_name ?? 'Dentista sin nombre registrado'}
       </h2>
-      {location && <p className="text-sm text-neutral-700">{location}</p>}
-      {!compact && (
-        <div className="rounded-lg bg-plw-ivory p-3 text-sm">
-          <p className="mb-1 font-semibold">Resumen de Ana</p>
-          <p className="whitespace-pre-wrap">{summary || 'Resumen todavía no disponible.'}</p>
-        </div>
+      {contact && (
+        <p className="text-sm text-neutral-800">
+          Contacto: <span className="font-semibold">{contact}</span>
+        </p>
       )}
+      {location && <p className="text-sm text-neutral-700">{location}</p>}
+      <div className="grid gap-1 rounded-lg bg-plw-ivory p-3 text-sm">
+        <p className="font-semibold">Lo que habló con Anna</p>
+        {summary && <p className="whitespace-pre-wrap">{summary}</p>}
+        {lines.map((line, i) => (
+          <p key={i}>
+            <span className="font-semibold">{line.role === 'agent' ? 'Anna' : 'Dentista'}:</span>{' '}
+            {line.message}
+          </p>
+        ))}
+        {!summary && !lines.length && (
+          <p>La conversación todavía no llega. Aparece aquí en unos segundos.</p>
+        )}
+      </div>
     </div>
   );
 }

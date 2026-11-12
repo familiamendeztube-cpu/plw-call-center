@@ -31,18 +31,16 @@ export function followUpNote(call: DentalCall | undefined): string {
 
 /**
  * Which dentist the agent sees first in "Interesados" and in "Volver a llamar".
- * Negative: a goes first. Positive: b goes first. Zero: keep the current order.
+ * Negative: a goes first. Positive: b goes first.
  *
- * TODO(owner): choose the order. Useful fields:
- * - a.call?.created_at: when Anna called (ISO text; compare with Date.parse)
- * - a.call?.outcome: e.g. 'WHATSAPP_INFO_REQUESTED', 'CALLBACK_REQUESTED', 'VOICEMAIL'
- * - a.call?.transfer_status: 'requested' when Anna tried to pass the call to the agent
- * - a.call?.details?.callback_time: free text the dentist said ("mañana a las 10")
+ * Newest Anna call first, the same order as the call history, so the dentist she just spoke
+ * with is on top. Leads come from the server in id order, which is effectively random.
+ * Other useful fields if the owner wants a different order: a.call?.outcome,
+ * a.call?.transfer_status, a.call?.details?.callback_time.
  */
 export function compareFollowUps(a: FollowUp, b: FollowUp): number {
-  void a;
-  void b;
-  return 0;
+  const called = (f: FollowUp) => (f.call ? Date.parse(f.call.created_at) : 0);
+  return called(b) - called(a);
 }
 
 /** The agent's own dentists Anna marked Interesado or Volver a llamar, in the chosen order. */

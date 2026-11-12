@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { dentalCallIdFromHeader, type CallSnapshot } from '@/features/telephony/models/call';
 import {
   dentalContext,
+  dentalMatch,
   isIncomingRinging,
-  isPollableDentalCall,
   showCompactContext,
   type IncomingDentalCallRow,
 } from './incomingDentalCall';
@@ -54,19 +54,26 @@ describe('incoming call state', () => {
     expect(showCompactContext(null)).toBe(false);
   });
 
-  it('polls only correlated calls that are ringing, active or on hold', () => {
-    expect(isPollableDentalCall(ringing)).toBe(true);
-    expect(isPollableDentalCall({ ...ringing, state: 'active' })).toBe(true);
-    expect(isPollableDentalCall({ ...ringing, state: 'ended' })).toBe(false);
-    expect(isPollableDentalCall({ ...ringing, dentalCallId: null })).toBe(false);
+  it("matches by header, else by the caller's Costa Rican number, only while the call is live", () => {
+    expect(dentalMatch(ringing)).toEqual({ id: callId, phone: null });
+    expect(dentalMatch({ ...ringing, state: 'active' })).toEqual({ id: callId, phone: null });
+    expect(dentalMatch({ ...ringing, state: 'ended' })).toBeNull();
+    // Asterisk's transfer drops the header; the dentist's number still arrives.
+    const byNumber = { ...ringing, dentalCallId: null };
+    expect(dentalMatch(byNumber)).toEqual({ id: null, phone: '22223333' });
+    expect(dentalMatch({ ...byNumber, remoteNumber: '50622223333' })).toEqual({ id: null, phone: '22223333' });
+    expect(dentalMatch({ ...byNumber, remoteNumber: 'agent-3' })).toBeNull();
+    expect(dentalMatch({ ...byNumber, direction: 'outbound' })).toBeNull();
   });
 });
 
 describe('dental context', () => {
   const lead = { id: 'lead-1', business_name: 'Clínica Demo', province: 'San José', canton: null, address: null };
 
-  it('has no context without a header, an agent, or a lookup', () => {
-    expect(dentalContext({ ...ringing, dentalCallId: null }, 'agent-2', { status: 'loading' })).toEqual({ kind: 'none' });
+  it('has no context without a match, an agent, or a lookup', () => {
+    expect(
+      dentalContext({ ...ringing, dentalCallId: null, remoteNumber: '100' }, 'agent-2', { status: 'loading' })
+    ).toEqual({ kind: 'none' });
     expect(dentalContext(ringing, null, { status: 'loading' })).toEqual({ kind: 'none' });
     expect(dentalContext(ringing, 'agent-2', null)).toEqual({ kind: 'none' });
   });
@@ -87,6 +94,19 @@ describe('dental context', () => {
     expect(dentalContext({ ...ringing, state: 'active' }, 'agent-2', { status: 'ready', call: completed, lead })).toEqual({
       kind: 'ready',
       call: completed,
+      lead,
+    });
+  });
+
+  it("stays quiet on a number match until the agent's own dental call is found", () => {
+    const byNumber = { ...ringing, dentalCallId: null };
+    expect(dentalContext(byNumber, 'agent-2', { status: 'loading' })).toEqual({ kind: 'none' });
+    expect(dentalContext(byNumber, 'agent-2', { status: 'unknown' })).toEqual({ kind: 'none' });
+    expect(dentalContext(byNumber, 'agent-2', { status: 'none' })).toEqual({ kind: 'none' });
+    expect(dentalContext(byNumber, 'agent-3', { status: 'ready', call: row, lead })).toEqual({ kind: 'none' });
+    expect(dentalContext(byNumber, 'agent-2', { status: 'ready', call: row, lead })).toEqual({
+      kind: 'ready',
+      call: row,
       lead,
     });
   });
