@@ -95,10 +95,10 @@ const IGNORED_REPLIES = [
   'gracias', 'muchas gracias', 'igualmente', 'muchas gracias, igualmente', 'mucho gusto',
   'con mucho gusto', 'por favor', 'me parece', 'pura vida', 'sí, claro', 'sí, señora',
 ];
-const NOISE_SETTINGS = {
-  vad: { background_voice_detection: true },
-  turn: { turn_eagerness: 'patient', turn_timeout: 10, interruption_ignore_terms: IGNORED_REPLIES },
-};
+// ElevenLabs accepted this turn setting on 2026-11-12; Configurar Ana falls back to it when the
+// newer ones are refused, so a refused setting never blocks the dialer.
+const BASIC_TURN = { turn_eagerness: 'patient' };
+const TURN = { ...BASIC_TURN, turn_timeout: 10, interruption_ignore_terms: IGNORED_REPLIES };
 const isTrue = (value) => value === true || String(value).trim().toLowerCase() === 'true';
 /**
  * Reads ElevenLabs' post-call fields. Results come keyed by field id or as a list, and
@@ -134,7 +134,7 @@ export function callResults(analysis) {
       (isTrue(values.get('plw_callback')) ? 'callback' : isTrue(values.get('plw_interested')) ? 'interested' : null));
   return { outcome, details, optOut, leadStatus };
 }
-export function dentalAgentConfig(staffName, route, voiceId) {
+export function dentalAgentConfig(staffName, route, voiceId, { basicTurn = false } = {}) {
   return {
     name: `PLW Dental · Anna · ${staffName} · ${SALES_SCRIPT_VERSION}`,
     tags: ['plw-dental'],
@@ -182,7 +182,8 @@ export function dentalAgentConfig(staffName, route, voiceId) {
         },
       },
       tts: { voice_id: voiceId, model_id: SALES_VOICE_MODEL },
-      ...NOISE_SETTINGS,
+      vad: { background_voice_detection: true },
+      turn: basicTurn ? BASIC_TURN : TURN,
       conversation: { max_duration_seconds: 600 },
     },
     platform_settings: {
@@ -210,6 +211,17 @@ export function dentalAgentConfig(staffName, route, voiceId) {
 export function sanitizeProviderError(data) {
   const detail = data?.detail;
   if (typeof detail === 'string') return [{ field: '', type: '', message: detail.slice(0, 160) }];
+  // ElevenLabs also answers {detail: {status, message}}; that used to show as "[]".
+  if (detail && typeof detail === 'object' && !Array.isArray(detail))
+    return [
+      {
+        field: '',
+        type: String(detail.status ?? '').slice(0, 80),
+        message: String(detail.message ?? JSON.stringify(detail)).slice(0, 300),
+      },
+    ];
+  if (!detail && typeof data?.message === 'string')
+    return [{ field: '', type: '', message: data.message.slice(0, 300) }];
   if (!Array.isArray(detail)) return [];
   return detail.slice(0, 8).map((item) => ({
     field: (Array.isArray(item?.loc) ? item.loc : [])

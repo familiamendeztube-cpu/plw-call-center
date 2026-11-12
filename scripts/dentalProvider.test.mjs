@@ -6,6 +6,7 @@ import {
   dentalAgentConfig,
   safeAgent,
   conversationUpdate,
+  sanitizeProviderError,
 } from '../supabase/functions/dental-dialer/provider.js';
 import {
   DENTAL_FIRST_MESSAGE,
@@ -411,4 +412,19 @@ test('the only phone number in Anna’s script is PLW’s, so she never gives ou
   // She once gave "8888-1234", the example of the number-reading rule, as PLW's number.
   const numbers = salesPrompt({ dentalMode: true }).match(/\b\d{4}-?\d{4}\b/g);
   assert.deepEqual([...new Set(numbers)], ['4010-6198']);
+});
+
+test('an ElevenLabs refusal shows its reason, and the fallback config keeps only accepted turn settings', () => {
+  // {detail: {status, message}} used to show as "HTTP 400: []".
+  assert.deepEqual(
+    sanitizeProviderError({ detail: { status: 'invalid_turn', message: 'Term not allowed' } }),
+    [{ field: '', type: 'invalid_turn', message: 'Term not allowed' }]
+  );
+  const full = dentalAgentConfig('Alejandro', route, 'voice');
+  const basic = dentalAgentConfig('Alejandro', route, 'voice', { basicTurn: true });
+  assert.ok(full.conversation_config.turn.interruption_ignore_terms.includes('gracias'));
+  assert.deepEqual(basic.conversation_config.turn, { turn_eagerness: 'patient' });
+  // Both pass verification, so the fallback never blocks the dialer.
+  for (const config of [full, basic])
+    assert.deepEqual(agentConfigFailures({ agent_id: route.provider_agent_id, ...config }, route), []);
 });

@@ -112,19 +112,28 @@ Deno.serve(async (req) => {
       };
       let failures = await verify();
       let providerDetail = '';
+      let turnNote = '';
       if (failures.length && !failures.some((f) => ['provider_read', 'agent_identity'].includes(f))) {
-        const patched = await providerRequest(
-          apiKey,
-          agentPath,
-          dentalAgentConfig(staffName, route, settings.voice_id),
-          fetch,
-          'PATCH'
-        );
+        const patch = (basicTurn: boolean) =>
+          providerRequest(
+            apiKey,
+            agentPath,
+            dentalAgentConfig(staffName, route, settings.voice_id, { basicTurn }),
+            fetch,
+            'PATCH'
+          );
+        let patched = await patch(false);
+        if (!patched.ok) {
+          // A newer turn setting refused: retry with the ones ElevenLabs accepted before, and
+          // keep the reason on screen so the newer setting can be fixed.
+          turnNote = `Ajustes de interrupción no aplicados (HTTP ${patched.status}: ${JSON.stringify(sanitizeProviderError(patched.data))}).`;
+          patched = await patch(true);
+        }
         if (patched.ok) {
           failures = await verify();
         } else {
           failures = ['provider_update'];
-          providerDetail = ` HTTP ${patched.status}: ${JSON.stringify(sanitizeProviderError(patched.data))}`;
+          providerDetail = ` HTTP ${patched.status}: ${JSON.stringify(sanitizeProviderError(patched.data))}${turnNote ? ` ${turnNote}` : ''}`;
         }
       }
       if (failures.length) {
@@ -142,7 +151,7 @@ Deno.serve(async (req) => {
       }
       const { error: verifyError } = await db
         .from('dental_agent_dialers')
-        .update({ config_verified_at: new Date().toISOString(), last_error: '' })
+        .update({ config_verified_at: new Date().toISOString(), last_error: turnNote })
         .eq('staff_id', input.staffId);
       if (verifyError) throw verifyError;
       const { error: cronError } = await db.rpc('enable_dental_scheduler');
