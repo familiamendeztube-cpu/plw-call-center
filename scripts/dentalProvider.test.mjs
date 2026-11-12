@@ -84,6 +84,8 @@ test('verifier names each failed invariant and accepts only line-ending and edge
     // Agents made before the noise fix must be re-pushed by "Configurar Ana".
     ['noise_settings', (c) => delete c.conversation_config.vad],
     ['noise_settings', (c) => (c.conversation_config.turn.turn_eagerness = 'normal')],
+    // Without a timezone ElevenLabs tells Anna the time in UTC.
+    ['timezone', (c) => delete c.conversation_config.agent.prompt.timezone],
     ['script_version', (c) => (c.conversation_config.agent.prompt.prompt = c.conversation_config.agent.prompt.prompt.replace(SALES_SCRIPT_VERSION, 'old'))],
     ['extra_builtin_tool', (c) => (c.conversation_config.agent.prompt.built_in_tools.skip_turn = { type: 'system' })],
     ['transfer_count', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers = [])],

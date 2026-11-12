@@ -84,6 +84,7 @@ const OUTCOME_LEAD_STATUS = {
 // Owner, 2026-11-12: Anna reacted to background noise on clinic lines. ElevenLabs ignores
 // voices and noise behind the caller, and Anna waits a little longer before taking her turn.
 // Also verified, so "Configurar Ana" pushes them to agents created before this change.
+const TIMEZONE = 'America/Costa_Rica';
 const NOISE_SETTINGS = {
   vad: { background_voice_detection: true },
   turn: { turn_eagerness: 'patient' },
@@ -138,6 +139,8 @@ export function dentalAgentConfig(staffName, route, voiceId) {
           tool_ids: [],
           mcp_server_ids: [],
           knowledge_base: [],
+          // Without it ElevenLabs gives Anna UTC: 6 p.m. in Costa Rica was already "tomorrow".
+          timezone: TIMEZONE,
           built_in_tools: {
             end_call: {
               type: 'system',
@@ -260,6 +263,7 @@ export function agentConfigFailures(config, route) {
   const p = agent?.prompt;
   if (text(agent?.first_message) !== text(DENTAL_FIRST_MESSAGE)) failures.push('first_message');
   if (agent?.language !== 'es') failures.push('language');
+  if (p?.timezone !== TIMEZONE) failures.push('timezone');
   if (config.conversation_config?.tts?.model_id !== SALES_VOICE_MODEL) failures.push('voice_model');
   if (
     config.conversation_config?.vad?.background_voice_detection !== true ||
