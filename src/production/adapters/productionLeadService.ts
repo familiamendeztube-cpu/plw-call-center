@@ -48,6 +48,21 @@ export function createProductionLeadService(): LeadService {
       return prospect;
     },
 
+    async updateDetails(prospectId, details) {
+      const { error } = await supabase.rpc('set_prospect_details', {
+        p_prospect_id: prospectId,
+        p_business_name: details.businessName,
+        p_contact_name: details.contactName,
+        p_phone: details.phone,
+        p_business_category: details.businessCategory,
+        p_service_interest: details.serviceInterest,
+      });
+      if (error) throw new Error(SAVE_ERROR);
+      const prospect = await fetchProspect(prospectId);
+      if (!prospect) throw new Error(MISSING_PROSPECT);
+      return prospect;
+    },
+
     async listNotes(prospectId) {
       const { data, error } = await supabase
         .from('private_notes')

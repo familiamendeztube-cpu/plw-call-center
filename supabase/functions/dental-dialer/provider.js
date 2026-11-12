@@ -81,6 +81,13 @@ const OUTCOME_LEAD_STATUS = {
   WRONG_NUMBER: 'wrong_number',
   DO_NOT_CALL: 'do_not_call',
 };
+// Owner, 2026-11-12: Anna reacted to background noise on clinic lines. ElevenLabs ignores
+// voices and noise behind the caller, and Anna waits a little longer before taking her turn.
+// Also verified, so "Configurar Ana" pushes them to agents created before this change.
+const NOISE_SETTINGS = {
+  vad: { background_voice_detection: true },
+  turn: { turn_eagerness: 'patient' },
+};
 const isTrue = (value) => value === true || String(value).trim().toLowerCase() === 'true';
 /**
  * Reads ElevenLabs' post-call fields. Results come keyed by field id or as a list, and
@@ -162,6 +169,7 @@ export function dentalAgentConfig(staffName, route, voiceId) {
         },
       },
       tts: { voice_id: voiceId, model_id: SALES_VOICE_MODEL },
+      ...NOISE_SETTINGS,
       conversation: { max_duration_seconds: 600 },
     },
     platform_settings: {
@@ -253,6 +261,11 @@ export function agentConfigFailures(config, route) {
   if (text(agent?.first_message) !== text(DENTAL_FIRST_MESSAGE)) failures.push('first_message');
   if (agent?.language !== 'es') failures.push('language');
   if (config.conversation_config?.tts?.model_id !== SALES_VOICE_MODEL) failures.push('voice_model');
+  if (
+    config.conversation_config?.vad?.background_voice_detection !== true ||
+    config.conversation_config?.turn?.turn_eagerness !== 'patient'
+  )
+    failures.push('noise_settings');
   if (!text(p?.prompt).startsWith(text(salesPrompt({ dentalMode: true })))) failures.push('prompt_base');
   if (!text(p?.prompt).includes(SALES_SCRIPT_VERSION)) failures.push('script_version');
   if (p?.tool_ids?.length || p?.mcp_server_ids?.length || p?.knowledge_base?.length || (p?.tools ?? []).some((tool) => tool?.type !== 'system'))

@@ -101,6 +101,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'set_followup_completed',
   'set_next_action',
   'set_payment_status',
+  'set_prospect_details',
   'set_prospect_stage',
   'setting_int',
   'update_dental_lead',
@@ -108,6 +109,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
 
 const OWNER_ACTIONS = [
   ['change the stage', `SELECT public.set_prospect_stage($1, 'contacted')`],
+  ['correct the details', `SELECT public.set_prospect_details($1, 'Negocio', 'Ana', '', '', '')`],
   ['change the next action', `SELECT public.set_next_action($1, 'Llamar', NULL)`],
   ['add a private note', `SELECT public.add_private_note($1, 'Nota')`],
   ['schedule a follow-up', `SELECT public.schedule_followup($1, 'callback', 'Llamar', now())`],

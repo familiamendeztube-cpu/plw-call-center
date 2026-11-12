@@ -39,6 +39,16 @@ export function createDemoLeadService(state: DemoState): LeadService {
       }
       return updated;
     },
+    async updateDetails(prospectId, details) {
+      await simulateLatency(150);
+      const current = state.prospects.find((item) => item.id === prospectId);
+      if (!current) {
+        throw new Error('No se encontró el prospecto.');
+      }
+      const updated = { ...current, ...details };
+      state.prospects = state.prospects.map((item) => (item.id === prospectId ? updated : item));
+      return updated;
+    },
     async listNotes(prospectId) {
       await simulateLatency(100);
       return state.notes

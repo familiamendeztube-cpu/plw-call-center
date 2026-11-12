@@ -4,6 +4,9 @@ import { ConversationPane } from '@/features/inbox/components/ConversationPane';
 import { CustomerOfferPanel } from '@/features/customers/components/CustomerOfferPanel';
 import { CustomerMaterialsPanel } from '@/features/customers/components/CustomerMaterialsPanel';
 import { ScheduleFollowupDialog } from '@/features/followups/components/ScheduleFollowupDialog';
+import { EditCustomerDialog } from '@/features/leads/components/EditCustomerDialog';
+import { Button } from '@/components/ui/Button';
+import { Pencil } from 'lucide-react';
 import {
   CUSTOMER_ACTION_PARAM,
   CUSTOMER_ACTION_SCHEDULE,
@@ -47,6 +50,7 @@ export function CustomerWorkspace({
 }: CustomerWorkspaceProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [scheduling, setScheduling] = useState(false);
+  const [editing, setEditing] = useState(false);
   const { prospect, conversation } = entry;
   const fromCall = prospect.source === 'ai_call';
   const fromWhatsApp = prospect.source === 'whatsapp';
@@ -93,6 +97,17 @@ export function CustomerWorkspace({
         <div className="flex flex-wrap items-baseline gap-x-3">
           <h2 className="text-lg font-semibold text-plw-ink">{prospect.businessName}</h2>
           <p className="text-sm text-neutral-500">{prospect.contactName}</p>
+          {onProspectChange ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto self-center"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil size={14} aria-hidden="true" />
+              Editar datos
+            </Button>
+          ) : null}
         </div>
         {/* Columns follow the room this panel really has (the phone and list take part of the
             window), not the window width. */}
@@ -226,6 +241,17 @@ export function CustomerWorkspace({
           </div>
         ) : null}
       </div>
+
+      {editing && onProspectChange ? (
+        <EditCustomerDialog
+          prospect={prospect}
+          onClose={() => setEditing(false)}
+          onSaved={(updated) => {
+            setEditing(false);
+            onProspectChange(updated);
+          }}
+        />
+      ) : null}
 
       {scheduling ? (
         <ScheduleFollowupDialog

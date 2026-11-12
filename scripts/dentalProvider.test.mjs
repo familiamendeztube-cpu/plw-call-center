@@ -81,6 +81,9 @@ test('verifier names each failed invariant and accepts only line-ending and edge
     ['extra_tools_or_knowledge', (c) => (c.conversation_config.agent.prompt.tools = [{ name: 'lookup', type: 'webhook' }])],
     ['first_message', (c) => (c.conversation_config.agent.first_message = 'Hola')],
     ['voice_model', (c) => (c.conversation_config.tts.model_id = 'eleven_turbo_v2')],
+    // Agents made before the noise fix must be re-pushed by "Configurar Ana".
+    ['noise_settings', (c) => delete c.conversation_config.vad],
+    ['noise_settings', (c) => (c.conversation_config.turn.turn_eagerness = 'normal')],
     ['script_version', (c) => (c.conversation_config.agent.prompt.prompt = c.conversation_config.agent.prompt.prompt.replace(SALES_SCRIPT_VERSION, 'old'))],
     ['extra_builtin_tool', (c) => (c.conversation_config.agent.prompt.built_in_tools.skip_turn = { type: 'system' })],
     ['transfer_count', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers = [])],

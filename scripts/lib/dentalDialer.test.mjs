@@ -413,5 +413,37 @@ test('a dentist who wanted something becomes one customer for the lead agent, wi
     assert.equal((await one('SELECT count(*)::int AS n FROM ai_call_requests')).n, 0);
     await as(tx, 2);
     assert.equal((await one('SELECT count(*)::int AS n FROM ai_call_requests')).n, 3);
+
+    // Agent-3 corrects what the AI got wrong: the customer, its call cards and Anna's list agree.
+    const { prospect_id } = await one('SELECT prospect_id FROM ai_call_requests WHERE id=$1', [request]);
+    await tx.query(
+      "SELECT set_prospect_details($1,' Clínica Dental Solís ','Dra. Ana Solís','88887777','Clínica dental','')",
+      [prospect_id]
+    );
+    assert.deepEqual(
+      await one('SELECT business_name, contact_name, phone FROM dental_leads WHERE id=$1', [id(15)]),
+      { business_name: 'Clínica Dental Solís', contact_name: 'Dra. Ana Solís', phone: '22221105' }
+    );
+    assert.deepEqual(
+      await one(
+        "SELECT DISTINCT business_name, customer_name FROM ai_call_requests WHERE conversation_id IN ('conv_good','conv_again')"
+      ),
+      { business_name: 'Clínica Dental Solís', customer_name: 'Dra. Ana Solís' }
+    );
+    await denied(
+      tx,
+      "SELECT set_prospect_details($1,'','','','','')",
+      [prospect_id],
+      /obligatorio/
+    );
+    // Agent-2 can't touch agent-3's customer.
+    await as(tx, 1);
+    await denied(
+      tx,
+      "SELECT set_prospect_details($1,'Otro','','','','')",
+      [prospect_id],
+      /No autorizado/
+    );
+    await as(tx, 2);
     await denied(tx, 'SELECT dental_call_to_customer($1)', [good], /permission denied/);
   }));
