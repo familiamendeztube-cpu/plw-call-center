@@ -11,6 +11,7 @@ import {
   DENTAL_FIRST_MESSAGE,
   SALES_SCRIPT_VERSION,
   greetingFor,
+  salesPrompt,
 } from '../supabase/functions/dental-dialer/salesScript.js';
 import {
   dispatchCall,
@@ -404,4 +405,10 @@ test('a finished real call asks the database to make the customer; a call still 
     assert.equal(made.length, expected, status);
     if (expected) assert.deepEqual(made[0][1], { p_call_id: record.id });
   }
+});
+
+test('the only phone number in Anna’s script is PLW’s, so she never gives out an example', () => {
+  // She once gave "8888-1234", the example of the number-reading rule, as PLW's number.
+  const numbers = salesPrompt({ dentalMode: true }).match(/\b\d{4}-?\d{4}\b/g);
+  assert.deepEqual([...new Set(numbers)], ['4010-6198']);
 });

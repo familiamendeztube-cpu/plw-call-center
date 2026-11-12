@@ -85,9 +85,19 @@ const OUTCOME_LEAD_STATUS = {
 // voices and noise behind the caller, and Anna waits a little longer before taking her turn.
 // Also verified, so "Configurar Ana" pushes them to agents created before this change.
 const TIMEZONE = 'America/Costa_Rica';
+// Calls of 2026-11-12: Anna was cut off mid-sentence 64 times in ~80 calls, mostly by a
+// "gracias", "bueno" or "sí" said over her, and restarted the sentence each time. These short
+// replies no longer interrupt her (ElevenLabs matches the whole reply, ignoring case). "No" and
+// "aló" stay out: they must stop her. A 10 s silence (not 7) before she checks "¿Me escucha?".
+const IGNORED_REPLIES = [
+  'sí', 'si', 'ajá', 'aja', 'mhm', 'ujum', 'ok', 'okey', 'okay', 'ya', 'bueno', 'claro',
+  'claro que sí', 'listo', 'está bien', 'sí, está bien', 'perfecto', 'de acuerdo', 'entiendo',
+  'gracias', 'muchas gracias', 'igualmente', 'muchas gracias, igualmente', 'mucho gusto',
+  'con mucho gusto', 'por favor', 'me parece', 'pura vida', 'sí, claro', 'sí, señora',
+];
 const NOISE_SETTINGS = {
   vad: { background_voice_detection: true },
-  turn: { turn_eagerness: 'patient' },
+  turn: { turn_eagerness: 'patient', turn_timeout: 10, interruption_ignore_terms: IGNORED_REPLIES },
 };
 const isTrue = (value) => value === true || String(value).trim().toLowerCase() === 'true';
 /**
