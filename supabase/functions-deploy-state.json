@@ -7,11 +7,11 @@
     },
     "ai-call-audio": {
       "hasChanged": false,
-      "hash": "7c9ced85372eee7e5801afff67c8937c014d04ba48888580c97764ec540b2021"
+      "hash": "41d7dc5a36419e361d3d82ce4d62e4484c6d38424a1d31994a6e70ce2c5b3070"
     },
     "ai-outbound-test-call": {
       "hasChanged": false,
-      "hash": "1fa3c15941e857da6467226342cc3cad42444e424ec86e716d03eb6cd7ea9415"
+      "hash": "335f185510334a7eef0ff12d3addd79c73951458858d12d96ad049af58e17032"
     },
     "asterisk-bridge": {
       "hasChanged": false,
@@ -23,7 +23,7 @@
     },
     "dental-dialer": {
       "hasChanged": false,
-      "hash": "15e85c475c38a51165e36cb737ed1dfb863e45b30ee9b327aca217f8818213de"
+      "hash": "05091e98ab4b5628dd1817aa119ece0e5b0d9ceae8a7fd2b1511c03e8b40f576"
     },
     "elevenlabs-webhook": {
       "hasChanged": false,
