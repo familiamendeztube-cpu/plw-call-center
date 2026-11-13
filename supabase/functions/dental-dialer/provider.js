@@ -308,6 +308,8 @@ export function agentConfigFailures(config, route) {
     failures.push('noise_settings');
   if (!text(p?.prompt).startsWith(text(salesPrompt({ dentalMode: true })))) failures.push('prompt_base');
   if (!text(p?.prompt).includes(SALES_SCRIPT_VERSION)) failures.push('script_version');
+  const collected = config.platform_settings?.data_collection ?? {};
+  if (!Object.keys(DETAIL_FIELDS).every((field) => field in collected)) failures.push('extraction_fields');
   if (p?.tool_ids?.length || p?.mcp_server_ids?.length || p?.knowledge_base?.length || (p?.tools ?? []).some((tool) => tool?.type !== 'system'))
     failures.push('extra_tools_or_knowledge');
   if (!workflowIsEmpty(config.workflow)) failures.push('workflow');

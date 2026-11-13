@@ -505,6 +505,25 @@ test('the agent prompt asks the receptionist flow in order and identifies Ana as
   assert.ok(prompt.indexOf('¿Usted se encarga de contestar las llamadas?') < prompt.indexOf('Imagínese que usted'));
 });
 
+test('verification fails when a post-call extraction field is missing from the agent', async () => {
+  const { agentConfigFailures, dentalAgentConfig } = await import(
+    '../../supabase/functions/dental-dialer/provider.js'
+  );
+  const route = {
+    provider_agent_id: 'agent_test',
+    transfer_uri: 'sip:agent-2@phone.example.com',
+  };
+  const readback = () => ({
+    agent_id: 'agent_test',
+    ...dentalAgentConfig('Alejandro', route, 'voice'),
+  });
+  const complete = agentConfigFailures(readback(), route);
+  assert.ok(!complete.includes('extraction_fields'));
+  const missing = readback();
+  delete missing.platform_settings.data_collection.plw_callback_confirmed;
+  assert.ok(agentConfigFailures(missing, route).includes('extraction_fields'));
+});
+
 test('post-call fields give the callback day, time and confirmation to the server', async () => {
   const { callResults } = await import('../../supabase/functions/dental-dialer/provider.js');
   const results = callResults({
