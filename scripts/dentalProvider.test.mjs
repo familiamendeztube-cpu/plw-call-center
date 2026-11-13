@@ -195,11 +195,25 @@ test('explicit provider acceptance uses the assigned agent and persists the conv
   );
   assert.equal(payload.agent_id, route.provider_agent_id);
   assert.equal(payload.to_number, '+50622223333');
-  // The first message needs {{saludo}}; ElevenLabs rejects a call missing a variable it uses.
-  assert.ok(DENTAL_FIRST_MESSAGE.includes('{{saludo}}'));
   assert.match(payload.conversation_initiation_client_data.dynamic_variables.saludo, /^Muy buen/);
   assert.equal(db.writes.at(-1).update.state, 'started');
   assert.equal(db.writes.at(-1).update.conversation_id, 'conv123');
+});
+test('Anna opens without an AI label and reveals she is AI in the demonstration; the prompt and greeting agree', async () => {
+  const { SALES_SCRIPT_VERSION, salesPrompt } = await import(
+    '../supabase/functions/dental-dialer/salesScript.js'
+  );
+  assert.equal(DENTAL_FIRST_MESSAGE, 'Hola, le saluda Anna Chacón-Méndez, de PLW. ¿Cómo se encuentra?');
+  assert.ok(!/inteligencia|robot|IA\b/i.test(DENTAL_FIRST_MESSAGE));
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-13a-ia-identificada');
+  const prompt = salesPrompt({ dentalMode: true });
+  assert.ok(prompt.startsWith('Eres Anna Chacón-Méndez, asistente comercial de inteligencia artificial de Professional Latino Workers'));
+  assert.ok(prompt.includes('Yo soy el ejemplo: soy una asistente de inteligencia artificial y así puedo apoyarles con las llamadas.'));
+  assert.ok(prompt.includes('Nunca afirmes ser humana'));
+  assert.ok(prompt.includes('responde de inmediato y con claridad'));
+  assert.ok(!prompt.includes('Ana Chacón Méndez'));
+  assert.ok(!prompt.includes('Anna Chacón, de Professional Latino Workers'));
+  assert.ok(!prompt.includes('natural, clarito'));
 });
 test('opted-out numbers and a pause between reservation and dispatch never reach the provider', async () => {
   for (const options of [{ blocked: true }, { state: 'paused' }]) {

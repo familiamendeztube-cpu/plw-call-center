@@ -495,7 +495,7 @@ test('the agent prompt asks the receptionist flow in order and identifies Ana as
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
   for (const phrase of [
-    'Soy Ana Chacón Méndez, una asistente de inteligencia artificial de PLW',
+    'Soy Anna Chacón-Méndez, de PLW. Yo soy el ejemplo: soy una asistente de inteligencia artificial',
     'Imagínese que usted está atendiendo a un paciente y entran otras llamadas.',
     'Estamos en Pinares, Curridabat',
     'Voy a dejarle la solicitud a mi compañero',
