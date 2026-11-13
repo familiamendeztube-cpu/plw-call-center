@@ -43,7 +43,11 @@ export function compareFollowUps(a: FollowUp, b: FollowUp): number {
   return called(b) - called(a);
 }
 
-/** The agent's own dentists Anna marked Interesado or Volver a llamar, in the chosen order. */
+// Callbacks where Anna spoke with someone. The rest are mostly voicemails (owner's rule makes
+// them callbacks too) and buried these: 22 of Alejandro's 31 callbacks on 2026-11-12.
+const ASKED_FOR_CALL = new Set(['CALLBACK_REQUESTED', 'DECISION_MAKER_UNAVAILABLE', 'RECEPTIONIST_CONTACT']);
+
+/** The agent's own dentists Anna marked Interesado or Volver a llamar, newest call first. */
 export function followUps(leads: DentalLead[], calls: DentalCall[]) {
   const latest = latestCallByLead(calls);
   const pick = (status: DentalLead['status']) =>
@@ -51,5 +55,11 @@ export function followUps(leads: DentalLead[], calls: DentalCall[]) {
       .filter((lead) => lead.status === status)
       .map((lead) => ({ lead, call: latest.get(lead.id) }))
       .sort(compareFollowUps);
-  return { interested: pick('interested'), callback: pick('callback') };
+  const callbacks = pick('callback');
+  const asked = (item: FollowUp) => ASKED_FOR_CALL.has(item.call?.outcome ?? '');
+  return {
+    interested: pick('interested'),
+    asked: callbacks.filter(asked),
+    callback: callbacks.filter((item) => !asked(item)),
+  };
 }

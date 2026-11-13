@@ -135,6 +135,8 @@ it('an agent sees who to contact and their calls, never the dialer controls or c
   state.leads = [
     lead('lead-whatsapp', 'Clínica Sonrisa', 'interested'),
     lead('lead-voicemail', 'Clínica Norte', 'callback'),
+    lead('lead-asked-old', 'Clínica Este', 'callback'),
+    lead('lead-asked-new', 'Clínica Oeste', 'callback'),
     lead('lead-pending', 'Clínica Sur', 'pending'),
   ];
   state.calls = [
@@ -143,6 +145,9 @@ it('an agent sees who to contact and their calls, never the dialer controls or c
       conversation_id: 'conv_1',
       details: { contact_name: 'Dra. Solís', callback_time: 'mañana a las 10' },
     }),
+    call('call-voicemail', 'lead-voicemail', { outcome: 'VOICEMAIL' }),
+    call('call-asked-old', 'lead-asked-old', { outcome: 'CALLBACK_REQUESTED', created_at: '2026-11-11T15:00:00Z' }),
+    call('call-asked-new', 'lead-asked-new', { outcome: 'DECISION_MAKER_UNAVAILABLE', created_at: '2026-11-12T15:00:00Z' }),
     call('call-404', 'lead-pending', { state: 'failed', error: 'SIP 404' }),
   ];
   render(
@@ -163,8 +168,16 @@ it('an agent sees who to contact and their calls, never the dialer controls or c
       'Anna: Pidió información por WhatsApp · Habló con Dra. Solís · Llamar: mañana a las 10'
     )
   ).toBeTruthy();
+  // People who asked for a call aren't buried among voicemails, and the newest call comes first.
+  const asked = screen.getByRole('region', { name: 'Pidieron que los llamen' });
+  expect(within(asked).getAllByRole('heading').map((h) => h.textContent)).toEqual([
+    'Pidieron que los llamen (2)',
+    'Clínica Oeste',
+    'Clínica Este',
+  ]);
   const callback = screen.getByRole('region', { name: 'Volver a llamar' });
   expect(within(callback).getByText('Clínica Norte')).toBeTruthy();
+  expect(within(callback).queryByText('Clínica Este')).toBeNull();
   expect(screen.queryByText('Clínica Sur')).toBeNull();
 
   // Only the call that reached ElevenLabs has a transcript and a recording.

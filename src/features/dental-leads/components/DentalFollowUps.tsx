@@ -15,7 +15,7 @@ export function DentalFollowUps({
   agentNames: Record<string, string>;
   reload: () => void;
 }) {
-  const { interested, callback } = followUps(leads, calls);
+  const { interested, asked, callback } = followUps(leads, calls);
   const groups = [
     {
       title: 'Interesados',
@@ -23,8 +23,13 @@ export function DentalFollowUps({
       items: interested,
     },
     {
+      title: 'Pidieron que los llamen',
+      hint: 'Hablaron con Anna y pidieron otra llamada, o la persona encargada no estaba.',
+      items: asked,
+    },
+    {
       title: 'Volver a llamar',
-      hint: 'Anna no pudo hablar con la persona encargada, o le pidieron llamar en otro momento.',
+      hint: 'Buzón de voz, fallas de la llamada y otros pendientes de volver a llamar.',
       items: callback,
     },
   ];
