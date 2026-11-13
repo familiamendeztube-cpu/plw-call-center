@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { controlDialer, dentalServerAction, startNextBatch } from '../services/dentalDialer';
+import {
+  controlDialer,
+  dentalServerAction,
+  fetchDemoSample,
+  startNextBatch,
+} from '../services/dentalDialer';
 import { dialerReady, type DentalDialer, type DentalRuntime } from '../models/dentalDialer';
 export function DentalDialerControls({
   route,
@@ -40,6 +45,24 @@ export function DentalDialerControls({
       reload();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'No se pudo completar.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function downloadSample() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const blob = await fetchDemoSample();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'demostracion-ana-es-en.mp3';
+      link.click();
+      URL.revokeObjectURL(url);
+      setMessage('Muestra descargada.');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'No se pudo generar la muestra.');
     } finally {
       setBusy(false);
     }
@@ -189,6 +212,18 @@ export function DentalDialerControls({
           </p>
         </div>
       )}
+      <div className="grid gap-2 rounded-lg border p-4 text-sm">
+        <p className="font-semibold">Muestra de voz</p>
+        <p className="text-neutral-600">
+          Audio de demostración en español e inglés con la voz de Ana. Demostración generada, no es
+          una llamada real.
+        </p>
+        <div>
+          <Button variant="secondary" disabled={busy} onClick={() => void downloadSample()}>
+            Descargar muestra de voz (MP3)
+          </Button>
+        </div>
+      </div>
       {diagnosis && (
         <pre className="max-h-64 overflow-auto rounded-lg bg-neutral-50 p-3 text-xs text-neutral-800">
           {diagnosis}

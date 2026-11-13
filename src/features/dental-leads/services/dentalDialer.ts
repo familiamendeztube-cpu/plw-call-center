@@ -1,5 +1,9 @@
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { callStaffFunction } from '@/integrations/supabase/callStaffFunction';
+import {
+  callStaffFunction,
+  postStaffFunction,
+  readStaffFunctionError,
+} from '@/integrations/supabase/callStaffFunction';
 import type {
   DentalCall,
   DentalDialer,
@@ -79,6 +83,12 @@ export async function startNextBatch(staffId: string) {
 }
 export async function dentalServerAction(input: Record<string, unknown>) {
   return await callStaffFunction('dental-dialer', input);
+}
+
+export async function fetchDemoSample(): Promise<Blob> {
+  const response = await postStaffFunction('dental-dialer', { action: 'demo_sample' });
+  if (!response.ok) throw await readStaffFunctionError(response);
+  return await response.blob();
 }
 export async function loadTranscript(id: string, signal: AbortSignal) {
   const { data, error } = await getSupabaseClient()

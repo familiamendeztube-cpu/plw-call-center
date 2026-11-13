@@ -13,10 +13,10 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** A FormData body is sent as a file upload; anything else as JSON. */
-export async function callStaffFunction(
+export async function postStaffFunction(
   name: string,
   body: Record<string, unknown> | FormData
-): Promise<Record<string, unknown>> {
+): Promise<Response> {
   const { data } = await getSupabaseClient().auth.getSession();
   const accessToken = data.session?.access_token;
   if (!accessToken) throw new Error(SESSION_ENDED);
@@ -37,12 +37,22 @@ export async function callStaffFunction(
   } catch {
     throw new Error(CONNECTION_FAILURE);
   }
+  return response;
+}
 
+export async function readStaffFunctionError(response: Response): Promise<Error> {
   const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const message = isRecord(payload) && typeof payload.error === 'string' ? payload.error : null;
-    throw new Error(message ?? CONNECTION_FAILURE);
-  }
+  const message = isRecord(payload) && typeof payload.error === 'string' ? payload.error : null;
+  return new Error(message ?? CONNECTION_FAILURE);
+}
+
+export async function callStaffFunction(
+  name: string,
+  body: Record<string, unknown> | FormData
+): Promise<Record<string, unknown>> {
+  const response = await postStaffFunction(name, body);
+  if (!response.ok) throw await readStaffFunctionError(response);
+  const payload: unknown = await response.json().catch(() => null);
   if (!isRecord(payload)) throw new Error(INVALID_RESPONSE);
   return payload;
 }

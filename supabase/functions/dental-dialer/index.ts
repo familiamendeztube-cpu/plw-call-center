@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
 import { runTick, dispatchCall, syncCalls, reconcileStuckCalls } from './runner.js';
 import { providerRequest, safeAgent, agentConfigFailures, dentalAgentConfig, agentShape, sanitizeProviderError } from './provider.js';
+import { DEMO_SAMPLE_FILENAME, demoSampleRequest } from './demoSample.js';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -39,6 +40,27 @@ Deno.serve(async (req) => {
       await syncCalls(db, apiKey);
       await reconcileStuckCalls(db, apiKey).catch(() => {});
       return json({ ok: true });
+    }
+    if (input.action === 'demo_sample') {
+      const { data: settings, error: settingsError } = await db
+        .from('ai_outbound_settings')
+        .select('voice_id')
+        .eq('id', 1)
+        .single();
+      if (settingsError || !settings?.voice_id)
+        return json({ error: 'Falta configurar la voz de Ana.' }, 409);
+      const request = demoSampleRequest(apiKey, settings.voice_id);
+      const audio = await fetch(request.url, request.init).catch(() => null);
+      if (!audio?.ok || !audio.body)
+        return json({ error: 'ElevenLabs no generó la muestra. Intente de nuevo.' }, 502);
+      return new Response(audio.body, {
+        headers: {
+          ...cors,
+          'Content-Type': 'audio/mpeg',
+          'Content-Disposition': `attachment; filename="${DEMO_SAMPLE_FILENAME}"`,
+          'Cache-Control': 'no-store',
+        },
+      });
     }
     if (!['agent-2', 'agent-3'].includes(input.staffId))
       return json({ error: 'Agente no válido.' }, 400);
