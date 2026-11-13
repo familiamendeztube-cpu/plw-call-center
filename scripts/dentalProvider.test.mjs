@@ -210,7 +210,7 @@ test('Anna opens without an AI label and reveals she is AI in the demonstration;
   );
   assert.equal(DENTAL_FIRST_MESSAGE, 'Hola, le saluda Anna Chacón-Méndez, de Professional Latino Workers, en Pinares. ¿Cómo se encuentra?');
   assert.ok(!/inteligencia|robot|IA\b/i.test(DENTAL_FIRST_MESSAGE));
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-13c-idiomas');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-13d-rechazos');
   const prompt = salesPrompt({ dentalMode: true });
   assert.ok(prompt.startsWith('Eres Anna Chacón-Méndez, asistente comercial de inteligencia artificial de Professional Latino Workers'));
   assert.ok(prompt.includes('Yo soy el ejemplo: soy una asistente de inteligencia artificial y así puedo apoyarles con las llamadas.'));
