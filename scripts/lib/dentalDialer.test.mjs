@@ -339,6 +339,21 @@ test('a dentist who did not pick up gets one more call on a later business day, 
       /duplicate key/
     );
   }));
+test('new dentists with a landline are offered before mobiles, each group in order', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    await tx.query("UPDATE dental_leads SET phone='60001111' WHERE id=$1", [id(10)]);
+    await tx.query("UPDATE dental_leads SET phone='70001111' WHERE id=$1", [id(11)]);
+    const order = [];
+    for (let n = 0; n < 5; n++) {
+      const claimed = await claim(tx);
+      if (!claimed) break;
+      order.push(claimed.lead.id);
+      await tx.query("UPDATE dental_calls SET state='completed' WHERE id=$1", [claimed.call.id]);
+    }
+    assert.deepEqual(order, [id(12), id(13), id(14), id(10), id(11)]);
+    assert.equal(await claim(tx), null);
+  }));
 test('a dentist who wanted something becomes one customer for the lead agent, with the call pending', async () =>
   fixture(async (tx) => {
     await as(tx);
