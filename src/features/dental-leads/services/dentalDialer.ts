@@ -85,10 +85,23 @@ export async function dentalServerAction(input: Record<string, unknown>) {
   return await callStaffFunction('dental-dialer', input);
 }
 
-export async function fetchDemoSample(): Promise<Blob> {
+export type DemoSampleVoice = { role: 'ana' | 'patient'; name: string; voice_id: string };
+
+export async function fetchDemoSample(): Promise<{ blob: Blob; voices: DemoSampleVoice[] }> {
   const response = await postStaffFunction('dental-dialer', { action: 'demo_sample' });
   if (!response.ok) throw await readStaffFunctionError(response);
-  return await response.blob();
+  const voices = parseDemoVoices(response.headers.get('X-Demo-Voices'));
+  return { blob: await response.blob(), voices };
+}
+
+function parseDemoVoices(header: string | null): DemoSampleVoice[] {
+  if (!header) return [];
+  try {
+    const parsed: unknown = JSON.parse(decodeURIComponent(header));
+    return Array.isArray(parsed) ? (parsed as DemoSampleVoice[]) : [];
+  } catch {
+    return [];
+  }
 }
 export async function loadTranscript(id: string, signal: AbortSignal) {
   const { data, error } = await getSupabaseClient()

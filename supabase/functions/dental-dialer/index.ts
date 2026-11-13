@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
 import { runTick, dispatchCall, syncCalls, reconcileStuckCalls } from './runner.js';
 import { providerRequest, safeAgent, agentConfigFailures, dentalAgentConfig, agentShape, sanitizeProviderError } from './provider.js';
-import { DEMO_SAMPLE_FILENAME, demoSampleRequest } from './demoSample.js';
+import { DEMO_SAMPLE_FILENAME, DemoSampleError, buildDemoSample } from './demoSample.js';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -49,18 +49,22 @@ Deno.serve(async (req) => {
         .single();
       if (settingsError || !settings?.voice_id)
         return json({ error: 'Falta configurar la voz de Ana.' }, 409);
-      const request = demoSampleRequest(apiKey, settings.voice_id);
-      const audio = await fetch(request.url, request.init).catch(() => null);
-      if (!audio?.ok || !audio.body)
-        return json({ error: 'ElevenLabs no generó la muestra. Intente de nuevo.' }, 502);
-      return new Response(audio.body, {
-        headers: {
-          ...cors,
-          'Content-Type': 'audio/mpeg',
-          'Content-Disposition': `attachment; filename="${DEMO_SAMPLE_FILENAME}"`,
-          'Cache-Control': 'no-store',
-        },
-      });
+      try {
+        const sample = await buildDemoSample({ apiKey, anaVoiceId: settings.voice_id });
+        return new Response(sample.audio, {
+          headers: {
+            ...cors,
+            'Content-Type': 'audio/mpeg',
+            'Content-Disposition': `attachment; filename="${DEMO_SAMPLE_FILENAME}"`,
+            'Access-Control-Expose-Headers': 'X-Demo-Voices',
+            'X-Demo-Voices': encodeURIComponent(JSON.stringify(sample.voices)),
+            'Cache-Control': 'no-store',
+          },
+        });
+      } catch (error) {
+        if (error instanceof DemoSampleError) return json({ error: error.message }, error.status);
+        throw error;
+      }
     }
     if (!['agent-2', 'agent-3'].includes(input.staffId))
       return json({ error: 'Agente no válido.' }, 400);

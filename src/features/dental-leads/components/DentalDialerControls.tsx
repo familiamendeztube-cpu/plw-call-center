@@ -53,14 +53,15 @@ export function DentalDialerControls({
     setBusy(true);
     setMessage('');
     try {
-      const blob = await fetchDemoSample();
+      const { blob, voices } = await fetchDemoSample();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'demostracion-ana-es-en.mp3';
+      link.download = 'demostracion-simulada-dos-voces.mp3';
       link.click();
       URL.revokeObjectURL(url);
-      setMessage('Muestra descargada.');
+      const names = voices.map((voice) => voice.name).join(' y ');
+      setMessage(names ? `Muestra descargada con las voces ${names}.` : 'Muestra descargada.');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'No se pudo generar la muestra.');
     } finally {
@@ -213,14 +214,14 @@ export function DentalDialerControls({
         </div>
       )}
       <div className="grid gap-2 rounded-lg border p-4 text-sm">
-        <p className="font-semibold">Muestra de voz</p>
+        <p className="font-semibold">Demostración simulada de dos voces — no es una llamada real</p>
         <p className="text-neutral-600">
-          Audio de demostración en español e inglés con la voz de Ana. Demostración generada, no es
-          una llamada real.
+          Escena breve en español e inglés: Ana y una paciente de habla inglesa. Sirve para escuchar
+          cómo quedaría la atención antes de activar el marcador.
         </p>
         <div>
           <Button variant="secondary" disabled={busy} onClick={() => void downloadSample()}>
-            Descargar muestra de voz (MP3)
+            Descargar demostración (MP3)
           </Button>
         </div>
       </div>
