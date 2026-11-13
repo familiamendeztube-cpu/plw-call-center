@@ -496,23 +496,34 @@ test('the agent prompt asks the receptionist flow in order and identifies Ana as
   const prompt = salesPrompt({ dentalMode: true });
   for (const phrase of [
     'Yo soy el ejemplo: soy una asistente de inteligencia artificial y así puedo apoyarles con las llamadas.',
-    'Imagínese que está ayudando a un paciente en recepción y entran otras llamadas.',
+    'Le hago un ejemplo simulado: imagínese que la clínica ya cerró y entra esta llamada.',
     'Estamos en Pinares, Curridabat',
     'Voy a dejarle la solicitud a mi compañero',
     'lunes a viernes, de 9:00 a 17:00',
+    'cuando usted está atendiendo a un paciente, ¿quién responde la otra llamada?',
   ])
     assert.ok(prompt.includes(phrase), phrase);
   const order = [
     '¿Usted se encarga de contestar las llamadas?',
     'Pregunta si le parece bien una demostración muy corta',
-    '¿Le parece si le muestro un ejemplo en inglés y en francés?',
-    '"Hello, how can I help you?"',
-    '"Bonjour, comment puis-je vous aider ?"',
-    'Imagínese que está ayudando',
+    'Le hago un ejemplo simulado',
+    'Hi, I have a toothache.',
+    'Of course. I can take your details',
+    'Y usted recibe la solicitud organizada en español',
     'Yo soy el ejemplo',
   ].map((phrase) => prompt.indexOf(phrase));
   assert.ok(order.every((index) => index > 0));
   assert.deepEqual([...order].sort((a, b) => a - b), order);
+});
+
+test('the simulated demo is labeled, returns to Spanish, and ends with one offer', async () => {
+  const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
+  const prompt = salesPrompt({ dentalMode: true });
+  const demo = prompt.slice(prompt.indexOf('4. Solo si acepta de forma explícita'), prompt.indexOf('5. Pregunta cuál apoyo'));
+  assert.ok(demo.includes('es simulada: no es una llamada real ni un paciente real'));
+  assert.ok(demo.includes('Vuelva al español'));
+  assert.ok(demo.includes('haga una sola oferta: hablar ahora mismo con el asesor'));
+  assert.ok(!demo.includes('Hello, how can I help you?'));
 });
 
 test('a clear refusal ends the call immediately, including at the demo question', async () => {
@@ -526,11 +537,10 @@ test('a clear refusal ends the call immediately, including at the demo question'
   assert.ok(!prompt.includes('Si no quiere, pasa al paso 5.'));
 });
 
-test('the language demo waits for permission and the reception example has no procedure wording', async () => {
+test('the language demo is not offered as a separate permission step and the reception example has no procedure wording', async () => {
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
-  assert.ok(prompt.includes('Pida permiso antes de los ejemplos en otros idiomas'));
-  assert.ok(!/limpieza|muela|el doctor está haciendo/i.test(prompt));
+  assert.ok(!/limpieza|el doctor está haciendo/i.test(prompt));
   assert.ok(!/\[[^\]]*\]/.test(prompt.replace(/\{\{[^}]*\}\}/g, '')));
 });
 
@@ -538,7 +548,7 @@ test('the prompt introduces Anna once, names PLW in full, and gives the email br
   const { salesPrompt, DENTAL_FIRST_MESSAGE, SALES_SCRIPT_VERSION } = await import(
     '../../supabase/functions/dental-dialer/salesScript.js'
   );
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-13d-rechazos');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-14a-demo-simulada');
   assert.equal(
     DENTAL_FIRST_MESSAGE,
     'Hola, le saluda Anna Chacón-Méndez, de Professional Latino Workers, en Pinares. ¿Cómo se encuentra?'
