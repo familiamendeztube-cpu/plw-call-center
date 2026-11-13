@@ -495,14 +495,41 @@ test('the agent prompt asks the receptionist flow in order and identifies Ana as
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
   for (const phrase of [
-    'Soy Anna Chacón-Méndez, de PLW. Yo soy el ejemplo: soy una asistente de inteligencia artificial',
+    'Yo soy el ejemplo: soy una asistente de inteligencia artificial y así puedo apoyarles con las llamadas.',
     'Imagínese que usted está atendiendo a un paciente y entran otras llamadas.',
     'Estamos en Pinares, Curridabat',
     'Voy a dejarle la solicitud a mi compañero',
     'lunes a viernes, de 9:00 a 17:00',
   ])
     assert.ok(prompt.includes(phrase), phrase);
-  assert.ok(prompt.indexOf('¿Usted se encarga de contestar las llamadas?') < prompt.indexOf('Imagínese que usted'));
+  const order = [
+    '¿Usted se encarga de contestar las llamadas?',
+    'Pregunta si le parece bien una demostración muy corta',
+    '"Hello, how can I help you?"',
+    '"Bonjour, comment puis-je vous aider ?"',
+    'Yo soy el ejemplo',
+    'Imagínese que usted',
+  ].map((phrase) => prompt.indexOf(phrase));
+  assert.ok(order.every((index) => index > 0));
+  assert.deepEqual([...order].sort((a, b) => a - b), order);
+});
+
+test('the prompt introduces Anna once, names PLW in full, and gives the email branch priority', async () => {
+  const { salesPrompt, DENTAL_FIRST_MESSAGE, SALES_SCRIPT_VERSION } = await import(
+    '../../supabase/functions/dental-dialer/salesScript.js'
+  );
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-13c-idiomas');
+  assert.equal(
+    DENTAL_FIRST_MESSAGE,
+    'Hola, le saluda Anna Chacón-Méndez, de Professional Latino Workers, en Pinares. ¿Cómo se encuentra?'
+  );
+  const prompt = salesPrompt({ dentalMode: true });
+  assert.ok(prompt.includes('Nunca te vuelvas a presentar después del saludo.'));
+  assert.ok(!/protocol/i.test(prompt));
+  assert.ok(prompt.includes('PEDIDO DE CORREO (tiene prioridad sobre todo lo demás)'));
+  assert.ok(prompt.indexOf('PEDIDO DE CORREO') < prompt.indexOf('4. CON LA RECEPCIONISTA O SECRETARIA'));
+  assert.equal(prompt.match(/4\. CON LA RECEPCIONISTA O SECRETARIA/g).length, 1);
+  assert.ok(prompt.includes('No ofrezca hablar con el asesor, una visita, una llamada en otro momento ni una encuesta.'));
 });
 
 test('verification fails when a post-call extraction field is missing from the agent', async () => {
@@ -649,6 +676,39 @@ test('a dentist who wanted something becomes one customer for the lead agent, wi
     await as(tx, 2);
     await denied(tx, 'SELECT dental_call_to_customer($1)', [good], /permission denied/);
   }));
+test('an email-only request makes one email follow-up for the lead agent and stops automatic redials', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    const emailCall = await callbackCall(
+      tx,
+      id(15),
+      { contact_name: 'Dra. Solís', contact_email: 'clinica@ejemplo.cr' },
+      'conv_email',
+      'EMAIL_INFO_REQUESTED'
+    );
+    const emailRequest = async () =>
+      (await tx.query('SELECT dental_call_email_request($1) AS id', [emailCall])).rows[0].id;
+    const first = await emailRequest();
+    assert.ok(first);
+    assert.equal(await emailRequest(), null);
+    const followups = await followupsFor(tx, emailCall);
+    assert.deepEqual(
+      followups.map((row) => row.agent_id),
+      ['agent-3']
+    );
+    await tx.exec('RESET ROLE');
+    const saved = await tx.query(
+      'SELECT preferred_contact, status FROM ai_call_requests WHERE conversation_id=$1',
+      ['conv_email']
+    );
+    await as(tx);
+    assert.deepEqual(saved.rows, [{ preferred_contact: 'email', status: 'pending' }]);
+
+    await tx.query("UPDATE dental_leads SET status='contacted' WHERE id=$1", [id(15)]);
+    const next = await claim(tx, 'agent-3');
+    assert.ok(!JSON.stringify(next ?? {}).includes(id(15)));
+  }));
+
 test('the admin starts the next batch once the current one is used up, only under the activation rules', async () =>
   fixture(async (tx) => {
     await as(tx);

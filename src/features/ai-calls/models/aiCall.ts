@@ -9,7 +9,7 @@ export const AI_CALL_STATUS_LABELS: Record<AiCallStatus, string> = {
 
 export const AI_CALL_STATUSES = Object.keys(AI_CALL_STATUS_LABELS) as AiCallStatus[];
 
-export const CONTACT_LABELS = { phone: 'Llamada', whatsapp: 'WhatsApp' } as const;
+export const CONTACT_LABELS = { phone: 'Llamada', whatsapp: 'WhatsApp', email: 'Correo' } as const;
 
 export interface AiCall {
   id: string;

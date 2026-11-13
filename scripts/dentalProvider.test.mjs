@@ -92,6 +92,11 @@ test('verifier names each failed invariant and accepts only line-ending and edge
     ['extra_builtin_tool', (c) => (c.conversation_config.agent.prompt.built_in_tools.skip_turn = { type: 'system' })],
     ['transfer_count', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers = [])],
     ['voicemail_detection', (c) => delete c.conversation_config.agent.prompt.built_in_tools.voicemail_detection],
+    ['language_detection', (c) => delete c.conversation_config.agent.prompt.built_in_tools.language_detection],
+    ['language_presets', (c) => delete c.conversation_config.language_presets],
+    ['language_presets', (c) => delete c.conversation_config.language_presets.fr],
+    // A greeting in a preset would replay the introduction on every language switch.
+    ['language_presets', (c) => (c.conversation_config.language_presets.en.overrides.agent.first_message = 'Hello')],
     // The braces template is what broke every transfer; it must be detected and re-pushed.
     ['transfer_headers', (c) => (c.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers[0].custom_sip_headers[0].value = '{{plw_dental_call_id}}')],
     ['workflow', (c) => (c.workflow = { nodes: { a: {} } })],
@@ -203,9 +208,9 @@ test('Anna opens without an AI label and reveals she is AI in the demonstration;
   const { SALES_SCRIPT_VERSION, salesPrompt } = await import(
     '../supabase/functions/dental-dialer/salesScript.js'
   );
-  assert.equal(DENTAL_FIRST_MESSAGE, 'Hola, le saluda Anna Chacón-Méndez, de PLW. ¿Cómo se encuentra?');
+  assert.equal(DENTAL_FIRST_MESSAGE, 'Hola, le saluda Anna Chacón-Méndez, de Professional Latino Workers, en Pinares. ¿Cómo se encuentra?');
   assert.ok(!/inteligencia|robot|IA\b/i.test(DENTAL_FIRST_MESSAGE));
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-13a-ia-identificada');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-13c-idiomas');
   const prompt = salesPrompt({ dentalMode: true });
   assert.ok(prompt.startsWith('Eres Anna Chacón-Méndez, asistente comercial de inteligencia artificial de Professional Latino Workers'));
   assert.ok(prompt.includes('Yo soy el ejemplo: soy una asistente de inteligencia artificial y así puedo apoyarles con las llamadas.'));
@@ -347,6 +352,19 @@ test('agents sharing the line take turns: whoever waited longest asks first', ()
   assert.deepEqual(takingTurns([alejandro, valeska], [at('agent-2', '15:10')]), [valeska, alejandro]);
 });
 
+test('Anna is Spanish-first with English and French presets and a language tool, without a greeting in either preset', () => {
+  const config = dentalAgentConfig('Valeska', route, 'voice');
+  assert.equal(config.conversation_config.agent.language, 'es');
+  assert.deepEqual(Object.keys(config.conversation_config.language_presets).sort(), ['en', 'fr']);
+  for (const preset of Object.values(config.conversation_config.language_presets))
+    assert.equal(preset.overrides.agent.first_message, undefined);
+  assert.equal(config.conversation_config.tts.model_id, 'eleven_v3_conversational');
+  assert.deepEqual(config.conversation_config.agent.prompt.built_in_tools.language_detection.params, {
+    system_tool_type: 'language_detection',
+  });
+  assert.match(config.conversation_config.agent.prompt.prompt, /Cambio de idioma/);
+});
+
 test('Anna greets by Costa Rica time of day', () => {
   assert.equal(greetingFor(new Date('2026-11-10T15:00:00Z')), 'Muy buenos días'); // 09:00 CR
   assert.equal(greetingFor(new Date('2026-11-10T21:30:00Z')), 'Muy buenas tardes'); // 15:30 CR
@@ -382,6 +400,24 @@ test('call results keep only known outcomes and spoken details, and map them to 
   });
   assert.equal(list.leadStatus, 'wrong_number');
   assert.deepEqual(callResults(null), { outcome: null, details: {}, optOut: false, leadStatus: null });
+});
+
+test('an email-only request is kept apart from interest, and its address must be well formed', () => {
+  const r = (results) => callResults({ data_collection_results: results });
+  const email = r({
+    plw_outcome: { value: 'EMAIL_INFO_REQUESTED' },
+    plw_contact_email: { value: 'clinica@ejemplo.cr' },
+  });
+  assert.equal(email.outcome, 'EMAIL_INFO_REQUESTED');
+  assert.equal(email.leadStatus, 'contacted');
+  assert.equal(email.details.contact_email, 'clinica@ejemplo.cr');
+  assert.equal(email.optOut, false);
+  const malformed = r({
+    plw_outcome: { value: 'EMAIL_INFO_REQUESTED' },
+    plw_contact_email: { value: 'clinica(at)ejemplo' },
+  });
+  assert.equal(malformed.outcome, 'EMAIL_INFO_REQUESTED');
+  assert.equal(malformed.details.contact_email, undefined);
 });
 
 test('a finished real call asks the database to make the customer; a call still running does not', async () => {

@@ -35,6 +35,7 @@ export const CALL_OUTCOMES = [
   'APPOINTMENT_REQUESTED',
   'INTERESTED_FOLLOW_UP',
   'WHATSAPP_INFO_REQUESTED',
+  'EMAIL_INFO_REQUESTED',
   'RECEPTIONIST_CONTACT',
   'DECISION_MAKER_UNAVAILABLE',
   'CALLBACK_REQUESTED',
@@ -58,6 +59,10 @@ const detail = (description) => ({
 const DETAIL_FIELDS = {
   plw_contact_name: detail('Name of the person Anna spoke with.'),
   plw_contact_role: detail('Their role, e.g. recepcionista, dueña, administrador, gerente.'),
+  plw_contact_email: {
+    type: 'string',
+    description: 'Email address the person asked PLW to send the information to, exactly as spelled letter by letter, lowercase, with @ and dots. Empty if not given or unsure; never guess.',
+  },
   plw_contact_phone: detail('Phone or WhatsApp number the person authorized PLW to use, digits only.'),
   plw_business_address: detail('Business address given for the visit.'),
   plw_appointment_date: detail('Preferred visit day the person agreed to, as they said it.'),
@@ -86,6 +91,7 @@ const OUTCOME_LEAD_STATUS = {
   APPOINTMENT_REQUESTED: 'interested',
   INTERESTED_FOLLOW_UP: 'interested',
   WHATSAPP_INFO_REQUESTED: 'interested',
+  EMAIL_INFO_REQUESTED: 'contacted',
   RECEPTIONIST_CONTACT: 'callback',
   DECISION_MAKER_UNAVAILABLE: 'callback',
   CALLBACK_REQUESTED: 'callback',
@@ -113,6 +119,17 @@ const IGNORED_REPLIES = [
 // newer ones are refused, so a refused setting never blocks the dialer.
 const BASIC_TURN = { turn_eagerness: 'patient' };
 const TURN = { ...BASIC_TURN, turn_timeout: 10, interruption_ignore_terms: IGNORED_REPLIES };
+// Anna's demonstration switches to English and French and back. Presets carry no greeting, so a
+// switch never replays the introduction.
+const LANGUAGE_PRESETS = { en: { overrides: { agent: {} } }, fr: { overrides: { agent: {} } } };
+const LANGUAGE_TOOL = {
+  type: 'system',
+  name: 'language_detection',
+  description:
+    'Cambia el idioma de la llamada solo cuando la persona hable inglés o francés, o pida cambiar de idioma, y vuelve al español cuando hable español o lo pida. Nunca cambies por una sola palabra.',
+  params: { system_tool_type: 'language_detection' },
+};
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isTrue = (value) => value === true || String(value).trim().toLowerCase() === 'true';
 /**
  * Reads ElevenLabs' post-call fields. Results come keyed by field id or as a list, and
@@ -141,6 +158,7 @@ export function callResults(analysis) {
       : '';
     if (clean && !/^(null|none|n\/a)$/i.test(clean)) details[id.slice(4)] = clean;
   }
+  if (details.contact_email && !EMAIL_PATTERN.test(details.contact_email)) delete details.contact_email;
   const optOut = isTrue(values.get('plw_opt_out')) || outcome === 'DO_NOT_CALL';
   const leadStatus = optOut
     ? 'do_not_call'
@@ -177,6 +195,7 @@ export function dentalAgentConfig(staffName, route, voiceId, { basicTurn = false
               name: 'voicemail_detection',
               params: { system_tool_type: 'voicemail_detection' },
             },
+            language_detection: LANGUAGE_TOOL,
             transfer_to_number: {
               type: 'system',
               name: 'transfer_to_number',
@@ -195,6 +214,7 @@ export function dentalAgentConfig(staffName, route, voiceId, { basicTurn = false
           },
         },
       },
+      language_presets: LANGUAGE_PRESETS,
       tts: { voice_id: voiceId, model_id: SALES_VOICE_MODEL },
       vad: { background_voice_detection: true },
       turn: basicTurn ? BASIC_TURN : TURN,
@@ -212,7 +232,7 @@ export function dentalAgentConfig(staffName, route, voiceId, { basicTurn = false
         plw_interested: {
           type: 'boolean',
           description:
-            'True only if the person explicitly expresses interest in the PLW dental reception service. Do not infer interest from politeness.',
+            'True only if the person explicitly expresses interest in the PLW dental reception service. Do not infer interest from politeness, and never from a request for information by email or WhatsApp.',
         },
         plw_callback: {
           type: 'boolean',
@@ -271,6 +291,7 @@ export function agentShape(config) {
       name: String(tool?.name ?? '').slice(0, 80),
       type: String(tool?.type ?? '').slice(0, 40),
     })),
+    language_presets: Object.keys(config?.conversation_config?.language_presets ?? {}),
     built_in_tools: Object.entries(p.built_in_tools ?? {})
       .filter(([, value]) => value)
       .map(([key, value]) => ({
@@ -317,11 +338,18 @@ export function agentConfigFailures(config, route) {
   if (
     Object.entries(built).some(
       ([name, value]) =>
-        value && !['end_call', 'transfer_to_number', 'voicemail_detection'].includes(name)
+        value && !['end_call', 'transfer_to_number', 'voicemail_detection', 'language_detection'].includes(name)
     )
   )
     failures.push('extra_builtin_tool');
   if (!built.voicemail_detection) failures.push('voicemail_detection');
+  if (!built.language_detection) failures.push('language_detection');
+  const presets = config.conversation_config?.language_presets ?? {};
+  if (
+    !['en', 'fr'].every((lang) => presets[lang]) ||
+    Object.values(presets).some((preset) => text(preset?.overrides?.agent?.first_message) !== '')
+  )
+    failures.push('language_presets');
   const t = built.transfer_to_number?.params?.transfers;
   if (!Array.isArray(t) || t.length !== 1) failures.push('transfer_count');
   else {

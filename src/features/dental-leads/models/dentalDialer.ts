@@ -37,12 +37,13 @@ export interface DentalTranscript {
   outcome?: string | null;
   details?: Record<string, string>;
 }
-/** Anna's 13 call outcomes, as the owner defined them. */
+/** Anna's call outcomes. */
 export const CALL_OUTCOME: Record<string, string> = {
   APPOINTMENT_CONFIRMED: 'Cita confirmada',
   APPOINTMENT_REQUESTED: 'Visita solicitada',
   INTERESTED_FOLLOW_UP: 'Interesado · dar seguimiento',
   WHATSAPP_INFO_REQUESTED: 'Pidió información por WhatsApp',
+  EMAIL_INFO_REQUESTED: 'Pidió información por correo',
   RECEPTIONIST_CONTACT: 'Habló con recepción',
   DECISION_MAKER_UNAVAILABLE: 'Encargado no disponible',
   CALLBACK_REQUESTED: 'Pidió que lo llamen',
@@ -57,6 +58,7 @@ export const CALL_DETAIL_LABELS: [key: string, label: string][] = [
   ['contact_name', 'Contacto'],
   ['contact_role', 'Puesto'],
   ['contact_phone', 'Teléfono o WhatsApp autorizado'],
+  ['contact_email', 'Correo para la información'],
   ['business_address', 'Dirección'],
   ['appointment_date', 'Día de la visita'],
   ['appointment_time', 'Hora de la visita'],

@@ -188,6 +188,8 @@ export async function syncCalls(db, apiKey, fetchImpl = fetch) {
         if (update.state) {
           const { error } = await db.rpc('dental_call_to_customer', { p_call_id: call.id });
           if (error) console.error('dental customer not created', error.code);
+          const { error: emailError } = await db.rpc('dental_call_email_request', { p_call_id: call.id });
+          if (emailError) console.error('dental email request not saved', emailError.code);
         }
         if (results.details.callback_date) {
           const { error } = await db.rpc('dental_call_schedule_callback', { p_call_id: call.id });
