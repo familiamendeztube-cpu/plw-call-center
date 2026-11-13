@@ -354,11 +354,19 @@ test('new dentists with a landline are offered before mobiles, each group in ord
     assert.deepEqual(order, [id(12), id(13), id(14), id(10), id(11)]);
     assert.equal(await claim(tx), null);
   }));
-async function callbackCall(tx, lead, details, conversation) {
+const nextWeekday = (weekday, minDays = 10) => {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + minDays);
+  while (d.getUTCDay() !== weekday) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+const fri = nextWeekday(5);
+const sat = nextWeekday(6);
+async function callbackCall(tx, lead, details, conversation, outcome = 'CALLBACK_REQUESTED') {
   const row = (
     await tx.query(
-      "INSERT INTO dental_calls(lead_id,staff_id,phone,provider_agent_id,transfer_uri,state,outcome,details,conversation_id,summary,finished_at) SELECT id,owner_staff_id,phone,'dental_x','sip:agent-2@phone.example.com','completed','CALLBACK_REQUESTED',$2,$3,'Pidió llamada.',now() FROM dental_leads WHERE id=$1 RETURNING id",
-      [lead, JSON.stringify(details), conversation]
+      "INSERT INTO dental_calls(lead_id,staff_id,phone,provider_agent_id,transfer_uri,state,outcome,details,conversation_id,summary,finished_at) SELECT id,owner_staff_id,phone,'dental_x','sip:agent-2@phone.example.com','completed',$4,$2,$3,'Pidió llamada.',now() FROM dental_leads WHERE id=$1 RETURNING id",
+      [lead, JSON.stringify(details), conversation, outcome]
     )
   ).rows[0];
   await tx.query('SELECT dental_call_to_customer($1)', [row.id]);
@@ -384,7 +392,7 @@ test('a confirmed callback becomes one follow-up for the lead agent at the exact
     const call = await callbackCall(
       tx,
       id(12),
-      { decision_maker: 'Dra. Solís', callback_date: '2026-11-12', callback_clock: '14:30', callback_confirmed: 'true' },
+      { decision_maker: 'Dra. Solís', callback_date: fri, callback_clock: '14:30', callback_confirmed: 'true' },
       'conv_cb_ok'
     );
     const first = await scheduleCallback(tx, call);
@@ -394,7 +402,7 @@ test('a confirmed callback becomes one follow-up for the lead agent at the exact
     assert.equal(second, null);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].agent_id, 'agent-2');
-    assert.equal(rows[0].local, '2026-11-12 14:30');
+    assert.equal(rows[0].local, `${fri} 14:30`);
     assert.match(rows[0].title, /Dra\. Solís/);
   }));
 
@@ -404,7 +412,7 @@ test('suggested, unconfirmed or outside-hours callbacks never invent a timed fol
     const suggested = await callbackCall(
       tx,
       id(13),
-      { decision_maker: 'Gerente', callback_date: '2026-11-12', callback_clock: '08:30', callback_confirmed: 'false' },
+      { decision_maker: 'Gerente', callback_date: fri, callback_clock: '08:30', callback_confirmed: 'false' },
       'conv_cb_suggested'
     );
     assert.equal(await scheduleCallback(tx, suggested), null);
@@ -413,13 +421,13 @@ test('suggested, unconfirmed or outside-hours callbacks never invent a timed fol
     const weekend = await callbackCall(
       tx,
       id(14),
-      { decision_maker: 'Dueña', callback_date: '2026-11-14', callback_clock: '10:00', callback_confirmed: 'true' },
+      { decision_maker: 'Dueña', callback_date: sat, callback_clock: '10:00', callback_confirmed: 'true' },
       'conv_cb_weekend'
     );
     await scheduleCallback(tx, weekend);
     const [row] = await followupsFor(tx, weekend);
     assert.match(row.title, /^FUERA DE HORARIO/);
-    assert.equal(row.local, '2026-11-14 10:00');
+    assert.equal(row.local, `${sat} 10:00`);
   }));
 
 test('an opted-out dentist gets no callback follow-up, and an invalid date is refused', async () =>
@@ -428,7 +436,7 @@ test('an opted-out dentist gets no callback follow-up, and an invalid date is re
     const optedOut = await callbackCall(
       tx,
       id(11),
-      { callback_date: '2026-11-12', callback_clock: '10:00', callback_confirmed: 'true' },
+      { callback_date: fri, callback_clock: '10:00', callback_confirmed: 'true' },
       'conv_cb_optout'
     );
     await tx.query("UPDATE dental_leads SET status='do_not_call' WHERE id=$1", [id(11)]);
@@ -442,6 +450,45 @@ test('an opted-out dentist gets no callback follow-up, and an invalid date is re
       'conv_cb_bad'
     );
     assert.equal(await scheduleCallback(tx, badDate), null);
+  }));
+
+test('a confirmed callback creates the assigned task even when the decision maker was unavailable; suggestions and past times do not', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    const confirmed = await callbackCall(
+      tx,
+      id(12),
+      { decision_maker: 'Dueña', callback_date: fri, callback_clock: '14:30', callback_confirmed: 'true' },
+      'conv_cb_unavailable',
+      'DECISION_MAKER_UNAVAILABLE'
+    );
+    const first = await scheduleCallback(tx, confirmed);
+    assert.equal(await scheduleCallback(tx, confirmed), null);
+    const rows = await followupsFor(tx, confirmed);
+    assert.ok(first);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].agent_id, 'agent-2');
+    assert.equal(rows[0].local, `${fri} 14:30`);
+
+    const suggested = await callbackCall(
+      tx,
+      id(13),
+      { decision_maker: 'Gerente', callback_date: fri, callback_clock: '08:30', callback_confirmed: 'false' },
+      'conv_cb_unavailable_suggested',
+      'DECISION_MAKER_UNAVAILABLE'
+    );
+    assert.equal(await scheduleCallback(tx, suggested), null);
+    assert.equal((await followupsFor(tx, suggested)).length, 0);
+
+    const past = await callbackCall(
+      tx,
+      id(14),
+      { decision_maker: 'Dueña', callback_date: '2020-01-06', callback_clock: '14:30', callback_confirmed: 'true' },
+      'conv_cb_past',
+      'DECISION_MAKER_UNAVAILABLE'
+    );
+    assert.equal(await scheduleCallback(tx, past), null);
+    assert.equal((await followupsFor(tx, past)).length, 0);
   }));
 
 test('the agent prompt asks the receptionist flow in order and identifies Ana as AI', async () => {
