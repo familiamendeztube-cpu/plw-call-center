@@ -216,7 +216,8 @@ export function DentalDialerControls({
       <div className="grid gap-2 rounded-lg border p-4 text-sm">
         <p className="font-semibold">Demostración simulada de dos voces — no es una llamada real</p>
         <p className="text-neutral-600">
-          Escena breve en español e inglés: Ana y una paciente de habla inglesa. Sirve para escuchar
+          Escena breve en español e inglés: Ana y la voz de un paciente de habla inglesa. Sirve para
+          escuchar
           cómo quedaría la atención antes de activar el marcador.
         </p>
         <div>

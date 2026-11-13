@@ -62,7 +62,8 @@ Deno.serve(async (req) => {
           },
         });
       } catch (error) {
-        if (error instanceof DemoSampleError) return json({ error: error.message }, error.status);
+        if (error instanceof DemoSampleError)
+          return json({ error: error.message, diagnostics: error.diagnostics }, error.status);
         throw error;
       }
     }
