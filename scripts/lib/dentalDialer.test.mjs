@@ -354,6 +354,127 @@ test('new dentists with a landline are offered before mobiles, each group in ord
     assert.deepEqual(order, [id(12), id(13), id(14), id(10), id(11)]);
     assert.equal(await claim(tx), null);
   }));
+async function callbackCall(tx, lead, details, conversation) {
+  const row = (
+    await tx.query(
+      "INSERT INTO dental_calls(lead_id,staff_id,phone,provider_agent_id,transfer_uri,state,outcome,details,conversation_id,summary,finished_at) SELECT id,owner_staff_id,phone,'dental_x','sip:agent-2@phone.example.com','completed','CALLBACK_REQUESTED',$2,$3,'Pidió llamada.',now() FROM dental_leads WHERE id=$1 RETURNING id",
+      [lead, JSON.stringify(details), conversation]
+    )
+  ).rows[0];
+  await tx.query('SELECT dental_call_to_customer($1)', [row.id]);
+  return row.id;
+}
+const followupsFor = async (tx, call) => {
+  await tx.exec('RESET ROLE');
+  const rows = (
+    await tx.query(
+      "SELECT agent_id, title, to_char(due_at AT TIME ZONE 'America/Costa_Rica','YYYY-MM-DD HH24:MI') AS local FROM followups WHERE source_call_id=$1",
+      [call]
+    )
+  ).rows;
+  await as(tx);
+  return rows;
+};
+const scheduleCallback = async (tx, call) =>
+  (await tx.query('SELECT dental_call_schedule_callback($1) AS id', [call])).rows[0].id;
+
+test('a confirmed callback becomes one follow-up for the lead agent at the exact Costa Rica time, idempotently', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    const call = await callbackCall(
+      tx,
+      id(12),
+      { decision_maker: 'Dra. Solís', callback_date: '2026-11-12', callback_clock: '14:30', callback_confirmed: 'true' },
+      'conv_cb_ok'
+    );
+    const first = await scheduleCallback(tx, call);
+    const second = await scheduleCallback(tx, call);
+    const rows = await followupsFor(tx, call);
+    assert.ok(first);
+    assert.equal(second, null);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].agent_id, 'agent-2');
+    assert.equal(rows[0].local, '2026-11-12 14:30');
+    assert.match(rows[0].title, /Dra\. Solís/);
+  }));
+
+test('suggested, unconfirmed or outside-hours callbacks never invent a timed follow-up silently', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    const suggested = await callbackCall(
+      tx,
+      id(13),
+      { decision_maker: 'Gerente', callback_date: '2026-11-12', callback_clock: '08:30', callback_confirmed: 'false' },
+      'conv_cb_suggested'
+    );
+    assert.equal(await scheduleCallback(tx, suggested), null);
+    assert.equal((await followupsFor(tx, suggested)).length, 0);
+
+    const weekend = await callbackCall(
+      tx,
+      id(14),
+      { decision_maker: 'Dueña', callback_date: '2026-11-14', callback_clock: '10:00', callback_confirmed: 'true' },
+      'conv_cb_weekend'
+    );
+    await scheduleCallback(tx, weekend);
+    const [row] = await followupsFor(tx, weekend);
+    assert.match(row.title, /^FUERA DE HORARIO/);
+    assert.equal(row.local, '2026-11-14 10:00');
+  }));
+
+test('an opted-out dentist gets no callback follow-up, and an invalid date is refused', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    const optedOut = await callbackCall(
+      tx,
+      id(11),
+      { callback_date: '2026-11-12', callback_clock: '10:00', callback_confirmed: 'true' },
+      'conv_cb_optout'
+    );
+    await tx.query("UPDATE dental_leads SET status='do_not_call' WHERE id=$1", [id(11)]);
+    assert.equal(await scheduleCallback(tx, optedOut), null);
+    assert.equal((await followupsFor(tx, optedOut)).length, 0);
+
+    const badDate = await callbackCall(
+      tx,
+      id(12),
+      { callback_date: '2026-02-30', callback_clock: '10:00', callback_confirmed: 'true' },
+      'conv_cb_bad'
+    );
+    assert.equal(await scheduleCallback(tx, badDate), null);
+  }));
+
+test('the agent prompt asks the receptionist flow in order and identifies Ana as AI', async () => {
+  const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
+  const prompt = salesPrompt({ dentalMode: true });
+  for (const phrase of [
+    'Soy Ana Chacón Méndez, una asistente de inteligencia artificial de PLW',
+    'Imagínese que usted está atendiendo a un paciente y entran otras llamadas.',
+    'Estamos en Pinares, Curridabat',
+    'Voy a dejarle la solicitud a mi compañero',
+    'lunes a viernes, de 9:00 a 17:00',
+  ])
+    assert.ok(prompt.includes(phrase), phrase);
+  assert.ok(prompt.indexOf('¿Usted se encarga de contestar las llamadas?') < prompt.indexOf('Imagínese que usted'));
+});
+
+test('post-call fields give the callback day, time and confirmation to the server', async () => {
+  const { callResults } = await import('../../supabase/functions/dental-dialer/provider.js');
+  const results = callResults({
+    data_collection_results: {
+      plw_outcome: { value: 'CALLBACK_REQUESTED' },
+      plw_decision_maker: { value: 'Dra. Solís' },
+      plw_callback_date: { value: '2026-11-12' },
+      plw_callback_clock: { value: '14:30' },
+      plw_callback_confirmed: { value: 'true' },
+    },
+  });
+  assert.equal(results.details.callback_date, '2026-11-12');
+  assert.equal(results.details.callback_clock, '14:30');
+  assert.equal(results.details.callback_confirmed, 'true');
+  assert.equal(results.details.decision_maker, 'Dra. Solís');
+});
+
 test('a dentist who wanted something becomes one customer for the lead agent, with the call pending', async () =>
   fixture(async (tx) => {
     await as(tx);

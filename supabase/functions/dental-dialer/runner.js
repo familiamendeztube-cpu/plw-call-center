@@ -189,6 +189,10 @@ export async function syncCalls(db, apiKey, fetchImpl = fetch) {
           const { error } = await db.rpc('dental_call_to_customer', { p_call_id: call.id });
           if (error) console.error('dental customer not created', error.code);
         }
+        if (results.details.callback_date) {
+          const { error } = await db.rpc('dental_call_schedule_callback', { p_call_id: call.id });
+          if (error) console.error('dental callback not scheduled', error.code);
+        }
       } catch {
         /* Retain reservations until the provider can be reconciled. */
       }

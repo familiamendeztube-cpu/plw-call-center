@@ -67,6 +67,19 @@ const DETAIL_FIELDS = {
   plw_services_interest: detail('Services they showed interest in (llamadas, WhatsApp, formularios, citas, publicidad, página web).'),
   plw_objections: detail('Objections the person raised, as a short list.'),
   plw_notes: detail('Other important notes for the PLW specialist, briefly.'),
+  plw_decision_maker: detail('Name of the decision maker (dueña, administrador, gerente) the callback is for.'),
+  plw_callback_date: {
+    type: 'string',
+    description: 'Callback day as YYYY-MM-DD, only if the person confirmed that exact day in this call. Empty if only suggested or unknown; never assume tomorrow.',
+  },
+  plw_callback_clock: {
+    type: 'string',
+    description: 'Callback time as HH:MM (24 hours, Costa Rica time), only if confirmed in this call. Empty if only suggested or unknown.',
+  },
+  plw_callback_confirmed: {
+    type: 'string',
+    description: "'true' only if both the day and the time were confirmed by the person; 'false' if only suggested or not known.",
+  },
 };
 const OUTCOME_LEAD_STATUS = {
   APPOINTMENT_CONFIRMED: 'interested',
