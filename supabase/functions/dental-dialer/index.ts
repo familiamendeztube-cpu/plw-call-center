@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
 import { runTick, dispatchCall, syncCalls, reconcileStuckCalls } from './runner.js';
-import { providerRequest, safeAgent, agentConfigFailures, dentalAgentConfig, agentShape, sanitizeProviderError } from './provider.js';
+import { providerRequest, safeAgent, agentConfigFailures, agentReadback, dentalAgentConfig, agentShape, sanitizeProviderError } from './provider.js';
 import { DEMO_SAMPLE_FILENAME, DemoSampleError, buildDemoSample } from './demoSample.js';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
         ok: true,
         providerStatus: read.status,
         shape: agentShape(read.data),
+        readback: agentReadback(read.data),
         failures: agentConfigFailures(read.data, route),
       });
     }
@@ -133,9 +134,12 @@ Deno.serve(async (req) => {
       }
       const agentPath = `/agents/${encodeURIComponent(providerId)}`;
       const dedicatedRoute = { ...route, provider_agent_id: providerId };
+      let readback: Record<string, unknown> | null = null;
       const verify = async () => {
         const response = await providerRequest(apiKey, agentPath);
-        return response.ok ? agentConfigFailures(response.data, dedicatedRoute) : ['provider_read'];
+        if (!response.ok) return ['provider_read'];
+        readback = agentReadback(response.data);
+        return agentConfigFailures(response.data, dedicatedRoute);
       };
       let failures = await verify();
       let providerDetail = '';
@@ -183,7 +187,7 @@ Deno.serve(async (req) => {
       if (verifyError) throw verifyError;
       const { error: cronError } = await db.rpc('enable_dental_scheduler');
       if (cronError) throw cronError;
-      return json({ ok: true });
+      return json({ ok: true, readback });
     }
     if (input.action === 'test') {
       const phone = String(input.phone ?? '')

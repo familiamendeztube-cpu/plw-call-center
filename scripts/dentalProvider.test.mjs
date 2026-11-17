@@ -368,6 +368,26 @@ test('Anna is Spanish-first with English, French and Chinese presets and a langu
   assert.match(config.conversation_config.agent.prompt.prompt, /Cambio de idioma/);
 });
 
+test('the readback reports the version actually running on the live agent', async () => {
+  const { agentReadback } = await import('../supabase/functions/dental-dialer/provider.js');
+  const config = dentalAgentConfig('Alejandro', route, 'voice');
+  const readback = agentReadback({ agent_id: route.provider_agent_id, ...config });
+  assert.deepEqual(readback, {
+    script_version: 'anna-2026-11-17-service-first',
+    script_current: true,
+    model: 'eleven_v3_conversational',
+    voice_id: 'voice',
+    base_language: 'es',
+    languages: ['en', 'fr', 'zh'],
+  });
+  const stale = structuredClone(config);
+  stale.conversation_config.agent.prompt.prompt = stale.conversation_config.agent.prompt.prompt.replace(
+    'anna-2026-11-17-service-first',
+    'old'
+  );
+  assert.equal(agentReadback(stale).script_current, false);
+});
+
 test('Anna greets by Costa Rica time of day', () => {
   assert.equal(greetingFor(new Date('2026-11-10T15:00:00Z')), 'Muy buenos días'); // 09:00 CR
   assert.equal(greetingFor(new Date('2026-11-10T21:30:00Z')), 'Muy buenas tardes'); // 15:30 CR

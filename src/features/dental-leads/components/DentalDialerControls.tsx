@@ -6,7 +6,7 @@ import {
   fetchDemoSample,
   startNextBatch,
 } from '../services/dentalDialer';
-import { dialerReady, type DentalDialer, type DentalRuntime } from '../models/dentalDialer';
+import { dialerReady, describeReadback, type DentalDialer, type DentalRuntime, type AnaReadback } from '../models/dentalDialer';
 export function DentalDialerControls({
   route,
   runtime,
@@ -21,6 +21,7 @@ export function DentalDialerControls({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
+  const [readback, setReadback] = useState<AnaReadback | null>(null);
   const [phone, setPhone] = useState('');
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   async function run(action: string) {
@@ -28,16 +29,19 @@ export function DentalDialerControls({
     setMessage('');
     try {
       if (['configure', 'test', 'sync'].includes(action))
-        await dentalServerAction({ action, staffId: route.staff_id, phone, requestId });
+        await dentalServerAction({ action, staffId: route.staff_id, phone, requestId }).then(
+          (result) => {
+            if (result && typeof result === 'object' && 'readback' in result)
+              setReadback((result as { readback: AnaReadback }).readback);
+          }
+        );
       else if (action === 'next_batch') await startNextBatch(route.staff_id);
       else await controlDialer(route.staff_id, action);
       setMessage(
         action === 'test'
           ? 'Prueba registrada. Compruebe el resultado en el historial.'
           : action === 'configure'
-            ? route.pilot_call_limit
-              ? 'Ana configurada. Espere la señal del servidor para activar la tanda.'
-              : 'Voz configurada. Haga una prueba de transferencia.'
+            ? 'Configuración aplicada y verificada en el proveedor. La lectura del agente aparece abajo.'
             : action === 'next_batch'
               ? `Nueva tanda de ${route.pilot_call_limit} iniciada.`
               : 'Acción guardada.'
@@ -74,6 +78,8 @@ export function DentalDialerControls({
     try {
       const result = await dentalServerAction({ action: 'diagnose', staffId: route.staff_id });
       setDiagnosis(JSON.stringify(result, null, 2));
+      if (result && typeof result === 'object' && 'readback' in result)
+        setReadback((result as { readback: AnaReadback }).readback);
     } catch (e) {
       setDiagnosis('');
       setMessage(e instanceof Error ? e.message : 'No se pudo diagnosticar Ana.');
@@ -184,8 +190,17 @@ export function DentalDialerControls({
       {route.state !== 'running' && (
         <div className="grid gap-3 rounded-lg border p-4 text-sm">
           <Button variant="secondary" disabled={busy} onClick={() => void run('configure')}>
-            {route.config_verified_at ? 'Verificar configuración' : 'Configurar Ana'}
+            Aplicar la última configuración de Ana
           </Button>
+          {readback && (
+            <p role="status" className="rounded-lg border bg-neutral-50 p-3">
+              <span className="font-semibold">Lectura del agente en el proveedor:</span>{' '}
+              {describeReadback(readback)}
+              {readback.script_current
+                ? ' — el guion vigente está aplicado.'
+                : ' — todavía corre un guion anterior; pulse el botón de arriba.'}
+            </p>
+          )}
           <label className="grid gap-1">
             {pilot ? 'Su número para una prueba opcional' : 'Su número para la prueba'}
             <input

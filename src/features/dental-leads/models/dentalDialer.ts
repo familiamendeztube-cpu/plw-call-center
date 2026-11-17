@@ -82,6 +82,30 @@ export const TRANSFER_STATE = {
   agent_confirmed: 'Confirmada por el agente',
   failed: 'Fallida',
 };
+// Friendly names for the readback the administrator sees after applying or diagnosing.
+const LANGUAGE_NAMES: Record<string, string> = {
+  es: 'Español',
+  en: 'Inglés',
+  fr: 'Francés',
+  zh: 'Chino',
+};
+export interface AnaReadback {
+  script_version: string;
+  script_current: boolean;
+  model: string;
+  voice_id: string;
+  base_language: string;
+  languages: string[];
+}
+export function describeReadback(readback: AnaReadback) {
+  const langs = readback.languages.map((lang) => LANGUAGE_NAMES[lang] ?? lang).join(', ');
+  return [
+    `Versión del guion: ${readback.script_version}${readback.script_current ? ' (al día)' : ' (desactualizada)'}`,
+    `Voz: ${readback.voice_id}`,
+    `Modelo: ${readback.model}`,
+    `Idiomas: ${langs || 'sin datos'}${readback.base_language ? ` (base ${readback.base_language})` : ''}`,
+  ].join(' · ');
+}
 export function dialerReady(
   route: DentalDialer | undefined,
   runtime: DentalRuntime | null,

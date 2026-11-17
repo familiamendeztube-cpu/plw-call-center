@@ -306,6 +306,19 @@ export function agentShape(config) {
     workflow_edge_count: Object.keys(config?.workflow?.edges ?? {}).length,
   };
 }
+
+/** What the live agent actually runs: the readback shown to the administrator. */
+export function agentReadback(config) {
+  const cc = config?.conversation_config ?? {};
+  return {
+    script_version: SALES_SCRIPT_VERSION,
+    script_current: text(cc?.agent?.prompt?.prompt).includes(SALES_SCRIPT_VERSION),
+    model: text(cc?.tts?.model_id),
+    voice_id: text(cc?.tts?.voice_id),
+    base_language: text(cc?.agent?.language),
+    languages: Object.keys(cc?.language_presets ?? {}),
+  };
+}
 // ElevenLabs gives every agent a placeholder workflow (a lone start node), so "zero nodes"
 // can never pass: the live Ana agents only verified once this rule shipped. With no edges
 // nothing can leave the main agent, so only start/end nodes are allowed.

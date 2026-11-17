@@ -16,9 +16,20 @@ export function DentalDialerPage() {
   const state = useDentalDialer(session?.source === 'production');
   const leads = useDentalLeads(session?.source === 'production', admin);
   const [selected, setSelected] = useState<string | null>(null);
+  // The selector is controlled: reloads and refetches keep the administrator's choice.
+  const [lastAgent, setLastAgent] = useState<string | null>(null);
   // Every agent with an Anna dialer set up on the server; the first one until one is picked.
   const staffId =
-    session?.role === 'agent' ? session.agentId : (selected ?? state.routes[0]?.staff_id ?? '');
+    session?.role === 'agent'
+      ? session.agentId
+      : (selected ??
+        (lastAgent && state.routes.some((r) => r.staff_id === lastAgent) ? lastAgent : null) ??
+        state.routes[0]?.staff_id ??
+        '');
+  const pick = (value: string) => {
+    setSelected(value);
+    setLastAgent(value);
+  };
   const route = state.routes.find((r) => r.staff_id === staffId);
   const staffNames = Object.fromEntries(leads.agents.map((a) => [a.id, a.display_name]));
   const agentLabel = staffNames[staffId] ?? staffId;
@@ -66,7 +77,7 @@ export function DentalDialerPage() {
           Agente
           <select
             value={staffId}
-            onChange={(e) => setSelected(e.target.value)}
+            onChange={(e) => pick(e.target.value)}
             className="h-12 rounded-lg border bg-white px-3"
           >
             {state.routes.map((r) => (
