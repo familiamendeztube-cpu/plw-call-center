@@ -7,6 +7,7 @@ import { OwnerSetupPage } from '@/features/auth/pages/OwnerSetupPage';
 import { AgentLoginPage } from '@/features/auth/pages/AgentLoginPage';
 import { ActivityPage } from '@/features/presence/pages/ActivityPage';
 import { CustomersPage } from '@/features/customers/pages/CustomersPage';
+import { TodayPage } from '@/features/today/pages/TodayPage';
 import { FollowupsPage } from '@/features/followups/pages/FollowupsPage';
 import { MaterialsPage } from '@/features/sales-materials/pages/MaterialsPage';
 import { AdminOverviewPage } from '@/features/admin/pages/AdminOverviewPage';
@@ -16,6 +17,7 @@ import { AssignmentPage } from '@/features/assignment/pages/AssignmentPage';
 import { AdminFollowupsPage } from '@/features/admin/pages/AdminFollowupsPage';
 import { AdminIntegrationsPage } from '@/features/admin/pages/AdminIntegrationsPage';
 import { AdminSettingsPage } from '@/features/admin/pages/AdminSettingsPage';
+import { AdminAuditPage } from '@/features/admin/pages/AdminAuditPage';
 import { AdminAiCallsPage } from '@/features/ai-calls/pages/AdminAiCallsPage';
 import { AdminAiOutboundPage } from '@/features/ai-outbound/pages/AdminAiOutboundPage';
 import { DentalLeadsPage } from '@/features/dental-leads/pages/DentalLeadsPage';
@@ -34,6 +36,7 @@ export function AppRoutes() {
           </RequireRole>
         }
       >
+        <Route path="/hoy" element={<TodayPage />} />
         <Route path="/clientes" element={<CustomersPage />} />
         <Route path="/dentistas" element={<DentalLeadsPage />} />
         <Route path="/llamadas-dentales" element={<DentalDialerPage />} />
@@ -61,6 +64,7 @@ export function AppRoutes() {
         <Route path="/admin/seguimientos" element={<AdminFollowupsPage />} />
         <Route path="/admin/material-comercial" element={<MaterialsPage />} />
         <Route path="/admin/integraciones" element={<AdminIntegrationsPage />} />
+        <Route path="/admin/registro" element={<AdminAuditPage />} />
         <Route path="/admin/configuracion" element={<AdminSettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />

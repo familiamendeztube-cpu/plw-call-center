@@ -9,9 +9,18 @@ interface DrawerProps {
   onClose: () => void;
   children: ReactNode;
   side?: 'left' | 'right';
+  /** Room for a whole customer record instead of a list. */
+  wide?: boolean;
 }
 
-export function Drawer({ open, title, onClose, children, side = 'left' }: DrawerProps) {
+export function Drawer({
+  open,
+  title,
+  onClose,
+  children,
+  side = 'left',
+  wide = false,
+}: DrawerProps) {
   const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -47,7 +56,8 @@ export function Drawer({ open, title, onClose, children, side = 'left' }: Drawer
         aria-label={title}
         tabIndex={-1}
         className={cx(
-          'glass-panel-strong absolute bottom-0 top-0 flex w-[min(20rem,88vw)] flex-col rounded-none shadow-raised outline-none',
+          'glass-panel-strong absolute bottom-0 top-0 flex flex-col rounded-none shadow-raised outline-none',
+          wide ? 'w-[min(52rem,96vw)]' : 'w-[min(20rem,88vw)]',
           side === 'left' ? 'left-0 animate-slide-in-left' : 'right-0 animate-slide-in-right'
         )}
       >

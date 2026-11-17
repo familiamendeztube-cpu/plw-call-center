@@ -48,7 +48,7 @@ export function createProductionPresenceService(): PresenceService {
     async listPresence(): Promise<AgentPresence[]> {
       const { data, error } = await getSupabaseClient()
         .from('staff_presence')
-        .select('staff_id, availability, updated_at');
+        .select('staff_id, availability, updated_at, operational, last_heartbeat_at');
       if (error) throw new Error('No se pudo cargar la disponibilidad.');
       const entries: AgentPresence[] = [];
       for (const row of readRows(data)) {
@@ -58,9 +58,18 @@ export function createProductionPresenceService(): PresenceService {
           agentId,
           availability: toAvailability(readString(row, 'availability')),
           updatedAt: readString(row, 'updated_at'),
+          inCall: row.operational === 'in_call',
+          lastHeartbeatAt: typeof row.last_heartbeat_at === 'string' ? row.last_heartbeat_at : null,
         });
       }
       return entries;
+    },
+
+    async setInCall(inCall) {
+      const { error } = await getSupabaseClient().rpc('set_operational_status', {
+        p_status: inCall ? 'in_call' : null,
+      });
+      if (error) throw new Error('No se pudo informar la llamada en curso.');
     },
 
     async setAvailability(agentId, availability) {

@@ -9,6 +9,8 @@ import { textareaClass } from '@/features/assignment/components/formStyles';
 interface CreateInquiryDialogProps {
   onClose: () => void;
   onDone: () => void;
+  /** A missed caller's number. */
+  initialPhone?: string;
 }
 
 const EMPTY_INPUT: NewInquiryInput = {
@@ -32,9 +34,15 @@ function validateInquiry(input: NewInquiryInput): string | null {
   return null;
 }
 
-export function CreateInquiryDialog({ onClose, onDone }: CreateInquiryDialogProps) {
+export function CreateInquiryDialog({
+  onClose,
+  onDone,
+  initialPhone = '',
+}: CreateInquiryDialogProps) {
   const services = useAppServices();
-  const [input, setInput] = useState<NewInquiryInput>(EMPTY_INPUT);
+  const [input, setInput] = useState<NewInquiryInput>(() =>
+    initialPhone ? { ...EMPTY_INPUT, phone: initialPhone, source: 'Llamada perdida' } : EMPTY_INPUT
+  );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [idempotencyKey] = useState(() => crypto.randomUUID());

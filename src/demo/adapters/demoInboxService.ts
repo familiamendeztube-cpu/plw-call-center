@@ -59,6 +59,9 @@ export function createDemoInboxService(state: DemoState): InboxService {
       await simulateLatency(60);
       return 0;
     },
+    async emailSendingReady() {
+      return true; // The demo outbox is simulated, so its composer always works.
+    },
     async markNotificationsRead() {
       await simulateLatency(60);
     },

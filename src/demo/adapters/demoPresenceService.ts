@@ -17,6 +17,7 @@ export function createDemoPresenceService(state: DemoState): PresenceService {
       return updated;
     },
     async sendHeartbeat() {},
+    async setInCall() {},
     async listActivity(agentId) {
       await simulateLatency(120);
       return state.activity

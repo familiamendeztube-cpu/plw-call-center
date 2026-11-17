@@ -1,4 +1,4 @@
-import { CalendarClock, FileText, Mail, Presentation } from 'lucide-react';
+import { CalendarClock, Mail, Presentation } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
   CUSTOMER_ACTION_PARAM,
@@ -62,12 +62,7 @@ export function PhoneCustomerActions() {
           Abre un cliente en Clientes para usar estas acciones.
         </p>
       )}
-      {hasCustomer ? (
-        <p className="text-xs leading-relaxed text-neutral-500">
-          Compartir material estará disponible cuando se publique la biblioteca de material.
-        </p>
-      ) : null}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         <CustomerActionButton
           label="Responder"
           icon={Mail}
@@ -75,7 +70,7 @@ export function PhoneCustomerActions() {
           onClick={() => openTab('correo')}
         />
         <CustomerActionButton
-          label="Ver presentación"
+          label="Enviar material"
           icon={Presentation}
           disabled={!hasCustomer}
           onClick={() => openTab('material')}
@@ -85,12 +80,6 @@ export function PhoneCustomerActions() {
           icon={CalendarClock}
           disabled={!hasCustomer}
           onClick={scheduleCall}
-        />
-        <CustomerActionButton
-          label="Compartir material"
-          icon={FileText}
-          disabled
-          onClick={() => undefined}
         />
       </div>
     </section>

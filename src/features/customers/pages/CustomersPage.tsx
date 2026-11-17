@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MessageCirclePlus, PanelLeft, RotateCcw } from 'lucide-react';
+import { MessageCirclePlus, PanelLeft, RotateCcw, UserPlus } from 'lucide-react';
+import { NewCustomerDialog } from '@/features/leads/components/NewCustomerDialog';
 import { useAgentSession } from '@/features/auth/hooks/useAgentSession';
 import { useAgentNames } from '@/features/auth/hooks/useAgentNames';
-import { useProspects } from '@/features/leads/hooks/useProspects';
+import { useAgentProspects } from '@/features/leads/context/agentProspectsContext';
 import type { Prospect, SalesStage } from '@/features/leads/models/prospect';
 import { useNewAssignments } from '@/features/customers/hooks/useNewAssignments';
 import { useConversations } from '@/features/inbox/hooks/useConversations';
@@ -21,7 +22,7 @@ import { AiCallAlerts } from '@/features/ai-calls/components/AiCallSections';
 
 export function CustomersPage() {
   const { agentId } = useAgentSession();
-  const prospects = useProspects();
+  const prospects = useAgentProspects();
   const conversations = useConversations(agentId);
   const agentNames = useAgentNames();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,15 +32,15 @@ export function CustomersPage() {
   const closeList = useCallback(() => setListOpen(false), []);
   const [startingChat, setStartingChat] = useState(false);
   const closeNewChat = useCallback(() => setStartingChat(false), []);
+  const [adding, setAdding] = useState(false);
   const selectedId = searchParams.get(CUSTOMER_PARAM);
 
   const entries = useMemo(() => {
     if (prospects.state.status !== 'ready' || conversations.state.status !== 'ready') {
       return null;
     }
-    const assigned = prospects.state.data.filter((item) => item.assignedAgentId === agentId);
-    return buildCustomerEntries(assigned, conversations.state.data);
-  }, [prospects.state, conversations.state, agentId]);
+    return buildCustomerEntries(prospects.own, conversations.state.data);
+  }, [prospects.state, prospects.own, conversations.state]);
 
   const selected = entries?.find((entry) => entry.prospect.id === selectedId) ?? null;
   const assignedIds = useMemo(() => entries?.map((entry) => entry.prospect.id) ?? null, [entries]);
@@ -104,6 +105,10 @@ export function CustomersPage() {
         actions={
           <>
             <DemoDataNote />
+            <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
+              <UserPlus size={16} aria-hidden="true" />
+              Nuevo cliente
+            </Button>
             <Button size="sm" onClick={() => setStartingChat(true)}>
               <MessageCirclePlus size={16} aria-hidden="true" />
               Nuevo chat de WhatsApp
@@ -170,6 +175,18 @@ export function CustomersPage() {
       <Drawer open={listOpen} title="Clientes" onClose={closeList}>
         <div className="flex h-full flex-col">{listContent}</div>
       </Drawer>
+
+      {adding ? (
+        <NewCustomerDialog
+          agentId={agentId}
+          onClose={() => setAdding(false)}
+          onCreated={(prospect) => {
+            setAdding(false);
+            reloadAll();
+            setSearchParams({ [CUSTOMER_PARAM]: prospect.id });
+          }}
+        />
+      ) : null}
 
       {startingChat ? (
         <NewWhatsAppChatDialog

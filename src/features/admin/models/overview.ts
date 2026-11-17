@@ -1,6 +1,11 @@
 import { getCostaRicaDayKey } from '@/app/dates';
 import type { Agent } from '@/features/auth/models/agent';
-import type { Availability, AgentPresence } from '@/features/presence/models/availability';
+import {
+  liveStatus,
+  type Availability,
+  type AgentPresence,
+  type DisplayStatus,
+} from '@/features/presence/models/availability';
 import type { ActivityEvent } from '@/features/presence/models/activity';
 import type { Conversation } from '@/features/inbox/models/conversation';
 import type { Followup } from '@/features/followups/models/followup';
@@ -17,7 +22,9 @@ export interface AdminSnapshot {
 
 export interface OverviewMetrics {
   totalAgents: number;
+  /** Activo with the app open (a recent heartbeat), on a call or not. */
   availableAgents: number;
+  agentsInCall: number;
   waitingInquiries: number;
   unansweredConversations: number;
   followupsDueToday: number;
@@ -29,6 +36,8 @@ export interface OverviewMetrics {
 export interface AgentWorkload {
   agent: Agent;
   availability: Availability;
+  /** What the agent is doing now; 'offline' when the app has been closed for 90 s. */
+  live: DisplayStatus | 'offline';
   openConversations: number;
   activeProspects: number;
   followupsToday: number;
@@ -45,9 +54,16 @@ function newestFirst(first: ActivityEvent, second: ActivityEvent): number {
 
 export function computeOverviewMetrics(snapshot: AdminSnapshot, now: Date): OverviewMetrics {
   const todayKey = getCostaRicaDayKey(now);
+  const live = snapshot.agents.map((agent) =>
+    liveStatus(
+      snapshot.presence.find((entry) => entry.agentId === agent.id),
+      now.getTime()
+    )
+  );
   return {
     totalAgents: snapshot.agents.length,
-    availableAgents: snapshot.presence.filter((entry) => entry.availability === 'active').length,
+    availableAgents: live.filter((status) => status === 'active' || status === 'in_call').length,
+    agentsInCall: live.filter((status) => status === 'in_call').length,
     waitingInquiries: snapshot.conversations.filter(
       (conversation) => conversation.status === 'waiting_agent'
     ).length,
@@ -74,6 +90,7 @@ export function computeAgentWorkloads(snapshot: AdminSnapshot, now: Date): Agent
     return {
       agent,
       availability: presence?.availability ?? 'paused',
+      live: liveStatus(presence, now.getTime()),
       openConversations: snapshot.conversations.filter(
         (conversation) =>
           conversation.assignedAgentId === agent.id && conversation.status !== 'closed'

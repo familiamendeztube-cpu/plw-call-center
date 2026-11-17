@@ -6,6 +6,8 @@ import { ServicesContext } from '@/app/ServicesContext';
 import { createDemoServices } from '@/demo/createDemoServices';
 import { CustomerWorkspace } from '@/features/customers/components/CustomerWorkspace';
 import { NewWhatsAppChatDialog } from '@/features/whatsapp/components/NewWhatsAppChatDialog';
+import { AuthProvider } from '@/features/auth/context/AuthProvider';
+import { TelephonyProvider } from '@/features/telephony/context/TelephonyProvider';
 
 const requests: Record<string, unknown>[] = [];
 let connected = true;
@@ -116,18 +118,25 @@ async function openWhatsAppCustomer() {
   );
   render(
     <ServicesContext.Provider value={services}>
-      <MemoryRouter>
-        <CustomerWorkspace
-          entry={{
-            prospect: { ...prospect, source: 'whatsapp' },
-            conversation: conversation ?? null,
-          }}
-          agentId={prospect.assignedAgentId!}
-          agentNames={{}}
-        />
-      </MemoryRouter>
+      <AuthProvider authService={services.auth}>
+        {/* The customer header loads the number into the phone. */}
+        <TelephonyProvider connector={services.telephony}>
+          <MemoryRouter>
+            <CustomerWorkspace
+              entry={{
+                prospect: { ...prospect, source: 'whatsapp' },
+                conversation: conversation ?? null,
+              }}
+              agentId={prospect.assignedAgentId!}
+              agentNames={{}}
+            />
+          </MemoryRouter>
+        </TelephonyProvider>
+      </AuthProvider>
     </ServicesContext.Provider>
   );
+  // The sign-in provider renders its children once it has checked the session.
+  await screen.findAllByRole('tab');
   return prospect;
 }
 

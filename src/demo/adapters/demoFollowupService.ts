@@ -37,5 +37,15 @@ export function createDemoFollowupService(state: DemoState): FollowupService {
       state.followups = state.followups.map((item) => (item.id === followupId ? updated : item));
       return updated;
     },
+    async reschedule(followupId, dueAt) {
+      await simulateLatency(120);
+      const current = state.followups.find((item) => item.id === followupId);
+      if (!current) {
+        throw new Error('No se encontró el seguimiento.');
+      }
+      const updated = { ...current, dueAt, completed: false };
+      state.followups = state.followups.map((item) => (item.id === followupId ? updated : item));
+      return updated;
+    },
   };
 }

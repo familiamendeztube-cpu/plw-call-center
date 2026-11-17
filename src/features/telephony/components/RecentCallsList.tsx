@@ -1,10 +1,14 @@
-import { ArrowDownLeft, ArrowUpRight, PhoneMissed } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowDownLeft, ArrowUpRight, Phone, PhoneMissed } from 'lucide-react';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
-import { formatCallDuration } from '@/features/telephony/models/call';
+import { formatCallDuration, toCostaRicaNumber } from '@/features/telephony/models/call';
+import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
+import { useOptionalAgentProspects } from '@/features/leads/context/agentProspectsContext';
 import { formatTime } from '@/app/dates';
 
 export function RecentCallsList() {
-  const { recentCalls } = useTelephony();
+  const { recentCalls, changeDialNumber } = useTelephony();
+  const prospects = useOptionalAgentProspects();
 
   if (recentCalls.length === 0) {
     return (
@@ -22,20 +26,41 @@ export function RecentCallsList() {
     <ul className="divide-y divide-neutral-100">
       {recentCalls.map((call) => {
         const Icon = call.direction === 'outbound' ? ArrowUpRight : ArrowDownLeft;
+        const customer = prospects?.findByPhone(call.remoteNumber) ?? null;
+        const dialable = toCostaRicaNumber(call.remoteNumber);
         return (
           <li key={call.id} className="flex items-center gap-3 py-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-plw-ivory text-plw-navy">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-plw-ivory text-plw-navy">
               <Icon size={14} aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-plw-ink">
-                {call.remoteNumber}
+              {customer ? (
+                <Link
+                  to={`/clientes?${CUSTOMER_PARAM}=${customer.id}`}
+                  className="block truncate text-sm font-medium text-plw-navy hover:underline"
+                >
+                  {customer.businessName}
+                </Link>
+              ) : (
+                <span className="block truncate text-sm font-medium text-plw-ink">
+                  {call.remoteNumber}
+                </span>
+              )}
+              <span className="block text-xs text-neutral-500">
+                {customer ? `${call.remoteNumber} · ` : ''}
+                {formatTime(call.endedAt)} · {formatCallDuration(call.durationSeconds)}
               </span>
-              <span className="block text-xs text-neutral-500">{formatTime(call.endedAt)}</span>
             </span>
-            <span className="font-mono text-xs text-neutral-500">
-              {formatCallDuration(call.durationSeconds)}
-            </span>
+            {dialable ? (
+              <button
+                type="button"
+                onClick={() => changeDialNumber(dialable)}
+                aria-label={`Marcar de nuevo ${customer?.businessName ?? call.remoteNumber}`}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-plw-navy transition-colors hover:bg-plw-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
+              >
+                <Phone size={14} aria-hidden="true" />
+              </button>
+            ) : null}
           </li>
         );
       })}

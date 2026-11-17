@@ -1,9 +1,8 @@
-export const AGENT_IDS = ['agent-1', 'agent-2', 'agent-3'] as const;
-
-export type AgentId = (typeof AGENT_IDS)[number];
+/** Any agent-N: the administrator can add agents, so the list is not fixed. */
+export type AgentId = `agent-${number}`;
 
 export function isAgentId(value: string): value is AgentId {
-  return (AGENT_IDS as readonly string[]).includes(value);
+  return /^agent-[0-9]+$/.test(value);
 }
 
 export interface Agent {

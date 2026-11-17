@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/context/useAuth';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
+import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
+import { useOptionalAgentProspects } from '@/features/leads/context/agentProspectsContext';
 import { useIncomingDentalCall } from '../hooks/useIncomingDentalCall';
 import {
   dentalContext,
@@ -21,6 +23,9 @@ export function DentalIncomingAlert() {
   const historyLink = call?.dentalCallId
     ? `/llamadas-dentales?call=${encodeURIComponent(call.dentalCallId)}`
     : '/llamadas-dentales';
+  // Any caller who is already one of the agent's customers, not only Anna's transfers.
+  const prospects = useOptionalAgentProspects();
+  const customer = call ? (prospects?.findByPhone(call.remoteNumber) ?? null) : null;
 
   if (isIncomingRinging(call)) {
     return (
@@ -36,6 +41,20 @@ export function DentalIncomingAlert() {
         <p className="break-all text-4xl font-bold tabular-nums text-neutral-900 sm:text-5xl">
           {call.remoteNumber}
         </p>
+        {customer ? (
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <p className="text-2xl font-semibold text-plw-navy">{customer.businessName}</p>
+            {customer.contactName ? (
+              <p className="text-base text-neutral-700">{customer.contactName}</p>
+            ) : null}
+            <Link
+              to={`/clientes?${CUSTOMER_PARAM}=${customer.id}`}
+              className="text-sm font-semibold text-plw-navy underline underline-offset-4"
+            >
+              Abrir cliente
+            </Link>
+          </div>
+        ) : null}
         <DentalDetails context={context} />
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="success" size="lg" onClick={() => void answerCall()}>
@@ -107,12 +126,14 @@ function DentalDetails({
   const contact = call.details?.contact_name || lead?.contact_name;
   const summary = call.summary?.trim();
   // The end of the conversation is what the dentist agreed to before the transfer.
-  const lines = (call.transcript ?? [])
-    .filter((line) => line.message.trim())
-    .slice(-RECENT_LINES);
+  const lines = (call.transcript ?? []).filter((line) => line.message.trim()).slice(-RECENT_LINES);
   return (
     <div className="grid gap-3">
-      <h2 className={compact ? 'text-lg font-semibold text-plw-navy' : 'text-2xl font-semibold text-plw-navy'}>
+      <h2
+        className={
+          compact ? 'text-lg font-semibold text-plw-navy' : 'text-2xl font-semibold text-plw-navy'
+        }
+      >
         {lead?.business_name ?? 'Dentista sin nombre registrado'}
       </h2>
       {contact && (

@@ -9,16 +9,17 @@ interface FollowupBoardProps {
   prospectNames: Record<string, string>;
   ownerNames?: Record<string, string>;
   onToggle?: (followup: Followup) => void;
+  /** Agents only: move it to another time. */
+  onReschedule?: (followup: Followup) => void;
+  /** Agents only: the customer's name opens the customer. */
+  linkToCustomer?: boolean;
   now: Date;
 }
 
-interface GroupSectionProps {
+interface GroupSectionProps extends Omit<FollowupBoardProps, 'followups' | 'now'> {
   title: string;
   items: Followup[];
   emptyText: string;
-  prospectNames: Record<string, string>;
-  ownerNames?: Record<string, string>;
-  onToggle?: (followup: Followup) => void;
   overdue?: boolean;
 }
 
@@ -29,6 +30,8 @@ function GroupSection({
   prospectNames,
   ownerNames,
   onToggle,
+  onReschedule,
+  linkToCustomer,
   overdue = false,
 }: GroupSectionProps) {
   return (
@@ -53,6 +56,8 @@ function GroupSection({
               ownerName={ownerNames?.[followup.agentId]}
               overdue={overdue}
               onToggle={onToggle}
+              onReschedule={onReschedule}
+              linkToCustomer={linkToCustomer}
             />
           ))}
         </ul>
@@ -61,13 +66,7 @@ function GroupSection({
   );
 }
 
-export function FollowupBoard({
-  followups,
-  prospectNames,
-  ownerNames,
-  onToggle,
-  now,
-}: FollowupBoardProps) {
+export function FollowupBoard({ followups, now, ...shared }: FollowupBoardProps) {
   const groups = useMemo(() => groupFollowups(followups, now), [followups, now]);
 
   if (followups.length === 0) {
@@ -80,34 +79,26 @@ export function FollowupBoard({
         title="Vencidos"
         items={groups.overdue}
         emptyText="No tienes seguimientos vencidos."
-        prospectNames={prospectNames}
-        ownerNames={ownerNames}
-        onToggle={onToggle}
         overdue
+        {...shared}
       />
       <GroupSection
         title="Hoy"
         items={groups.today}
         emptyText="No hay seguimientos para hoy."
-        prospectNames={prospectNames}
-        ownerNames={ownerNames}
-        onToggle={onToggle}
+        {...shared}
       />
       <GroupSection
         title="Próximos"
         items={groups.upcoming}
         emptyText="No hay seguimientos próximos."
-        prospectNames={prospectNames}
-        ownerNames={ownerNames}
-        onToggle={onToggle}
+        {...shared}
       />
       <GroupSection
         title="Completados"
         items={groups.completed}
         emptyText="Aún no hay seguimientos completados."
-        prospectNames={prospectNames}
-        ownerNames={ownerNames}
-        onToggle={onToggle}
+        {...shared}
       />
     </div>
   );

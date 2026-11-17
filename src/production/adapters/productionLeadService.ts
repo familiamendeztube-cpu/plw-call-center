@@ -63,6 +63,33 @@ export function createProductionLeadService(): LeadService {
       return prospect;
     },
 
+    async createProspect(input) {
+      const { data: prospectId, error } = await supabase.rpc('agent_create_prospect', {
+        p_business_name: input.businessName,
+        p_contact_name: input.contactName,
+        p_email: input.email,
+        p_phone: input.phone,
+        p_business_category: input.businessCategory,
+        p_service_interest: input.serviceInterest,
+      });
+      // The server's reasons (duplicate number, missing contact) are written for the agent.
+      if (error || typeof prospectId !== 'string') throw new Error(error?.message || SAVE_ERROR);
+      const prospect = await fetchProspect(prospectId);
+      if (!prospect) throw new Error(MISSING_PROSPECT);
+      return prospect;
+    },
+
+    async setPaymentStatus(prospectId, status) {
+      const { error } = await supabase.rpc('set_payment_status', {
+        p_prospect_id: prospectId,
+        p_payment_status: status,
+      });
+      if (error) throw new Error(SAVE_ERROR);
+      const prospect = await fetchProspect(prospectId);
+      if (!prospect) throw new Error(MISSING_PROSPECT);
+      return prospect;
+    },
+
     async listNotes(prospectId) {
       const { data, error } = await supabase
         .from('private_notes')

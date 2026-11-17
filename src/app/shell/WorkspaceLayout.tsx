@@ -9,6 +9,7 @@ import { AppHeader } from '@/app/shell/AppHeader';
 import { WorkspaceNav } from '@/app/shell/WorkspaceNav';
 import { ADMIN_NAV_ITEMS, AGENT_NAV_ITEMS } from '@/app/shell/navigation';
 import { DentalIncomingAlert } from '@/features/dental-leads/components/DentalIncomingAlert';
+import { CallWrapUp } from '@/features/telephony/components/CallWrapUp';
 
 export function WorkspaceLayout() {
   const { session } = useAuth();
@@ -57,6 +58,7 @@ export function WorkspaceLayout() {
         </Drawer>
       ) : null}
       {isAgent ? <DentalIncomingAlert /> : null}
+      {isAgent ? <CallWrapUp /> : null}
     </div>
   );
 }

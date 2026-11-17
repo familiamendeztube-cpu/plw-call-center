@@ -1,6 +1,9 @@
-import { ExternalLink, Clock } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { ExternalLink, Clock, MessageCircle } from 'lucide-react';
 import { formatDateTime } from '@/app/dates';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { Panel } from '@/components/ui/Panel';
 import {
   MATERIAL_KIND_LABELS,
@@ -9,9 +12,13 @@ import {
 
 interface MaterialCardProps {
   material: SalesMaterial;
+  /** Puts the link in the customer's WhatsApp reply box; absent when there is no chat. */
+  onShare?: () => void;
+  /** Administrator's edit and delete buttons. */
+  adminActions?: ReactNode;
 }
 
-export function MaterialCard({ material }: MaterialCardProps) {
+export function MaterialCard({ material, onShare, adminActions }: MaterialCardProps) {
   const approved = material.approval === 'approved' && material.url !== null;
 
   return (
@@ -30,19 +37,29 @@ export function MaterialCard({ material }: MaterialCardProps) {
           Actualizado {formatDateTime(material.updatedAt)}
         </span>
         {approved && material.url ? (
-          <a
-            href={material.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-plw-navy px-3 text-sm font-medium text-white transition-colors hover:bg-plw-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold"
-          >
-            Abrir material
-            <ExternalLink size={14} aria-hidden="true" />
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            {onShare ? (
+              <Button size="sm" variant="secondary" onClick={onShare}>
+                <MessageCircle size={14} aria-hidden="true" />
+                Enviar por WhatsApp
+              </Button>
+            ) : null}
+            <CopyButton value={material.url} label={`Copiar el enlace de ${material.title}`} />
+            <a
+              href={material.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-plw-navy px-3 text-sm font-medium text-white transition-colors hover:bg-plw-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold"
+            >
+              Abrir material
+              <ExternalLink size={14} aria-hidden="true" />
+            </a>
+          </div>
         ) : (
           <span className="text-xs text-neutral-500">Disponible tras la aprobación</span>
         )}
       </div>
+      {adminActions ? <div className="flex flex-wrap gap-2">{adminActions}</div> : null}
     </Panel>
   );
 }

@@ -23,14 +23,19 @@ export interface RecentCall {
 }
 
 const SAME_CALL_WINDOW_MS = 2 * 60_000;
-const lastDigits = (number: string) => number.replace(/\D/g, '').slice(-8);
+/** The last 8 digits: one Costa Rica number however it is written (+506, dashes, spaces). */
+export const lastDigits = (number: string) => number.replace(/\D/g, '').slice(-8);
 
 /**
  * Calls the server has saved, plus calls that ended in this tab and aren't saved yet.
  * A live call counts as saved once a record with the same number ended within two minutes
  * of it, so each call shows once even before and after the server records it.
  */
-export function mergeRecentCalls(live: RecentCall[], saved: RecentCall[], limit = 20): RecentCall[] {
+export function mergeRecentCalls(
+  live: RecentCall[],
+  saved: RecentCall[],
+  limit = 20
+): RecentCall[] {
   const unsaved = live.filter(
     (call) =>
       !saved.some(

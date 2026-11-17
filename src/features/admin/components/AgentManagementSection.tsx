@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, UserPlus } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { StatusMessage } from '@/components/ui/StatusMessage';
+import { NewAgentDialog } from '@/features/admin/components/NewAgentDialog';
 import { AgentManagementCard } from '@/features/admin/components/AgentManagementCard';
 import { AgentPhoneDialog } from '@/features/admin/components/AgentPhoneDialog';
 import { AgentPinDialog } from '@/features/admin/components/AgentPinDialog';
@@ -9,7 +11,8 @@ import { AgentSessionsDialog } from '@/features/admin/components/AgentSessionsDi
 import { useAdminAgents } from '@/features/admin/hooks/useAdminAgents';
 import type { AdminAgent } from '@/features/admin/models/adminAgents';
 
-type AgentDialog = { kind: 'profile' | 'pin' | 'phone' | 'sessions'; agent: AdminAgent } | null;
+type AgentDialog =
+  { kind: 'profile' | 'pin' | 'phone' | 'sessions'; agent: AdminAgent } | { kind: 'new' } | null;
 
 export function AgentManagementSection() {
   const { state, reload } = useAdminAgents();
@@ -27,13 +30,25 @@ export function AgentManagementSection() {
 
   return (
     <section aria-labelledby="agent-management-heading" className="flex flex-col gap-4">
-      <div>
-        <h2 id="agent-management-heading" className="text-lg font-semibold text-plw-ink">
-          Cuentas de agentes
-        </h2>
-        <p className="mt-1 text-sm text-neutral-600">
-          Incluye agentes deshabilitados. Los agentes ingresan solo con su PIN.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 id="agent-management-heading" className="text-lg font-semibold text-plw-ink">
+            Cuentas de agentes
+          </h2>
+          <p className="mt-1 text-sm text-neutral-600">
+            Incluye agentes deshabilitados. Los agentes ingresan solo con su PIN.
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setNotice(null);
+            setDialog({ kind: 'new' });
+          }}
+        >
+          <UserPlus size={16} aria-hidden="true" />
+          Nuevo agente
+        </Button>
       </div>
 
       {notice ? (
@@ -93,6 +108,9 @@ export function AgentManagementSection() {
         </div>
       ) : null}
 
+      {dialog?.kind === 'new' ? (
+        <NewAgentDialog onClose={() => setDialog(null)} onSaved={handleSaved} />
+      ) : null}
       {dialog?.kind === 'profile' ? (
         <AgentProfileDialog
           agent={dialog.agent}

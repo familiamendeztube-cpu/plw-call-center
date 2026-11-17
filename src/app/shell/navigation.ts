@@ -3,15 +3,17 @@ export interface NavItem {
   label: string;
 }
 
-export const AGENT_HOME = '/clientes';
+export const AGENT_HOME = '/hoy';
 export const ADMIN_HOME = '/admin/resumen';
 
 export const AGENT_NAV_ITEMS: NavItem[] = [
-  { to: '/dentistas', label: 'Dentistas' },
-  { to: '/llamadas-dentales', label: 'Llamadas IA' },
+  { to: '/hoy', label: 'Hoy' },
   { to: '/clientes', label: 'Clientes' },
   { to: '/seguimientos', label: 'Seguimientos' },
+  { to: '/dentistas', label: 'Dentistas' },
+  { to: '/llamadas-dentales', label: 'Llamadas IA' },
   { to: '/material-comercial', label: 'Material' },
+  { to: '/mi-actividad', label: 'Mi actividad' },
 ];
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
@@ -25,5 +27,6 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/admin/seguimientos', label: 'Seguimientos' },
   { to: '/admin/material-comercial', label: 'Material comercial' },
   { to: '/admin/integraciones', label: 'Integraciones' },
+  { to: '/admin/registro', label: 'Registro' },
   { to: '/admin/configuracion', label: 'Configuración' },
 ];

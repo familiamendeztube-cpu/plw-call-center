@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 import { CalendarPlus, RotateCcw } from 'lucide-react';
 import { useAppServices } from '@/app/ServicesContext';
 import { useAgentSession } from '@/features/auth/hooks/useAgentSession';
-import { useProspects } from '@/features/leads/hooks/useProspects';
+import { useAgentProspects } from '@/features/leads/context/agentProspectsContext';
 import { useFollowups } from '@/features/followups/hooks/useFollowups';
 import { FollowupBoard } from '@/features/followups/components/FollowupBoard';
 import { ScheduleFollowupDialog } from '@/features/followups/components/ScheduleFollowupDialog';
+import { RescheduleFollowupDialog } from '@/features/followups/components/RescheduleFollowupDialog';
 import type { Followup } from '@/features/followups/models/followup';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -16,8 +17,9 @@ export function FollowupsPage() {
   const { followups: followupService } = useAppServices();
   const { agentId } = useAgentSession();
   const { state, reload, updateData } = useFollowups(agentId);
-  const prospects = useProspects();
+  const prospects = useAgentProspects();
   const [scheduling, setScheduling] = useState(false);
+  const [moving, setMoving] = useState<Followup | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const prospectList = useMemo(
@@ -92,7 +94,19 @@ export function FollowupsPage() {
           followups={state.data}
           prospectNames={prospectNames}
           onToggle={handleToggle}
+          onReschedule={setMoving}
+          linkToCustomer
           now={new Date()}
+        />
+      ) : null}
+
+      {moving ? (
+        <RescheduleFollowupDialog
+          followup={moving}
+          onClose={() => setMoving(null)}
+          onSaved={(updated) =>
+            updateData((items) => items.map((item) => (item.id === updated.id ? updated : item)))
+          }
         />
       ) : null}
 

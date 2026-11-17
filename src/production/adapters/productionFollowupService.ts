@@ -58,6 +58,15 @@ export function createProductionFollowupService(): FollowupService {
       if (error) throw new Error(SAVE_ERROR);
       return fetchFollowup(followupId);
     },
+
+    async reschedule(followupId, dueAt) {
+      const { error } = await supabase.rpc('reschedule_followup', {
+        p_followup_id: followupId,
+        p_due_at: dueAt,
+      });
+      if (error) throw new Error(SAVE_ERROR);
+      return fetchFollowup(followupId);
+    },
   };
 }
 
@@ -70,6 +79,25 @@ export function createProductionMaterialService(): MaterialService {
         .order('title', { ascending: true });
       if (error) throw new Error(MATERIAL_ERROR);
       return readRows(data).map(toMaterial);
+    },
+
+    async saveMaterial(input) {
+      const { error } = await getSupabaseClient().rpc('admin_save_material', {
+        p_id: input.id,
+        p_title: input.title,
+        p_description: input.description,
+        p_kind: input.kind,
+        p_url: input.url,
+        p_approved: input.approved,
+      });
+      if (error) throw new Error(error.message || 'No se pudo guardar el material.');
+    },
+
+    async deleteMaterial(materialId) {
+      const { error } = await getSupabaseClient().rpc('admin_delete_material', {
+        p_id: materialId,
+      });
+      if (error) throw new Error('No se pudo eliminar el material.');
     },
   };
 }

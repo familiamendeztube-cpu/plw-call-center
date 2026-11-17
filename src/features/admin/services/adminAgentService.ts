@@ -6,6 +6,7 @@ import {
   type OfficeEnrollmentCode,
 } from '@/features/admin/models/adminAgents';
 import { callStaffFunction, INVALID_RESPONSE } from '@/integrations/supabase/callStaffFunction';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
 function callAdminActions(body: Record<string, unknown>) {
   return callStaffFunction('admin-actions', body);
@@ -29,6 +30,16 @@ export async function saveAgentProfile(staffId: string, input: AgentProfileInput
 
 export async function setAgentPin(staffId: string, pin: string): Promise<void> {
   await callAdminActions({ action: 'set_secret', staffId, kind: 'pin', secret: pin });
+}
+
+/** The next agent-N, disabled until it has a PIN and is enabled. */
+export async function createAgent(displayName: string): Promise<string> {
+  const { data, error } = await getSupabaseClient().rpc('admin_create_agent', {
+    p_display_name: displayName,
+  });
+  if (error || typeof data !== 'string')
+    throw new Error(error?.message || 'No se pudo agregar el agente.');
+  return data;
 }
 
 export async function revokeAgentSessions(staffId: string): Promise<void> {

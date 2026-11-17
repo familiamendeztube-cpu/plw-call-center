@@ -21,5 +21,7 @@ export interface InboxService {
   saveDraft(conversationId: string, body: string, clientSeq: number): Promise<DraftSaveResult>;
   requestSend(conversationId: string, requestId: string): Promise<SendRequestResult>;
   countUnreadNotifications(): Promise<number>;
+  /** False until the administrator connects Google: replies would only wait in the queue. */
+  emailSendingReady(): Promise<boolean>;
   markNotificationsRead(): Promise<void>;
 }

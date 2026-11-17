@@ -44,10 +44,13 @@ export function AiCallPanel({
   prospectId,
   agentNames,
   className = 'flex max-h-[45vh] flex-col gap-3 overflow-y-auto border-b border-neutral-200 bg-plw-ivory/60 p-4',
+  canDial = true,
 }: {
   prospectId: string;
   agentNames: Record<string, string>;
   className?: string;
+  /** False for the administrator, who neither calls nor schedules. */
+  canDial?: boolean;
 }) {
   const { state, refresh, reload } = useAiCalls({ prospectId });
   if (state.status === 'loading') return null;
@@ -67,7 +70,13 @@ export function AiCallPanel({
   return (
     <section aria-label="Llamadas atendidas por el asistente IA" className={className}>
       {state.data.map((call) => (
-        <AiCallCard key={call.id} call={call} agentNames={agentNames} canDial onChanged={refresh} />
+        <AiCallCard
+          key={call.id}
+          call={call}
+          agentNames={agentNames}
+          canDial={canDial}
+          onChanged={refresh}
+        />
       ))}
     </section>
   );

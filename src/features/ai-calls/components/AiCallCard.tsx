@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, Phone, Play } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { CalendarPlus, ChevronDown, Phone, Play } from 'lucide-react';
+import {
+  CUSTOMER_ACTION_PARAM,
+  CUSTOMER_ACTION_SCHEDULE,
+  CUSTOMER_REASON_PARAM,
+} from '@/features/customers/models/customerLinks';
 import { formatDateTime } from '@/app/dates';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -18,6 +24,7 @@ import {
   AI_CALL_STATUS_LABELS,
   CONTACT_LABELS,
   contactNumber,
+  waitingLabel,
   type AiCall,
   type AiCallStatus,
 } from '@/features/ai-calls/models/aiCall';
@@ -96,7 +103,20 @@ export function CallRecording({ target }: { target: CallAudioTarget }) {
 
 export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardProps) {
   const { changeDialNumber } = useTelephony();
+  const [, setSearchParams] = useSearchParams();
   const isAdmin = useAuth().session?.role === 'admin';
+  const waiting = waitingLabel(call, Date.now());
+  // Inside the customer's screen, which opens its "Agendar" dialog from these parameters.
+  const scheduleCallback = () =>
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set(CUSTOMER_ACTION_PARAM, CUSTOMER_ACTION_SCHEDULE);
+      next.set(
+        CUSTOMER_REASON_PARAM,
+        call.preferredTime ? `Llamar · prefiere: ${call.preferredTime}` : 'Devolver la llamada'
+      );
+      return next;
+    });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -132,6 +152,7 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
           <Badge tone="gold">Prefiere: {CONTACT_LABELS[call.preferredContact]}</Badge>
         ) : null}
         <span className="text-sm text-neutral-500">{formatDateTime(call.callStartedAt)}</span>
+        {waiting ? <Badge tone={waiting.late ? 'danger' : 'neutral'}>{waiting.text}</Badge> : null}
         {call.prospectId ? (
           <span className="text-sm text-neutral-500">
             · {ownerId ? (agentNames[ownerId] ?? ownerId) : 'En espera de un agente disponible'}
@@ -196,6 +217,12 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
           <Button size="sm" variant="secondary" onClick={() => changeDialNumber(dialable)}>
             <Phone size={14} aria-hidden="true" />
             Marcar en el teléfono
+          </Button>
+        ) : null}
+        {canDial && call.prospectId ? (
+          <Button size="sm" variant="ghost" onClick={scheduleCallback}>
+            <CalendarPlus size={14} aria-hidden="true" />
+            Agendar seguimiento
           </Button>
         ) : null}
         <CallRecording target={{ requestId: call.id }} />

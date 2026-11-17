@@ -7,6 +7,8 @@ import type { OutboxItem } from '@/features/inbox/models/reply';
 import type { Prospect } from '@/features/leads/models/prospect';
 import { PrivateNoteComposer } from '@/features/leads/components/PrivateNoteComposer';
 import { EmailReplyComposer } from '@/features/inbox/components/EmailReplyComposer';
+import { useAppServices } from '@/app/ServicesContext';
+import { useAsync } from '@/app/useAsync';
 
 type ReplyTab = 'chat' | 'email' | 'note';
 
@@ -45,6 +47,12 @@ export function ReplyPanel({
     'note',
   ];
   const [tab, setTab] = useState<ReplyTab>(tabs[0]);
+  const { inbox } = useAppServices();
+  // Errors count as ready inside emailSendingReady, so a failed check never hides the composer.
+  const emailReady = useAsync(
+    () => (emailEnabled ? inbox.emailSendingReady() : Promise.resolve(false)),
+    [inbox, emailEnabled]
+  );
 
   return (
     // Never taller than about half the pane, so the messages above stay in view.
@@ -86,12 +94,19 @@ export function ReplyPanel({
         </div>
       ) : tab === 'email' ? (
         <div role="tabpanel" id="reply-panel-email" aria-labelledby="reply-tab-email">
-          <EmailReplyComposer
-            key={conversationId}
-            conversationId={conversationId}
-            draft={draft}
-            outbox={outbox}
-          />
+          {emailReady.state.status === 'ready' && !emailReady.state.data ? (
+            <p className="rounded-lg bg-warning-50 px-3 py-2.5 text-sm text-warning-700">
+              El envío de correos todavía no está conectado: una respuesta solo quedaría en cola.
+              Contacta al cliente por teléfono o WhatsApp y deja una nota privada.
+            </p>
+          ) : emailReady.state.status === 'loading' ? null : (
+            <EmailReplyComposer
+              key={conversationId}
+              conversationId={conversationId}
+              draft={draft}
+              outbox={outbox}
+            />
+          )}
         </div>
       ) : (
         <div role="tabpanel" id="reply-panel-note" aria-labelledby="reply-tab-note">

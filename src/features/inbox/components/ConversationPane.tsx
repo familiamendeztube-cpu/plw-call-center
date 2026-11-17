@@ -27,7 +27,8 @@ export interface ChatChannel {
 
 interface ConversationPaneProps {
   conversationId: string | null;
-  agentId: AgentId;
+  /** Absent for the administrator's read-only view: no header controls, no reply box. */
+  agentId?: AgentId;
   agentNames: Record<string, string>;
   /** Customers who came by phone: shown instead of the email thread; replies here are notes only. */
   channelDetails?: ReactNode;
@@ -125,11 +126,13 @@ export function ConversationPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
-      <ThreadHeader
-        prospect={prospect}
-        ownerName={ownerName}
-        onProspectChange={handleProspectChange}
-      />
+      {agentId ? (
+        <ThreadHeader
+          prospect={prospect}
+          ownerName={ownerName}
+          onProspectChange={handleProspectChange}
+        />
+      ) : null}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div
           ref={scroll.ref}
@@ -157,18 +160,20 @@ export function ConversationPane({
           </button>
         ) : null}
       </div>
-      <ReplyPanel
-        // A reply box that appears later (e.g. once Chatwoot is connected) opens on its own tab.
-        key={chat?.reply ? 'chat' : 'notes'}
-        conversationId={thread.conversation.id}
-        prospect={prospect}
-        agentId={agentId}
-        draft={thread.draft}
-        outbox={thread.outbox}
-        onNoteSaved={handleNoteSaved}
-        emailEnabled={!channelDetails && !chat}
-        chatReply={chat?.reply ? { label: chat.replyLabel, content: chat.reply } : undefined}
-      />
+      {agentId ? (
+        <ReplyPanel
+          // A reply box that appears later (e.g. once Chatwoot is connected) opens on its own tab.
+          key={chat?.reply ? 'chat' : 'notes'}
+          conversationId={thread.conversation.id}
+          prospect={prospect}
+          agentId={agentId}
+          draft={thread.draft}
+          outbox={thread.outbox}
+          onNoteSaved={handleNoteSaved}
+          emailEnabled={!channelDetails && !chat}
+          chatReply={chat?.reply ? { label: chat.replyLabel, content: chat.reply } : undefined}
+        />
+      ) : null}
     </div>
   );
 }

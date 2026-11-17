@@ -20,6 +20,7 @@ interface ScheduleFollowupDialogProps {
   prospects: Prospect[];
   onClose: () => void;
   onScheduled: (followup: Followup) => void;
+  initialTitle?: string;
 }
 
 export function ScheduleFollowupDialog({
@@ -27,11 +28,12 @@ export function ScheduleFollowupDialog({
   prospects,
   onClose,
   onScheduled,
+  initialTitle = '',
 }: ScheduleFollowupDialogProps) {
   const { followups } = useAppServices();
   const [prospectId, setProspectId] = useState(prospects[0]?.id ?? '');
   const [kind, setKind] = useState<FollowupKind>('callback');
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle.slice(0, 120));
   const [dueLocal, setDueLocal] = useState(() =>
     isoToCostaRicaLocalInput(new Date(Date.now() + ONE_HOUR_MS).toISOString())
   );

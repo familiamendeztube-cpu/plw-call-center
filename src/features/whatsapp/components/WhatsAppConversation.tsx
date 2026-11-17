@@ -35,6 +35,8 @@ interface WhatsAppConversationProps {
   onRead?: () => void;
   /** Called after the stage or details are saved in the header. */
   onProspectChange?: (prospect: Prospect) => void;
+  /** Text placed in the reply box for the agent to review and send (e.g. a material link). */
+  initialText?: string;
 }
 
 /**
@@ -48,6 +50,7 @@ export function WhatsAppConversation({
   agentNames,
   onRead,
   onProspectChange,
+  initialText,
 }: WhatsAppConversationProps) {
   const { state, reload, send, loadOlder } = useWhatsAppThread(prospect.id);
   // The server marks the chat read only when it could show it.
@@ -113,9 +116,17 @@ export function WhatsAppConversation({
       reply: (
         <div className="flex flex-col gap-2">
           {thread.canReply ? (
-            <WhatsAppComposer prospectId={prospect.id} onSend={send} />
+            <WhatsAppComposer prospectId={prospect.id} onSend={send} initialText={initialText} />
           ) : (
-            <TemplateComposer prospect={prospect} onSend={send} />
+            <>
+              {initialText ? (
+                <p className="text-xs text-neutral-600">
+                  Pasaron más de 24 horas desde el último mensaje del cliente: envía primero una
+                  plantilla. Cuando responda podrás mandarle el material.
+                </p>
+              ) : null}
+              <TemplateComposer prospect={prospect} onSend={send} />
+            </>
           )}
           <p className="text-right text-xs text-neutral-500">
             Respondes en Chatwoot como {thread.sender} ·{' '}
@@ -182,11 +193,14 @@ function OlderMessagesButton({ onLoad }: { onLoad: () => Promise<void> }) {
 function WhatsAppComposer({
   prospectId,
   onSend,
+  initialText = '',
 }: {
   prospectId: string;
   onSend: (outgoing: WhatsAppOutgoing) => Promise<void>;
+  initialText?: string;
 }) {
-  const [text, setText] = useState('');
+  // Prefilled, never sent on its own: the agent reviews it and presses Enviar.
+  const [text, setText] = useState(initialText);
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);

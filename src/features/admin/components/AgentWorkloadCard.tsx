@@ -1,8 +1,16 @@
 import { formatDateTime } from '@/app/dates';
-import { Badge } from '@/components/ui/Badge';
+import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { Panel } from '@/components/ui/Panel';
-import { AVAILABILITY_LABELS } from '@/features/presence/models/availability';
+import { LIVE_STATUS_LABELS } from '@/features/presence/models/availability';
 import type { AgentWorkload } from '@/features/admin/models/overview';
+
+const LIVE_TONES: Record<AgentWorkload['live'], BadgeTone> = {
+  active: 'success',
+  in_call: 'navy',
+  after_call: 'navy',
+  paused: 'warning',
+  offline: 'neutral',
+};
 
 interface AgentWorkloadCardProps {
   workload: AgentWorkload;
@@ -18,15 +26,14 @@ function WorkloadRow({ label, value }: { label: string; value: number | string }
 }
 
 export function AgentWorkloadCard({ workload }: AgentWorkloadCardProps) {
-  const { agent, availability } = workload;
-  const available = availability === 'active';
+  const { agent, live } = workload;
 
   return (
     <Panel as="article" className="flex flex-col gap-4 p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-plw-navy text-sm font-semibold text-white">
-            {agent.displayName.charAt(agent.displayName.length - 1)}
+            {agent.displayName.charAt(0).toUpperCase()}
           </span>
           <div>
             <h3 className="text-sm font-semibold text-plw-ink">{agent.displayName}</h3>
@@ -36,7 +43,7 @@ export function AgentWorkloadCard({ workload }: AgentWorkloadCardProps) {
             </p>
           </div>
         </div>
-        <Badge tone={available ? 'success' : 'warning'}>{AVAILABILITY_LABELS[availability]}</Badge>
+        <Badge tone={LIVE_TONES[live]}>{LIVE_STATUS_LABELS[live]}</Badge>
       </div>
       <dl className="divide-y divide-neutral-200 border-y border-neutral-200">
         <WorkloadRow label="Conversaciones abiertas" value={workload.openConversations} />

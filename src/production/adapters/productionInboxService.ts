@@ -121,6 +121,12 @@ export function createProductionInboxService(): InboxService {
       return count;
     },
 
+    async emailSendingReady() {
+      const { data, error } = await supabase.rpc('email_sending_ready');
+      // Unknown counts as ready: the composer stays, as it was before this check existed.
+      return error ? true : data === true;
+    },
+
     async markNotificationsRead() {
       const { error } = await supabase.rpc('mark_notifications_read');
       if (error) throw new Error(NOTIFICATION_ERROR);

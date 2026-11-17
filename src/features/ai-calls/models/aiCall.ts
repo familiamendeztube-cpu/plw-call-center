@@ -56,6 +56,22 @@ export const AI_CALL_COLUMNS = [
   'prospect:prospects(ownerId:owner_id)',
 ].join(',');
 
+// ponytail: one fixed threshold; make it a setting if the team wants a different promise.
+const WAITING_TOO_LONG_MS = 60 * 60 * 1000;
+
+/** "Esperando hace 2 h" for a request nobody has taken yet; null once it is taken. */
+export function waitingLabel(call: AiCall, now: number): { text: string; late: boolean } | null {
+  if (call.status !== 'pending') return null;
+  const minutes = Math.max(0, Math.floor((now - Date.parse(call.callStartedAt)) / 60_000));
+  const text =
+    minutes < 60
+      ? `Esperando hace ${minutes} min`
+      : minutes < 48 * 60
+        ? `Esperando hace ${Math.floor(minutes / 60)} h`
+        : `Esperando hace ${Math.floor(minutes / 1440)} días`;
+  return { text, late: minutes * 60_000 >= WAITING_TOO_LONG_MS };
+}
+
 /** The number the customer asked to be called on, else the caller ID. */
 export function contactNumber(call: AiCall): string | null {
   return call.callbackPhone ?? call.callerPhone;

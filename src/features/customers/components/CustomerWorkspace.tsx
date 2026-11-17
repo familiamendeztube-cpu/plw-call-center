@@ -6,14 +6,19 @@ import { CustomerMaterialsPanel } from '@/features/customers/components/Customer
 import { ScheduleFollowupDialog } from '@/features/followups/components/ScheduleFollowupDialog';
 import { EditCustomerDialog } from '@/features/leads/components/EditCustomerDialog';
 import { Button } from '@/components/ui/Button';
-import { Pencil } from 'lucide-react';
+import { CalendarPlus, Pencil, Phone } from 'lucide-react';
 import {
   CUSTOMER_ACTION_PARAM,
   CUSTOMER_ACTION_SCHEDULE,
+  CUSTOMER_REASON_PARAM,
   CUSTOMER_TAB_PARAM,
   parseCustomerTab,
   type CustomerTab,
 } from '@/features/customers/models/customerLinks';
+import { useTelephony } from '@/features/telephony/context/telephonyContext';
+import { useAppServices } from '@/app/ServicesContext';
+import { toCostaRicaNumber } from '@/features/telephony/models/call';
+import type { SalesMaterial } from '@/features/sales-materials/models/material';
 import type { CustomerEntry } from '@/features/customers/models/customerEntries';
 import type { AgentId } from '@/features/auth/models/agent';
 import type { Prospect } from '@/features/leads/models/prospect';
@@ -49,9 +54,15 @@ export function CustomerWorkspace({
   onProspectChange,
 }: CustomerWorkspaceProps) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [scheduling, setScheduling] = useState(false);
+  // null: closed; a string: open, with that reason prefilled.
+  const [scheduling, setScheduling] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // A material link waiting in the WhatsApp reply box; the agent still presses Enviar.
+  const [whatsAppDraft, setWhatsAppDraft] = useState('');
+  const { changeDialNumber } = useTelephony();
+  const { leads } = useAppServices();
   const { prospect, conversation } = entry;
+  const dialable = toCostaRicaNumber(prospect.phone);
   const fromCall = prospect.source === 'ai_call';
   const fromWhatsApp = prospect.source === 'whatsapp';
   // An email or call customer who later wrote on WhatsApp gets a WhatsApp tab too.
@@ -69,18 +80,29 @@ export function CustomerWorkspace({
 
   useEffect(() => {
     if (searchParams.get(CUSTOMER_ACTION_PARAM) !== CUSTOMER_ACTION_SCHEDULE) return;
-    setScheduling(true);
+    setScheduling(searchParams.get(CUSTOMER_REASON_PARAM) ?? '');
     setSearchParams(
       (previous) => {
         const next = new URLSearchParams(previous);
         next.delete(CUSTOMER_ACTION_PARAM);
+        next.delete(CUSTOMER_REASON_PARAM);
         return next;
       },
       { replace: true }
     );
   }, [searchParams, setSearchParams]);
 
+  const shareOnWhatsApp =
+    chat || fromWhatsApp
+      ? (material: SalesMaterial) => {
+          selectTab('whatsapp');
+          setWhatsAppDraft(`${material.title}: ${material.url ?? ''}`);
+        }
+      : undefined;
+
   const selectTab = (next: CustomerTab) => {
+    // Leaving the chat drops an unsent material link, so it never comes back after sending.
+    setWhatsAppDraft('');
     setSearchParams(
       (previous) => {
         const params = new URLSearchParams(previous);
@@ -97,17 +119,24 @@ export function CustomerWorkspace({
         <div className="flex flex-wrap items-baseline gap-x-3">
           <h2 className="text-lg font-semibold text-plw-ink">{prospect.businessName}</h2>
           <p className="text-sm text-neutral-500">{prospect.contactName}</p>
-          {onProspectChange ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto self-center"
-              onClick={() => setEditing(true)}
-            >
-              <Pencil size={14} aria-hidden="true" />
-              Editar datos
+          <div className="ml-auto flex flex-wrap items-center gap-1 self-center">
+            {dialable ? (
+              <Button variant="secondary" size="sm" onClick={() => changeDialNumber(dialable)}>
+                <Phone size={14} aria-hidden="true" />
+                Marcar en el teléfono
+              </Button>
+            ) : null}
+            <Button variant="ghost" size="sm" onClick={() => setScheduling('')}>
+              <CalendarPlus size={14} aria-hidden="true" />
+              Agendar
             </Button>
-          ) : null}
+            {onProspectChange ? (
+              <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+                <Pencil size={14} aria-hidden="true" />
+                Editar datos
+              </Button>
+            ) : null}
+          </div>
         </div>
         {/* Columns follow the room this panel really has (the phone and list take part of the
             window), not the window width. */}
@@ -201,6 +230,7 @@ export function CustomerWorkspace({
               agentNames={agentNames}
               onRead={markRead}
               onProspectChange={onProspectChange}
+              initialText={whatsAppDraft}
             />
           ) : (
             <div className="p-6">
@@ -237,7 +267,7 @@ export function CustomerWorkspace({
         ) : null}
         {tab === 'material' ? (
           <div className="p-5 sm:p-6">
-            <CustomerMaterialsPanel />
+            <CustomerMaterialsPanel onShare={shareOnWhatsApp} />
           </div>
         ) : null}
       </div>
@@ -253,12 +283,20 @@ export function CustomerWorkspace({
         />
       ) : null}
 
-      {scheduling ? (
+      {scheduling !== null ? (
         <ScheduleFollowupDialog
           agentId={agentId}
           prospects={[prospect]}
-          onClose={() => setScheduling(false)}
-          onScheduled={() => setScheduling(false)}
+          initialTitle={scheduling}
+          onClose={() => setScheduling(null)}
+          onScheduled={() => {
+            setScheduling(null);
+            // The server moved the customer's "next follow-up"; show it now, not at the next poll.
+            void leads
+              .getProspect(prospect.id)
+              .then((updated) => updated && onProspectChange?.(updated))
+              .catch(() => undefined);
+          }}
         />
       ) : null}
     </div>

@@ -49,6 +49,32 @@ export function createDemoLeadService(state: DemoState): LeadService {
       state.prospects = state.prospects.map((item) => (item.id === prospectId ? updated : item));
       return updated;
     },
+    async createProspect(input, agentId) {
+      await simulateLatency(150);
+      const prospect = {
+        ...input,
+        id: createDemoId('prospect'),
+        source: 'manual',
+        assignedAgentId: agentId,
+        stage: 'new' as const,
+        paymentStatus: 'not_recorded' as const,
+        nextAction: '',
+        nextFollowUpAt: null,
+        createdAt: new Date().toISOString(),
+      };
+      state.prospects = [prospect, ...state.prospects];
+      return { ...prospect };
+    },
+    async setPaymentStatus(prospectId, paymentStatus) {
+      await simulateLatency(120);
+      const current = state.prospects.find((item) => item.id === prospectId);
+      if (!current) {
+        throw new Error('No se encontró el prospecto.');
+      }
+      const updated = { ...current, paymentStatus };
+      state.prospects = state.prospects.map((item) => (item.id === prospectId ? updated : item));
+      return updated;
+    },
     async listNotes(prospectId) {
       await simulateLatency(100);
       return state.notes

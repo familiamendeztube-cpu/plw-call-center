@@ -123,9 +123,9 @@ test('a client nobody owns yet is shown to no agent', async () => {
   }
 });
 
-test.each(ADMIN_PATHS)('an agent who opens %s lands on their clients', async (path) => {
+test.each(ADMIN_PATHS)('an agent who opens %s lands on their day', async (path) => {
   renderApp(path, agentSession(DEMO_AGENTS[0]));
-  await screen.findByRole('heading', { name: 'Clientes' });
+  await screen.findByRole('heading', { name: 'Hoy' });
   expect(screen.queryByRole('link', { name: 'Asignaciones' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Agentes' })).toBeNull();
 });

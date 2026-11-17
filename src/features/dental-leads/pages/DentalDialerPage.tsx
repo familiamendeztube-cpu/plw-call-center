@@ -9,15 +9,19 @@ import { useDentalLeads } from '../hooks/useDentalLeads';
 import { DentalDialerControls } from '../components/DentalDialerControls';
 import { DentalCallHistory } from '../components/DentalCallHistory';
 import { DentalFollowUps } from '../components/DentalFollowUps';
+import { DentalResultsTable } from '../components/DentalResultsTable';
 export function DentalDialerPage() {
   const { session } = useAuth();
   const admin = session?.role === 'admin';
   const state = useDentalDialer(session?.source === 'production');
   const leads = useDentalLeads(session?.source === 'production', admin);
-  const [selected, setSelected] = useState('agent-2');
-  const staffId = session?.role === 'agent' ? session.agentId : selected;
+  const [selected, setSelected] = useState<string | null>(null);
+  // Every agent with an Anna dialer set up on the server; the first one until one is picked.
+  const staffId =
+    session?.role === 'agent' ? session.agentId : (selected ?? state.routes[0]?.staff_id ?? '');
   const route = state.routes.find((r) => r.staff_id === staffId);
-  const agentLabel = staffId === 'agent-3' ? 'Valeska' : 'Alejandro';
+  const staffNames = Object.fromEntries(leads.agents.map((a) => [a.id, a.display_name]));
+  const agentLabel = staffNames[staffId] ?? staffId;
   const calls = state.calls.filter((c) => c.staff_id === staffId);
   const live = calls.filter((c) => !c.is_test);
   const pilotAttempts = Math.max(0, live.length - (route?.pilot_baseline_count ?? 0));
@@ -61,12 +65,15 @@ export function DentalDialerPage() {
         <label className="grid max-w-sm gap-2 text-sm font-medium">
           Agente
           <select
-            value={selected}
+            value={staffId}
             onChange={(e) => setSelected(e.target.value)}
             className="h-12 rounded-lg border bg-white px-3"
           >
-            <option value="agent-2">Alejandro</option>
-            <option value="agent-3">Valeska</option>
+            {state.routes.map((r) => (
+              <option key={r.staff_id} value={r.staff_id}>
+                {staffNames[r.staff_id] ?? r.staff_id}
+              </option>
+            ))}
           </select>
         </label>
       )}
@@ -134,6 +141,7 @@ export function DentalDialerPage() {
               title="Falta configurar la ruta telefónica de este agente."
             />
           )}
+          <DentalResultsTable key={`results-${staffId}`} calls={calls} />
           <DentalCallHistory key={`history-${staffId}`} calls={calls} reload={state.reload} />
         </>
       ) : (

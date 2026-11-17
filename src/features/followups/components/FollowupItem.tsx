@@ -1,7 +1,10 @@
+import { Link } from 'react-router-dom';
 import { CalendarClock, Check } from 'lucide-react';
 import { formatDateTime } from '@/app/dates';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { cx } from '@/components/ui/cx';
+import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
 import type { Followup } from '@/features/followups/models/followup';
 import { FOLLOWUP_KIND_LABELS } from '@/features/followups/models/followup';
 
@@ -11,6 +14,8 @@ interface FollowupItemProps {
   ownerName?: string;
   overdue: boolean;
   onToggle?: (followup: Followup) => void;
+  onReschedule?: (followup: Followup) => void;
+  linkToCustomer?: boolean;
 }
 
 export function FollowupItem({
@@ -19,6 +24,8 @@ export function FollowupItem({
   ownerName,
   overdue,
   onToggle,
+  onReschedule,
+  linkToCustomer = false,
 }: FollowupItemProps) {
   const toggleable = onToggle !== undefined;
 
@@ -65,7 +72,16 @@ export function FollowupItem({
           {followup.title}
         </p>
         <p className="mt-0.5 text-xs text-neutral-600">
-          {prospectName}
+          {linkToCustomer ? (
+            <Link
+              to={`/clientes?${CUSTOMER_PARAM}=${followup.prospectId}`}
+              className="font-medium text-plw-navy underline-offset-2 hover:underline"
+            >
+              {prospectName}
+            </Link>
+          ) : (
+            prospectName
+          )}
           {ownerName ? ` · ${ownerName}` : ''}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -84,6 +100,11 @@ export function FollowupItem({
           </span>
         </div>
       </div>
+      {onReschedule && !followup.completed ? (
+        <Button size="sm" variant="ghost" onClick={() => onReschedule(followup)}>
+          Reprogramar
+        </Button>
+      ) : null}
     </li>
   );
 }

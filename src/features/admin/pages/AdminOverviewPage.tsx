@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { PhoneCallReport } from '@/features/admin/components/PhoneCallReport';
+import { MissedCallsCard } from '@/features/admin/components/MissedCallsCard';
+import { CreateInquiryDialog } from '@/features/assignment/components/CreateInquiryDialog';
 import {
   Activity,
   CalendarClock,
@@ -23,7 +26,7 @@ import {
 import { buildAgentNameMap } from '@/features/admin/models/lookups';
 
 export function AdminOverviewPage() {
-  const { state, reload } = useAdminSnapshot();
+  const { state, reload, refresh } = useAdminSnapshot();
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -33,28 +36,36 @@ export function AdminOverviewPage() {
         actions={<DemoDataNote />}
       />
       <AdminSnapshotBoundary state={state} reload={reload}>
-        {(snapshot) => <OverviewContent snapshot={snapshot} />}
+        {(snapshot) => <OverviewContent snapshot={snapshot} onChanged={refresh} />}
       </AdminSnapshotBoundary>
     </div>
   );
 }
 
-function OverviewContent({ snapshot }: { snapshot: AdminSnapshot }) {
+function OverviewContent({
+  snapshot,
+  onChanged,
+}: {
+  snapshot: AdminSnapshot;
+  onChanged: () => void;
+}) {
   const now = new Date();
   const metrics = computeOverviewMetrics(snapshot, now);
   const workloads = computeAgentWorkloads(snapshot, now);
   const agentNames = buildAgentNameMap(snapshot.agents);
+  const [inquiryPhone, setInquiryPhone] = useState<string | null>(null);
 
   return (
     <>
-      <p className="text-sm text-neutral-600">
-        Las métricas comerciales son datos de demostración. El reporte de llamadas muestra registros del servidor.
-      </p>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
           label="Agentes disponibles"
           value={`${metrics.availableAgents} de ${metrics.totalAgents}`}
-          hint="Agentes en estado Activo"
+          hint={
+            metrics.agentsInCall > 0
+              ? `En Activo con la aplicación abierta · ${metrics.agentsInCall} en llamada`
+              : 'En Activo con la aplicación abierta'
+          }
           icon={<Users size={18} aria-hidden="true" />}
         />
         <MetricCard
@@ -88,6 +99,21 @@ function OverviewContent({ snapshot }: { snapshot: AdminSnapshot }) {
           icon={<FileText size={18} aria-hidden="true" />}
         />
       </div>
+      <MissedCallsCard
+        prospects={snapshot.prospects}
+        agentNames={agentNames}
+        onCreateInquiry={setInquiryPhone}
+      />
+      {inquiryPhone !== null ? (
+        <CreateInquiryDialog
+          initialPhone={inquiryPhone}
+          onClose={() => setInquiryPhone(null)}
+          onDone={() => {
+            setInquiryPhone(null);
+            onChanged();
+          }}
+        />
+      ) : null}
       <PhoneCallReport agentNames={agentNames} />
       <section aria-labelledby="workload-heading" className="flex flex-col gap-4">
         <h2 id="workload-heading" className="text-lg font-semibold text-plw-ink">

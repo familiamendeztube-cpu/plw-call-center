@@ -21,7 +21,7 @@ export function AdminAiCallsPage() {
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Solicitudes IA"
-        description="Llamadas atendidas por el asistente de ElevenLabs. Se reparten por turno entre los agentes en Activo; para cambiar de agente use Asignaciones."
+        description="Llamadas atendidas por el asistente de ElevenLabs. Se reparten por turno entre los agentes habilitados que tienen espacio, estén en Activo o en Pausa; para cambiar de agente use Asignaciones."
         actions={
           <label className="flex items-center gap-2 text-sm">
             Estado
