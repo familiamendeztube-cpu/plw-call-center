@@ -208,15 +208,18 @@ test('Anna opens without an AI label and reveals she is AI in the demonstration;
   const { SALES_SCRIPT_VERSION, salesPrompt } = await import(
     '../supabase/functions/dental-dialer/salesScript.js'
   );
-  assert.equal(DENTAL_FIRST_MESSAGE, 'Hola, le saluda Anna Chacón-Méndez, de Professional Latino Workers, en Pinares. ¿Cómo se encuentra?');
+  assert.equal(DENTAL_FIRST_MESSAGE, 'Hola pura vida. Soy Ana Chacón Méndez de PLW en Pinares Curridabat. Nosotros apoyamos a recepción con las llamadas los mensajes y las citas para que ustedes puedan dedicar más tiempo a los pacientes. ¿A usted le toca contestar mientras también está atendiendo otras cosas?');
   assert.ok(!/inteligencia|robot|IA\b/i.test(DENTAL_FIRST_MESSAGE));
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-14a-demo-simulada');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-17-service-first');
+  assert.equal(
+    DENTAL_FIRST_MESSAGE,
+    'Hola pura vida. Soy Ana Chacón Méndez de PLW en Pinares Curridabat. Nosotros apoyamos a recepción con las llamadas los mensajes y las citas para que ustedes puedan dedicar más tiempo a los pacientes. ¿A usted le toca contestar mientras también está atendiendo otras cosas?'
+  );
   const prompt = salesPrompt({ dentalMode: true });
-  assert.ok(prompt.startsWith('Eres Anna Chacón-Méndez, asistente comercial de inteligencia artificial de Professional Latino Workers'));
-  assert.ok(prompt.includes('Yo soy el ejemplo: soy una asistente de inteligencia artificial y así puedo apoyarles con las llamadas.'));
+  assert.ok(prompt.startsWith('Eres Ana Chacón Méndez, asistente de inteligencia artificial de Professional Latino Workers'));
+  assert.ok(prompt.includes('Yo misma soy un ejemplo de nuestra atención con inteligencia artificial'));
   assert.ok(prompt.includes('Nunca afirmes ser humana'));
   assert.ok(prompt.includes('responde de inmediato y con claridad'));
-  assert.ok(!prompt.includes('Ana Chacón Méndez'));
   assert.ok(!prompt.includes('Anna Chacón, de Professional Latino Workers'));
   assert.ok(!prompt.includes('natural, clarito'));
 });
@@ -352,10 +355,10 @@ test('agents sharing the line take turns: whoever waited longest asks first', ()
   assert.deepEqual(takingTurns([alejandro, valeska], [at('agent-2', '15:10')]), [valeska, alejandro]);
 });
 
-test('Anna is Spanish-first with English and French presets and a language tool, without a greeting in either preset', () => {
+test('Anna is Spanish-first with English, French and Chinese presets and a language tool, without a greeting in any preset', () => {
   const config = dentalAgentConfig('Valeska', route, 'voice');
   assert.equal(config.conversation_config.agent.language, 'es');
-  assert.deepEqual(Object.keys(config.conversation_config.language_presets).sort(), ['en', 'fr']);
+  assert.deepEqual(Object.keys(config.conversation_config.language_presets).sort(), ['en', 'fr', 'zh']);
   for (const preset of Object.values(config.conversation_config.language_presets))
     assert.equal(preset.overrides.agent.first_message, undefined);
   assert.equal(config.conversation_config.tts.model_id, 'eleven_v3_conversational');

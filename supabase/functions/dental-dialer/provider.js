@@ -119,14 +119,18 @@ const IGNORED_REPLIES = [
 // newer ones are refused, so a refused setting never blocks the dialer.
 const BASIC_TURN = { turn_eagerness: 'patient' };
 const TURN = { ...BASIC_TURN, turn_timeout: 10, interruption_ignore_terms: IGNORED_REPLIES };
-// Anna's demonstration switches to English and French and back. Presets carry no greeting, so a
-// switch never replays the introduction.
-const LANGUAGE_PRESETS = { en: { overrides: { agent: {} } }, fr: { overrides: { agent: {} } } };
+// Anna's demonstration switches to English, French or Chinese and back. Presets carry no
+// greeting, so a switch never replays the introduction.
+const LANGUAGE_PRESETS = {
+  en: { overrides: { agent: {} } },
+  fr: { overrides: { agent: {} } },
+  zh: { overrides: { agent: {} } },
+};
 const LANGUAGE_TOOL = {
   type: 'system',
   name: 'language_detection',
   description:
-    'Cambia el idioma de la llamada solo cuando la persona hable inglés o francés, o pida cambiar de idioma, y vuelve al español cuando hable español o lo pida. Nunca cambies por una sola palabra.',
+    'Cambia el idioma de la llamada solo cuando la persona hable inglés, francés o chino, o pida cambiar de idioma, y vuelve al español cuando hable español o lo pida. Nunca cambies por una sola palabra.',
   params: { system_tool_type: 'language_detection' },
 };
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -346,7 +350,7 @@ export function agentConfigFailures(config, route) {
   if (!built.language_detection) failures.push('language_detection');
   const presets = config.conversation_config?.language_presets ?? {};
   if (
-    !['en', 'fr'].every((lang) => presets[lang]) ||
+    !['en', 'fr', 'zh'].every((lang) => presets[lang]) ||
     Object.values(presets).some((preset) => text(preset?.overrides?.agent?.first_message) !== '')
   )
     failures.push('language_presets');
