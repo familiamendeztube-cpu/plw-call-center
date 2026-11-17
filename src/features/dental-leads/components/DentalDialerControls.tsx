@@ -89,7 +89,7 @@ export function DentalDialerControls({
   }
   const ready = dialerReady(route, runtime);
   const pilot = Boolean(
-    route.pilot_call_limit && route.pilot_call_limit >= 1 && route.pilot_call_limit <= 20
+    route.pilot_call_limit && route.pilot_call_limit >= 1 && route.pilot_call_limit <= 500
   );
   const exhausted = pilot && pilotAttempts >= (route.pilot_call_limit ?? 0);
   return (

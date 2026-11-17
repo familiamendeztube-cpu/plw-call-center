@@ -56,7 +56,7 @@ it('only a bounded pilot can start without transfer verification, and a used-up 
     pilot_call_limit: 20,
   };
   expect(dialerReady(pending, runtime)).toBe(true);
-  expect(dialerReady({ ...pending, pilot_call_limit: 21 }, runtime)).toBe(false);
+  expect(dialerReady({ ...pending, pilot_call_limit: 501 }, runtime)).toBe(false);
   expect(dialerReady({ ...pending, config_verified_at: null }, runtime)).toBe(false);
   expect(dialerReady(pending, { ...runtime, scheduler_ready: false })).toBe(false);
   const { rerender } = render(

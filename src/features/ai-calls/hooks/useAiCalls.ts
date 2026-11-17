@@ -57,6 +57,36 @@ export async function loadAiCallAudio(target: CallAudioTarget): Promise<Blob> {
   return response.blob();
 }
 
+/**
+ * A short-lived signed HTTPS link to the full original recording, prepared on the server for
+ * administrators. The link carries no credentials, so the browser's download menu can fetch
+ * the real bytes (a blob: URL cannot).
+ */
+export async function requestCallAudioDownloadUrl(target: CallAudioTarget): Promise<string> {
+  const { data } = await getSupabaseClient().auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Tu sesión venció. Ingresa de nuevo para continuar.');
+  const response = await fetch(`${supabaseFunctionsUrl}/ai-call-audio`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: supabaseAnonKeyValue,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ...target, adminExport: true }),
+  }).catch(() => null);
+  if (!response?.ok) {
+    const payload: unknown = await response?.json().catch(() => null);
+    const message =
+      typeof payload === 'object' && payload !== null && 'error' in payload ? payload.error : null;
+    throw new Error(typeof message === 'string' ? message : 'No se pudo preparar la descarga.');
+  }
+  const payload: unknown = await response.json();
+  if (typeof payload !== 'object' || payload === null || !('url' in payload))
+    throw new Error('No se pudo preparar la descarga.');
+  return (payload as { url: string }).url;
+}
+
 export async function countRecentWebhookFailures(): Promise<number> {
   const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const { count, error } = await getSupabaseClient()

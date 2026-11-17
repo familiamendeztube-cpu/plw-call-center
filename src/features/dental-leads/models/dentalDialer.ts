@@ -116,7 +116,7 @@ export function dialerReady(
     route?.provider_agent_id &&
     route.config_verified_at &&
     (route.transfer_verified_at ||
-      (route.pilot_call_limit && route.pilot_call_limit >= 1 && route.pilot_call_limit <= 20)) &&
+      (route.pilot_call_limit && route.pilot_call_limit >= 1 && route.pilot_call_limit <= 500)) &&
     runtime?.scheduler_ready &&
     age >= -5000 &&
     age < 120000

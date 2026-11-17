@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/context/useAuth';
 import { CallRecording } from '@/features/ai-calls/components/AiCallCard';
+import { CallAudioDownload } from '@/features/ai-calls/components/CallAudioDownload';
 import {
   CALL_DETAIL_LABELS,
   CALL_OUTCOME,
@@ -20,6 +21,7 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [limit, setLimit] = useState(25);
+  const [textBusy, setTextBusy] = useState(false);
   useEffect(() => {
     if (!selected) return;
     const controller = new AbortController();
@@ -60,6 +62,20 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
     } finally {
       setBusy(false);
     }
+  }
+  async function downloadTranscriptText() {
+    if (!detail || !selected) return;
+    setTextBusy(true);
+    const text = detail.transcript
+      .map((line) => `[${Math.floor(line.time_in_call_secs)}s] ${line.role === 'agent' ? 'Anna' : 'Persona llamada'}: ${line.message}`)
+      .join('\n\n');
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `transcripcion-${selected}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setTextBusy(false);
   }
   return (
     <section className="grid gap-3" aria-label="Historial de llamadas dentales">
@@ -112,6 +128,9 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
           {call.conversation_id && call.finished_at && (
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <CallRecording target={{ dentalCallId: call.id }} />
+              {session?.role === 'admin' && (
+                <CallAudioDownload target={{ dentalCallId: call.id }} />
+              )}
             </div>
           )}
           {session?.role === 'agent' &&
@@ -150,6 +169,18 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
                     <p className="text-sm text-neutral-500">
                       El proveedor todavía no ha entregado la transcripción.
                     </p>
+                  )}
+                  {detail.transcript.length > 0 && (
+                    <div>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={textBusy}
+                        onClick={() => void downloadTranscriptText()}
+                      >
+                        Descargar transcripción (texto)
+                      </Button>
+                    </div>
                   )}
                   {detail.transcript.map((line, i) => (
                     <div key={i} className="rounded-lg bg-neutral-50 p-3 text-sm">
