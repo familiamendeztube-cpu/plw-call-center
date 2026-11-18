@@ -9,16 +9,17 @@ const fresh = {staff_id:'agent-9',availability:'active',operational:null,last_he
 test('uses explicit staff-to-SIP mapping and fresh enabled availability',()=>{
   assert.deepEqual(queueEligibility(account,people,[fresh],now),[{username:'agent-2',available:true}]);
 });
-test('paused, stale, missing, disabled, future and after-call states fail closed',()=>{
-  for(const change of [{availability:'paused'}, {operational:'after_call'}, {last_heartbeat_at:'bad'},
+test('paused, stale, missing, disabled, future states fail closed',()=>{
+  for(const change of [{availability:'paused'}, {last_heartbeat_at:'bad'},
     {last_heartbeat_at:new Date(now-91000).toISOString()}, {last_heartbeat_at:new Date(now+6000).toISOString()}]) {
     assert.equal(queueEligibility(account,people,[{...fresh,...change}],now)[0].available,false);
   }
   assert.equal(queueEligibility(account,people,[],now)[0].available,false);
   assert.equal(queueEligibility(account,[{...people[0],is_enabled:false}],[fresh],now)[0].available,false);
 });
-test('in-call is left to Asterisk device state without hanging up',()=>{
+test('in-call and after-call stay reachable for inbound; device state gates busy',()=>{
   assert.equal(queueEligibility(account,people,[{...fresh,operational:'in_call'}],now)[0].available,true);
+  assert.equal(queueEligibility(account,people,[{...fresh,operational:'after_call'}],now)[0].available,true);
 });
 test('call validation rejects invalid attribution and malformed batches',()=>{
   const call={unique_id:'123.1.0',linked_id:'123.1',sip_username:'agent-1',direction:'outbound',number:'88888888',disposition:'ANSWERED',talk_seconds:10,started_at:'2026-11-03T12:00:00Z',ended_at:'2026-11-03T12:00:10Z'};

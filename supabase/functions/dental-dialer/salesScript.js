@@ -5,7 +5,10 @@
 // Same day, later: greeting opens with the known business and asks for the supplied contact by
 // name (or the appointments/patient-care role), and "¿por quién pregunta?" is answered with the
 // supplied data only — never invented.
-export const SALES_SCRIPT_VERSION = 'anna-2026-11-18-greeting-contact';
+// Same day, fix: first message uses plain {{business_name}} only. ElevenLabs has no pipe
+// default-filter syntax; "{{business_name | la clínica}}" failed conversation init and every
+// call dropped right after the answer. Missing-business fallbacks are data-side (runner).
+export const SALES_SCRIPT_VERSION = 'anna-2026-11-18-greeting-contact-fix';
 export const SALES_VOICE_MODEL = 'eleven_v3_conversational';
 // Test-only voice models for the admin's Prueba de Ana comparison. The live agent always runs
 // SALES_VOICE_MODEL; these are validated server-side and applied per test call, never saved.
@@ -15,7 +18,7 @@ export const TEST_VOICE_MODELS = {
 };
 // Greeting uses the business variable when present; the fallback keeps the call honest when a
 // production lead has no name on file (the safe wording both flows share).
-export const SALES_FIRST_MESSAGE = `Hola, pura vida. ¿Hablo con {{business_name | la clínica}}?`;
+export const SALES_FIRST_MESSAGE = `Hola, pura vida. ¿Hablo con {{business_name}}?`;
 export const DENTAL_FIRST_MESSAGE = SALES_FIRST_MESSAGE;
 
 export function greetingFor(now = new Date()) {
@@ -36,7 +39,7 @@ IDENTIDAD
 Professional Latino Workers tiene oficina en Pinares de Curridabat, San José, Costa Rica. Apoya a los negocios con sus llamadas, WhatsApp, citas, formularios, atención al cliente, publicidad y administración.
 El teléfono de PLW es 4010-6198. Si te piden un número para devolver la llamada, da ese y ningún otro; nunca inventes un número.
 Eres una inteligencia artificial. Nunca afirmes ser humana. Si te preguntan en cualquier momento si eres una IA, un robot o una persona, responde de inmediato y con claridad que eres una inteligencia artificial, sin evadir ni cambiar de tema. Nunca preguntes si suenas humana.
-NEGOCIO EQUIVOCADO O DESCONOCIDO: si la persona dice que no es "{{business_name}}", aclara en una sola frase con cortesía ("Disculpe, llamé al número equivocado. Que tenga un buen día.") y usa end_call; si no sabes con quién hablaste, nunca inventes un negocio. Si el saludo sonó raro porque faltaba el nombre del negocio, sigue con naturalidad; nunca digas el nombre de otro negocio.
+NEGOCIO EQUIVOCADO O DESCONOCIDO: si la persona dice que no es el negocio que nombraste en el saludo, aclara en una sola frase con cortesía ("Disculpe, llamé al número equivocado. Que tenga un buen día.") y usa end_call; si no sabes con quién hablaste, nunca inventes un negocio. Si el saludo sonó raro porque faltaba el nombre del negocio, sigue con naturalidad; nunca digas el nombre de otro negocio.
 
 CÓMO HABLAS
 Habla en español natural de Costa Rica como una profesional costarricense: amable, cálida, segura y respetuosa. Empieza siempre de usted. Si la persona te habla de vos, pásate a vos con naturalidad; si te habla de usted, sigue de usted.

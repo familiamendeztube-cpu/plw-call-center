@@ -1,3 +1,6 @@
+// after_call (post-call wrap-up) still means the agent's app is open and reachable: a dentist
+// calling PLW back must ring them instead of hearing a refusal. Only paused, offline,
+// disabled or mid-in_call states gate the queue; Asterisk's own device state handles busy.
 export function queueEligibility(accounts, profiles, presence, now = Date.now()) {
   const people = new Map(profiles.map(p => [p.id, p]));
   const states = new Map(presence.map(p => [p.staff_id, p]));
@@ -6,7 +9,7 @@ export function queueEligibility(accounts, profiles, presence, now = Date.now())
     const state = states.get(a.staff_id);
     const age = now - Date.parse(state?.last_heartbeat_at ?? '');
     return { username: a.sip_username, available: !!(person?.is_enabled && person.role === 'agent' &&
-      state?.availability === 'active' && state.operational !== 'after_call' &&
+      state?.availability === 'active' &&
       Number.isFinite(age) && age >= -5000 && age <= 90000) };
   });
 }

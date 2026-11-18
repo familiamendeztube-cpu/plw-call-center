@@ -643,10 +643,10 @@ test('the prompt introduces Ana once with the exact authorized greeting and vers
   const { salesPrompt, DENTAL_FIRST_MESSAGE, SALES_SCRIPT_VERSION } = await import(
     '../../supabase/functions/dental-dialer/salesScript.js'
   );
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-greeting-contact');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-greeting-contact-fix');
   assert.equal(
     DENTAL_FIRST_MESSAGE,
-    'Hola, pura vida. ¿Hablo con {{business_name | la clínica}}?'
+    'Hola, pura vida. ¿Hablo con {{business_name}}?'
   );
   const prompt = salesPrompt({ dentalMode: true });
   assert.ok(prompt.includes('Tu nombre y la empresa se dicen una sola vez, en el saludo.'));
@@ -654,6 +654,9 @@ test('the prompt introduces Ana once with the exact authorized greeting and vers
   assert.ok(prompt.includes('NEGOCIO EQUIVOCADO O DESCONOCIDO'));
   assert.ok(!prompt.includes('Anna Chacón-Méndez'));
   assert.ok(!/protocol/i.test(prompt));
+  // The first message never relies on a template the provider cannot render: a missing
+  // business name is filled with data before dialing, not with a template fallback.
+  assert.ok(!DENTAL_FIRST_MESSAGE.includes('|'));
   assert.ok(prompt.includes('PEDIDO DE MENSAJE O NÚMERO (tiene prioridad sobre lo demás)'));
   assert.ok(prompt.indexOf('PEDIDO DE MENSAJE O NÚMERO') < prompt.indexOf('OBJECIONES'));
 });

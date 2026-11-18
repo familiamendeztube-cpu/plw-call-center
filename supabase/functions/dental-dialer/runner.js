@@ -64,7 +64,7 @@ export async function dispatchCall(db, apiKey, claim, fetchImpl = fetch, ttsOver
         to_number: `+506${call.phone}`,
         conversation_initiation_client_data: {
           dynamic_variables: {
-            business_name: lead.business_name,
+            business_name: lead.business_name || 'la clínica',
             business_type: lead.business_type || 'Clínica dental',
             contact_name: lead.contact_name || 'la persona encargada de las citas o de atención al paciente',
             saludo: greetingFor(),

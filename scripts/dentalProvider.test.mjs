@@ -208,9 +208,9 @@ test('Anna opens without an AI label and reveals she is AI in the demonstration;
   const { SALES_SCRIPT_VERSION, salesPrompt } = await import(
     '../supabase/functions/dental-dialer/salesScript.js'
   );
-  assert.equal(DENTAL_FIRST_MESSAGE, 'Hola, pura vida. ¿Hablo con {{business_name | la clínica}}?');
+  assert.equal(DENTAL_FIRST_MESSAGE, 'Hola, pura vida. ¿Hablo con {{business_name}}?');
   assert.ok(!/inteligencia|robot|IA\b/i.test(DENTAL_FIRST_MESSAGE));
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-greeting-contact');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-greeting-contact-fix');
   const prompt = salesPrompt({ dentalMode: true });
   // Greeting and contact rules: known business first, the supplied person by name, never invented.
   assert.ok(prompt.includes('Soy Ana Chacón Méndez.'));
@@ -374,7 +374,7 @@ test('the readback reports the version actually running on the live agent', asyn
   const config = dentalAgentConfig('Alejandro', route, 'voice');
   const readback = agentReadback({ agent_id: route.provider_agent_id, ...config });
   assert.deepEqual(readback, {
-    script_version: 'anna-2026-11-18-greeting-contact',
+    script_version: 'anna-2026-11-18-greeting-contact-fix',
     script_current: true,
     model: 'eleven_v3_conversational',
     voice_id: 'voice',
@@ -383,7 +383,7 @@ test('the readback reports the version actually running on the live agent', asyn
   });
   const stale = structuredClone(config);
   stale.conversation_config.agent.prompt.prompt = stale.conversation_config.agent.prompt.prompt.replace(
-    'anna-2026-11-18-greeting-contact',
+    'anna-2026-11-18-greeting-contact-fix',
     'old'
   );
   assert.equal(agentReadback(stale).script_current, false);
