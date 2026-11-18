@@ -29,6 +29,8 @@ export function DentalDialerControls({
     requestId: crypto.randomUUID(),
     message: '',
     ok: false,
+    voiceModel: 'current',
+    candidateVoiceId: '',
   });
   async function runAnaTest() {
     // One id per submission: a double click reuses it (reserved once, no second dispatch);
@@ -43,6 +45,9 @@ export function DentalDialerControls({
         phone: anaTest.phone,
         businessName: anaTest.businessName,
         businessType: anaTest.businessType,
+        voiceModel: anaTest.voiceModel,
+        candidateVoiceId:
+          anaTest.voiceModel === 'current' ? '' : anaTest.candidateVoiceId.trim(),
       });
       setAnaTest((s) => ({
         ...s,
@@ -284,10 +289,41 @@ export function DentalDialerControls({
               />
             </label>
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1">
+              Voz de la prueba (solo esta llamada)
+              <select
+                value={anaTest.voiceModel}
+                onChange={(e) => setAnaTest({ ...anaTest, voiceModel: e.target.value })}
+                className="h-11 rounded-lg border bg-white px-3"
+                disabled={busy}
+              >
+                <option value="current">Voz actual de Ana (producción)</option>
+                <option value="v4_turbo">Comparar: Eleven v4 Turbo</option>
+              </select>
+            </label>
+            {anaTest.voiceModel !== 'current' && (
+              <label className="grid gap-1">
+                ID de la voz candidata
+                <input
+                  value={anaTest.candidateVoiceId}
+                  maxLength={60}
+                  onChange={(e) => setAnaTest({ ...anaTest, candidateVoiceId: e.target.value })}
+                  placeholder="ID de voz de ElevenLabs (se verifica antes de llamar)"
+                  className="h-11 rounded-lg border bg-white px-3"
+                  disabled={busy}
+                />
+              </label>
+            )}
+          </div>
           <div>
             <Button
               variant="success"
-              disabled={busy || !route.config_verified_at}
+              disabled={
+                busy ||
+                !route.config_verified_at ||
+                (anaTest.voiceModel !== 'current' && anaTest.candidateVoiceId.trim() === '')
+              }
               onClick={() => void runAnaTest()}
             >
               Llamar de prueba

@@ -3,6 +3,7 @@ import { authorizeAdmin } from './auth.ts';
 import { runTick, dispatchCall, syncCalls, reconcileStuckCalls } from './runner.js';
 import { providerRequest, safeAgent, agentConfigFailures, agentReadback, dentalAgentConfig, agentShape, sanitizeProviderError } from './provider.js';
 import { DEMO_SAMPLE_FILENAME, DemoSampleError, buildDemoSample } from './demoSample.js';
+import { TEST_VOICE_MODELS } from './salesScript.js';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -223,6 +224,26 @@ Deno.serve(async (req) => {
     if (input.action === 'ana_test') {
       // "Prueba de Ana": the administrator dials with the live agent, hearing the real pitch,
       // voice and demo. Test context only: no transfer, no counters, no scheduler changes.
+      // Optional test-only voice comparison: 'current' (default) keeps the live voice; 'v4_turbo'
+      // overrides TTS for this one call. The live agent is never modified.
+      const voiceKey = input.voiceModel == null ? 'current' : String(input.voiceModel);
+      if (!(voiceKey in TEST_VOICE_MODELS))
+        return json({ error: 'Voz de prueba no válida.' }, 400);
+      const candidateVoiceId = String(input.candidateVoiceId ?? '').trim();
+      let ttsOverride = null;
+      if (voiceKey !== 'current') {
+        if (!/^[A-Za-z0-9]{10,60}$/.test(candidateVoiceId))
+          return json({ error: 'Escriba el ID de la voz candidata a comparar.' }, 400);
+        // Never guess a voice: the candidate must exist and be usable before dialing.
+        const voice = await providerRequest(apiKey, `/voices/${encodeURIComponent(candidateVoiceId)}`);
+        if (!voice.ok || !voice.data?.voice_id)
+          return json({ error: 'La voz candidata no existe o no está disponible en ElevenLabs.' }, 409);
+      }
+      if (voiceKey !== 'current')
+        ttsOverride = {
+          voice_id: candidateVoiceId,
+          model_id: TEST_VOICE_MODELS[voiceKey as keyof typeof TEST_VOICE_MODELS],
+        };
       const phone = String(input.phone ?? '')
         .replace(/\D/g, '')
         .replace(/^506(?=\d{8}$)/, '');
@@ -264,7 +285,7 @@ Deno.serve(async (req) => {
           { error: 'No se pudo reservar la prueba. Revise llamadas activas y números bloqueados.' },
           409
         );
-      if (claim.claimed) await dispatchCall(db, apiKey, claim);
+      if (claim.claimed) await dispatchCall(db, apiKey, claim, fetch, ttsOverride);
       return json({ ok: true, id: claim.call.id });
     }
     return json({ error: 'Acción no válida.' }, 400);

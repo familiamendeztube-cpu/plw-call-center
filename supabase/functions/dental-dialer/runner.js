@@ -16,7 +16,7 @@ async function checked(query) {
   if (error) throw error;
   return data;
 }
-export async function dispatchCall(db, apiKey, claim, fetchImpl = fetch) {
+export async function dispatchCall(db, apiKey, claim, fetchImpl = fetch, ttsOverride = null) {
   const { call, route, lead } = claim;
   if (!call.is_test) {
     const current = await checked(
@@ -71,6 +71,9 @@ export async function dispatchCall(db, apiKey, claim, fetchImpl = fetch) {
             plw_dental_call_id: call.id,
             plw_script_version: SALES_SCRIPT_VERSION,
           },
+          // Prueba de Ana voice comparison only: overrides the TTS for this one call without
+          // touching the saved agent, so the live voice stays untouched.
+          ...(ttsOverride ? { tts: ttsOverride } : {}),
         },
       },
       fetchImpl,

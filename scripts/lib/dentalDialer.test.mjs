@@ -543,13 +543,13 @@ test('a confirmed callback creates the assigned task even when the decision make
     assert.equal((await followupsFor(tx, past)).length, 0);
   }));
 
-test('the concise prompt greets, demos on one ask, then gives the package', async () => {
+test('the agenda-gate prompt greets, bridges with sí/por qué, demos, then gives the package', async () => {
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
   for (const phrase of [
-    '¿Usted trabaja con la agenda o la atención de pacientes?',
+    '¿Usted maneja las citas de la clínica?',
+    'Porque cuando usted está con un paciente, nosotros podemos contestar las llamadas que entran y dejarle las solicitudes de cita en español. ¿Tiene treinta segundos? Le doy un ejemplo rapidito.',
     'nunca la critiques ni sugieras reemplazarla',
-    '¿Tiene treinta segundos? Le doy un ejemplo rapidito.',
     'noventa y nueve mil colones al mes',
     'página web incluida',
     'comerciales o videos promocionales cada semana',
@@ -564,18 +564,22 @@ test('the concise prompt greets, demos on one ask, then gives the package', asyn
   ].map((phrase) => prompt.indexOf(phrase));
   assert.ok(order.every((index) => index > 0));
   assert.deepEqual([...order].sort((a, b) => a - b), order);
+  // The thirty-second ask lives in the greeting bridge, asked once, and the demo starts on a yes.
+  const saludo = prompt.slice(prompt.indexOf('1. SALUDO'), prompt.indexOf('2. LA DEMOSTRACIÓN'));
+  assert.ok(saludo.includes('Esa es la UNA sola petición de la llamada'));
+  assert.ok(saludo.includes('sin volver a preguntar'));
   // The client login stays unmentioned until that capability is verified.
   assert.ok(!/login|portal/i.test(prompt));
   // Transfer is never the stated goal of the call.
   assert.ok(!prompt.includes('objetivo principal'));
 });
 
-test('the demo needs one thirty-second ask, runs in one continuous trilingual turn, and discloses AI', async () => {
+test('the demo runs on the already-given yes, in one continuous trilingual turn, and discloses AI', async () => {
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
   const demo = prompt.slice(prompt.indexOf('2. LA DEMOSTRACIÓN'), prompt.indexOf('3. EL PAQUETE'));
-  assert.ok(demo.includes('¿Tiene treinta segundos? Le doy un ejemplo rapidito.'));
-  assert.ok(demo.includes('no la fuerces'));
+  assert.ok(demo.includes('La petición de los treinta segundos ya la hiciste en el saludo.'));
+  assert.ok(demo.includes('no la repitas'));
   assert.ok(demo.includes('en un solo turno continuo, sin esperar respuesta entre las líneas'));
   assert.ok(demo.includes('Las voces del ejemplo las haces tú misma con tu propia voz; nunca esperes que la persona del ejemplo conteste'));
   assert.ok(demo.includes('Permite que la persona real te interrumpa'));
@@ -584,9 +588,14 @@ test('the demo needs one thirty-second ask, runs in one continuous trilingual tu
   assert.ok(demo.includes('Yo misma soy un ejemplo de nuestra atención con inteligencia artificial'));
   // No spoken markup or emotion tags anywhere in the demo.
   assert.ok(!/\[[^\]]*\]/.test(demo));
+  // Restart only on an explicit request; ambiguous repeat asks get one clarifying question.
+  const restart = prompt.slice(prompt.indexOf('REPETIR LA LLAMADA'), prompt.indexOf('3. EL PAQUETE'));
+  assert.ok(restart.includes('repite el saludo en esta misma llamada'));
+  assert.ok(restart.includes('¿Desde el saludo o solo el ejemplo?'));
+  assert.ok(restart.includes('Nunca reinicies por tu cuenta'));
 });
 
-test('a clear refusal ends the call immediately, including at the demo ask', async () => {
+test('a clear refusal ends the call immediately, and the follow-up gets one tailored value sentence', async () => {
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
   const rules = prompt.slice(prompt.indexOf('RECHAZOS (muy importante)'), prompt.indexOf('Contexto del negocio'));
@@ -598,8 +607,10 @@ test('a clear refusal ends the call immediately, including at the demo ask', asy
   assert.ok(message.includes('tiene prioridad sobre lo demás'));
   assert.ok(message.includes('nunca inventes un número'));
   assert.ok(message.includes('usa end_call'));
-  // Follow-up: one value sentence, ask missing timing once, no fake booking.
+  // Follow-up: one tailored value sentence, ask missing timing once, stop on refusal.
   const follow = prompt.slice(prompt.indexOf('4. LLAMADA DE SEGUIMIENTO'), prompt.indexOf('PEDIDO DE MENSAJE O NÚMERO'));
+  assert.ok(follow.includes('UNA sola frase corta del beneficio adaptada a lo que ella te contó'));
+  assert.ok(follow.includes('Si rechaza la llamada de seguimiento, aplica RECHAZOS'));
   assert.ok(follow.includes('pregunta UNA sola vez por lo que falta'));
   assert.ok(prompt.includes('nunca confirmes una hora como definitiva'));
 });
@@ -617,10 +628,10 @@ test('the prompt introduces Ana once with the exact authorized greeting and vers
   const { salesPrompt, DENTAL_FIRST_MESSAGE, SALES_SCRIPT_VERSION } = await import(
     '../../supabase/functions/dental-dialer/salesScript.js'
   );
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-concise-demo');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-agenda-gate');
   assert.equal(
     DENTAL_FIRST_MESSAGE,
-    'Hola pura vida. Soy Ana Chacón Méndez de PLW. ¿Usted trabaja con la agenda o la atención de pacientes?'
+    'Hola, pura vida. Soy Ana Chacón Méndez de PLW. ¿Usted maneja las citas de la clínica?'
   );
   const prompt = salesPrompt({ dentalMode: true });
   assert.ok(prompt.includes('Tu nombre y la empresa se dicen una sola vez, en el saludo.'));
