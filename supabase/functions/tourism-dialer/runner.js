@@ -261,14 +261,14 @@ export async function reconcileTourismStuckCalls(db, apiKey, fetchImpl = fetch, 
 }
 
 export async function runTourismTick(db, apiKey, fetchImpl = fetch) {
-  // The pause marker lives in last_error: the heartbeat must never clear it (only the
-  // administrator's Iniciar/Pausar buttons change the paused state).
+  // Heartbeat must record while paused too, or Iniciar's 2-minute freshness check can
+  // never pass. The pause marker stays untouched here: only Pausar/Iniciar change it,
+  // and the gate below still blocks claiming and dispatch while paused.
   await checked(
     db
       .from('tourism_dialer_runtime')
-      .update({ last_tick_at: new Date().toISOString(), last_error: '' })
+      .update({ last_tick_at: new Date().toISOString() })
       .eq('id', 1)
-      .ne('last_error', 'scheduler_paused')
   );
   await syncTourismCalls(db, apiKey, fetchImpl);
   await reconcileTourismStuckCalls(db, apiKey, fetchImpl).catch(() => {});
