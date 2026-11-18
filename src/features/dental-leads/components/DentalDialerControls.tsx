@@ -304,12 +304,12 @@ export function DentalDialerControls({
             </label>
             {anaTest.voiceModel !== 'current' && (
               <label className="grid gap-1">
-                ID de la voz candidata
+                Voz candidata (opcional)
                 <input
                   value={anaTest.candidateVoiceId}
                   maxLength={60}
                   onChange={(e) => setAnaTest({ ...anaTest, candidateVoiceId: e.target.value })}
-                  placeholder="ID de voz de ElevenLabs (se verifica antes de llamar)"
+                  placeholder="Vacío: voz actual de Ana con el modelo nuevo"
                   className="h-11 rounded-lg border bg-white px-3"
                   disabled={busy}
                 />
@@ -319,11 +319,7 @@ export function DentalDialerControls({
           <div>
             <Button
               variant="success"
-              disabled={
-                busy ||
-                !route.config_verified_at ||
-                (anaTest.voiceModel !== 'current' && anaTest.candidateVoiceId.trim() === '')
-              }
+              disabled={busy || !route.config_verified_at}
               onClick={() => void runAnaTest()}
             >
               Llamar de prueba

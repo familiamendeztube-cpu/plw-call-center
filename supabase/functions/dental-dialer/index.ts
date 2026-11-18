@@ -224,26 +224,14 @@ Deno.serve(async (req) => {
     if (input.action === 'ana_test') {
       // "Prueba de Ana": the administrator dials with the live agent, hearing the real pitch,
       // voice and demo. Test context only: no transfer, no counters, no scheduler changes.
-      // Optional test-only voice comparison: 'current' (default) keeps the live voice; 'v4_turbo'
-      // overrides TTS for this one call. The live agent is never modified.
+      // Optional test-only voice comparison: 'current' (default) keeps the live voice and model;
+      // any other key overrides TTS for this one call. The live agent is never modified.
       const voiceKey = input.voiceModel == null ? 'current' : String(input.voiceModel);
       if (!(voiceKey in TEST_VOICE_MODELS))
         return json({ error: 'Voz de prueba no válida.' }, 400);
       const candidateVoiceId = String(input.candidateVoiceId ?? '').trim();
-      let ttsOverride = null;
-      if (voiceKey !== 'current') {
-        if (!/^[A-Za-z0-9]{10,60}$/.test(candidateVoiceId))
-          return json({ error: 'Escriba el ID de la voz candidata a comparar.' }, 400);
-        // Never guess a voice: the candidate must exist and be usable before dialing.
-        const voice = await providerRequest(apiKey, `/voices/${encodeURIComponent(candidateVoiceId)}`);
-        if (!voice.ok || !voice.data?.voice_id)
-          return json({ error: 'La voz candidata no existe o no está disponible en ElevenLabs.' }, 409);
-      }
-      if (voiceKey !== 'current')
-        ttsOverride = {
-          voice_id: candidateVoiceId,
-          model_id: TEST_VOICE_MODELS[voiceKey as keyof typeof TEST_VOICE_MODELS],
-        };
+      if (voiceKey !== 'current' && candidateVoiceId && !/^[A-Za-z0-9]{10,60}$/.test(candidateVoiceId))
+        return json({ error: 'El ID de la voz candidata no tiene el formato correcto.' }, 400);
       const phone = String(input.phone ?? '')
         .replace(/\D/g, '')
         .replace(/^506(?=\d{8}$)/, '');
@@ -272,6 +260,25 @@ Deno.serve(async (req) => {
       );
       if (!cfg.ok || !safeAgent(cfg.data, route))
         return json({ error: 'Primero configure y verifique la voz.' }, 409);
+      // Blank candidate voice: compare the model on Ana's verified voice, with no voices lookup.
+      let ttsOverride = null;
+      if (voiceKey !== 'current') {
+        let overrideVoiceId = candidateVoiceId;
+        if (overrideVoiceId) {
+          // Never guess a voice: a named candidate must exist and be usable before dialing.
+          const voice = await providerRequest(apiKey, `/voices/${encodeURIComponent(overrideVoiceId)}`);
+          if (!voice.ok || !voice.data?.voice_id)
+            return json({ error: 'La voz candidata no existe o no está disponible en ElevenLabs.' }, 409);
+        } else {
+          overrideVoiceId = String(cfg.data?.conversation_config?.tts?.voice_id ?? route.voice_id ?? '');
+          if (!overrideVoiceId)
+            return json({ error: 'No se encontró la voz verificada de Ana para la comparación.' }, 409);
+        }
+        ttsOverride = {
+          voice_id: overrideVoiceId,
+          model_id: TEST_VOICE_MODELS[voiceKey as keyof typeof TEST_VOICE_MODELS],
+        };
+      }
       const { data: claim, error } = await db.rpc('reserve_dental_ana_test', {
         p_id: input.requestId,
         p_staff_id: input.staffId,
