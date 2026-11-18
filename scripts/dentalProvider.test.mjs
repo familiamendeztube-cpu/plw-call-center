@@ -208,12 +208,12 @@ test('Anna opens without an AI label and reveals she is AI in the demonstration;
   const { SALES_SCRIPT_VERSION, salesPrompt } = await import(
     '../supabase/functions/dental-dialer/salesScript.js'
   );
-  assert.equal(DENTAL_FIRST_MESSAGE, 'Hola pura vida. Soy Ana Chacón Méndez de PLW en Pinares Curridabat. Nosotros apoyamos a recepción con las llamadas los mensajes y las citas para que ustedes puedan dedicar más tiempo a los pacientes. ¿A usted le toca contestar mientras también está atendiendo otras cosas?');
+  assert.equal(DENTAL_FIRST_MESSAGE, 'Hola pura vida. Soy Ana Chacón Méndez de PLW. ¿Usted trabaja con la agenda o la atención de pacientes?');
   assert.ok(!/inteligencia|robot|IA\b/i.test(DENTAL_FIRST_MESSAGE));
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-17-service-first');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-concise-demo');
   assert.equal(
     DENTAL_FIRST_MESSAGE,
-    'Hola pura vida. Soy Ana Chacón Méndez de PLW en Pinares Curridabat. Nosotros apoyamos a recepción con las llamadas los mensajes y las citas para que ustedes puedan dedicar más tiempo a los pacientes. ¿A usted le toca contestar mientras también está atendiendo otras cosas?'
+    'Hola pura vida. Soy Ana Chacón Méndez de PLW. ¿Usted trabaja con la agenda o la atención de pacientes?'
   );
   const prompt = salesPrompt({ dentalMode: true });
   assert.ok(prompt.startsWith('Eres Ana Chacón Méndez, asistente de inteligencia artificial de Professional Latino Workers'));
@@ -373,7 +373,7 @@ test('the readback reports the version actually running on the live agent', asyn
   const config = dentalAgentConfig('Alejandro', route, 'voice');
   const readback = agentReadback({ agent_id: route.provider_agent_id, ...config });
   assert.deepEqual(readback, {
-    script_version: 'anna-2026-11-17-service-first',
+    script_version: 'anna-2026-11-18-concise-demo',
     script_current: true,
     model: 'eleven_v3_conversational',
     voice_id: 'voice',
@@ -382,7 +382,7 @@ test('the readback reports the version actually running on the live agent', asyn
   });
   const stale = structuredClone(config);
   stale.conversation_config.agent.prompt.prompt = stale.conversation_config.agent.prompt.prompt.replace(
-    'anna-2026-11-17-service-first',
+    'anna-2026-11-18-concise-demo',
     'old'
   );
   assert.equal(agentReadback(stale).script_current, false);

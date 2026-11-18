@@ -543,79 +543,73 @@ test('a confirmed callback creates the assigned task even when the decision make
     assert.equal((await followupsFor(tx, past)).length, 0);
   }));
 
-test('the service-first prompt greets, sells to reception as an ally, then demos with permission', async () => {
+test('the concise prompt greets, demos on one ask, then gives the package', async () => {
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
   for (const phrase of [
-    '¿A usted le toca contestar mientras también está atendiendo otras cosas?',
+    '¿Usted trabaja con la agenda o la atención de pacientes?',
     'nunca la critiques ni sugieras reemplazarla',
-    'la recepción sigue al mando',
+    '¿Tiene treinta segundos? Le doy un ejemplo rapidito.',
     'noventa y nueve mil colones al mes',
-    'página web',
-    'videos semanales',
-    'Podemos prepararles una muestra gratuita',
+    'página web incluida',
+    'comerciales o videos promocionales cada semana',
   ])
     assert.ok(prompt.includes(phrase), phrase);
   const order = [
     '1. SALUDO',
-    '2. EL SERVICIO',
+    '2. LA DEMOSTRACIÓN',
+    '3. EL PAQUETE',
     'noventa y nueve mil colones al mes',
-    '3. LA DEMOSTRACIÓN SIMULADA',
-    '4. CIERRE HACIA LA REUNIÓN',
+    '4. LLAMADA DE SEGUIMIENTO',
   ].map((phrase) => prompt.indexOf(phrase));
   assert.ok(order.every((index) => index > 0));
   assert.deepEqual([...order].sort((a, b) => a - b), order);
-  // The price, website and weekly videos come before the single call to action.
-  assert.ok(prompt.indexOf('noventa y nueve mil colones al mes') < prompt.indexOf('Podemos prepararles una muestra gratuita'));
-  // The boss is not demanded before the benefit.
-  assert.ok(prompt.indexOf('2. EL SERVICIO') < prompt.indexOf('¿Con quién lo revisaríamos'));
+  // The client login stays unmentioned until that capability is verified.
+  assert.ok(!/login|portal/i.test(prompt));
+  // Transfer is never the stated goal of the call.
+  assert.ok(!prompt.includes('objetivo principal'));
 });
 
-test('the simulated demo needs permission, runs in one continuous turn, and discloses AI', async () => {
+test('the demo needs one thirty-second ask, runs in one continuous trilingual turn, and discloses AI', async () => {
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
-  const demo = prompt.slice(prompt.indexOf('3. LA DEMOSTRACIÓN SIMULADA'), prompt.indexOf('4. CIERRE HACIA LA REUNIÓN'));
-  assert.ok(demo.includes('pide permiso explícito'));
+  const demo = prompt.slice(prompt.indexOf('2. LA DEMOSTRACIÓN'), prompt.indexOf('3. EL PAQUETE'));
+  assert.ok(demo.includes('¿Tiene treinta segundos? Le doy un ejemplo rapidito.'));
   assert.ok(demo.includes('no la fuerces'));
   assert.ok(demo.includes('en un solo turno continuo, sin esperar respuesta entre las líneas'));
   assert.ok(demo.includes('Las voces del ejemplo las haces tú misma con tu propia voz; nunca esperes que la persona del ejemplo conteste'));
   assert.ok(demo.includes('Permite que la persona real te interrumpa'));
-  assert.ok(demo.includes('Hello. Can I book an appointment?'));
-  assert.ok(demo.includes('Of course. What day works for you?'));
-  assert.ok(demo.includes('你好，我想预约。'));
-  assert.ok(demo.includes('可以，您哪天方便？'));
+  assert.ok(demo.includes('No hagas pausas largas ni esperes dentro del ejemplo.'));
+  assert.ok(demo.includes('En español: Quiero sacar una cita. Claro, ¿qué día le sirve? En inglés: Hello. Can I book an appointment? Of course. What day works for you? En chino: 你好，我想预约。可以，您哪天方便？Y a usted le llega la solicitud en español.'));
   assert.ok(demo.includes('Yo misma soy un ejemplo de nuestra atención con inteligencia artificial'));
-  assert.ok(demo.includes('¿Le serviría recibir ese apoyo?'));
   // No spoken markup or emotion tags anywhere in the demo.
   assert.ok(!/\[[^\]]*\]/.test(demo));
-  // One call to action after the demo, and no second demo inside it.
-  assert.ok(!demo.includes('¿Le parece si le muestro un ejemplo'));
 });
 
-test('a clear refusal ends the call immediately, including at the demo question', async () => {
+test('a clear refusal ends the call immediately, including at the demo ask', async () => {
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
   const rules = prompt.slice(prompt.indexOf('RECHAZOS (muy importante)'), prompt.indexOf('Contexto del negocio'));
   for (const phrase of ['"no, está bien"', '"no, muchas gracias"', '"estamos bien"', 'usa end_call de inmediato', 'No hagas otra pregunta']) assert.ok(rules.includes(phrase), phrase);
-  const demoStep = prompt.slice(prompt.indexOf('3. LA DEMOSTRACIÓN SIMULADA'), prompt.indexOf('4. CIERRE HACIA LA REUNIÓN'));
+  const demoStep = prompt.slice(prompt.indexOf('2. LA DEMOSTRACIÓN'), prompt.indexOf('3. EL PAQUETE'));
   assert.ok(demoStep.includes('aplica RECHAZOS'));
-  // Email-only wins over everything else and never claims a sent message.
-  const email = prompt.slice(prompt.indexOf('PEDIDO DE CORREO'), prompt.indexOf('5. SI NO PUEDE HABLAR AHORA'));
-  assert.ok(email.includes('tiene prioridad sobre todo lo demás'));
-  assert.ok(email.includes('Nunca digas que el correo ya fue enviado'));
-  assert.ok(email.includes('usa end_call'));
-  // Busy: one callback offer, then close.
-  const busy = prompt.slice(prompt.indexOf('5. SI NO PUEDE HABLAR AHORA'), prompt.indexOf('OBJECIONES'));
-  assert.ok(busy.includes('ofrece una sola vez'));
-  // Callbacks confirm day and time without faking a booking.
+  // Message/number requests win over the rest and never claim a sent message.
+  const message = prompt.slice(prompt.indexOf('PEDIDO DE MENSAJE O NÚMERO'), prompt.indexOf('OBJECIONES'));
+  assert.ok(message.includes('tiene prioridad sobre lo demás'));
+  assert.ok(message.includes('nunca inventes un número'));
+  assert.ok(message.includes('usa end_call'));
+  // Follow-up: one value sentence, ask missing timing once, no fake booking.
+  const follow = prompt.slice(prompt.indexOf('4. LLAMADA DE SEGUIMIENTO'), prompt.indexOf('PEDIDO DE MENSAJE O NÚMERO'));
+  assert.ok(follow.includes('pregunta UNA sola vez por lo que falta'));
   assert.ok(prompt.includes('nunca confirmes una hora como definitiva'));
-  assert.ok(prompt.includes('nunca digas que una cita quedó confirmada'));
 });
 
-test('the language demo is not offered as a separate permission step and the reception example has no procedure wording', async () => {
+test('the greeting skips non-decision audiences and the prompt never sells to them', async () => {
   const { salesPrompt } = await import('../../supabase/functions/dental-dialer/salesScript.js');
   const prompt = salesPrompt({ dentalMode: true });
-  assert.ok(!/limpieza|el doctor está haciendo/i.test(prompt));
+  assert.ok(prompt.includes('limpieza, mantenimiento o es un paciente, no les vendas'));
+  assert.ok(prompt.includes('Nunca preguntes quién contesta'));
+  assert.ok(prompt.includes('agradece con cortesía, despídete una sola vez y usa end_call'));
   assert.ok(!/\[[^\]]*\]/.test(prompt.replace(/\{\{[^}]*\}\}/g, '')));
 });
 
@@ -623,17 +617,17 @@ test('the prompt introduces Ana once with the exact authorized greeting and vers
   const { salesPrompt, DENTAL_FIRST_MESSAGE, SALES_SCRIPT_VERSION } = await import(
     '../../supabase/functions/dental-dialer/salesScript.js'
   );
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-17-service-first');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-concise-demo');
   assert.equal(
     DENTAL_FIRST_MESSAGE,
-    'Hola pura vida. Soy Ana Chacón Méndez de PLW en Pinares Curridabat. Nosotros apoyamos a recepción con las llamadas los mensajes y las citas para que ustedes puedan dedicar más tiempo a los pacientes. ¿A usted le toca contestar mientras también está atendiendo otras cosas?'
+    'Hola pura vida. Soy Ana Chacón Méndez de PLW. ¿Usted trabaja con la agenda o la atención de pacientes?'
   );
   const prompt = salesPrompt({ dentalMode: true });
   assert.ok(prompt.includes('Tu nombre y la empresa se dicen una sola vez, en el saludo.'));
   assert.ok(!prompt.includes('Anna Chacón-Méndez'));
   assert.ok(!/protocol/i.test(prompt));
-  assert.ok(prompt.includes('PEDIDO DE CORREO (tiene prioridad sobre todo lo demás)'));
-  assert.ok(prompt.indexOf('PEDIDO DE CORREO') < prompt.indexOf('5. SI NO PUEDE HABLAR AHORA'));
+  assert.ok(prompt.includes('PEDIDO DE MENSAJE O NÚMERO (tiene prioridad sobre lo demás)'));
+  assert.ok(prompt.indexOf('PEDIDO DE MENSAJE O NÚMERO') < prompt.indexOf('OBJECIONES'));
 });
 
 test('verification fails when a post-call extraction field is missing from the agent', async () => {
