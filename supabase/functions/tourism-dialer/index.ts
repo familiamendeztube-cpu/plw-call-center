@@ -126,7 +126,17 @@ Deno.serve(async (req) => {
     if (input.action === 'control') {
       if (!['start', 'pause'].includes(input.state))
         return json({ error: 'Acción no válida.' }, 400);
-      const { error } = await db.rpc('control_tourism_dialer', { p_action: input.state });
+      // control_tourism_dialer checks is_admin() from the caller's JWT. It must run as the
+      // administrator, not with the service-role key, which has no user context.
+      const userDb = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        {
+          auth: { persistSession: false, autoRefreshToken: false },
+          global: { headers: { Authorization: `Bearer ${jwt}` } },
+        }
+      );
+      const { error } = await userDb.rpc('control_tourism_dialer', { p_action: input.state });
       if (error)
         return json({ error: 'No se pudo cambiar el estado. Revise el latido del servidor.' }, 409);
       return json({ ok: true });
