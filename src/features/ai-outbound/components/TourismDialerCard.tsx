@@ -10,7 +10,7 @@ import {
   listDoNotCallPhones,
   setCampaignAgent,
 } from '@/features/ai-outbound/services/outboundCampaigns';
-import type { LeadImportPreview } from '@/features/ai-outbound/models/outboundLead';
+import type { LeadImportPreview, OutboundLeadDraft } from '@/features/ai-outbound/models/outboundLead';
 
 const TOURISM_CAMPAIGN_NAME = 'Turismo PLW';
 const TOURISM_AGENT_ID = 'agent-2';
@@ -93,7 +93,11 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
       if (!assigned.includes(TOURISM_AGENT_ID)) {
         await setCampaignAgent(campaign.id, TOURISM_AGENT_ID, true);
       }
-      const imported = await importLeads(campaign.id, preview.valid);
+      const imported = await importLeads(
+        campaign.id,
+        // channel is a CSV-only routing hint (WhatsApp-only skip); the leads table has no such column.
+        preview.valid.map((lead): OutboundLeadDraft => ({ ...lead, channel: '' }))
+      );
       setMessage({
         kind: 'ok',
         text: `Importados ${imported} de ${preview.valid.length} leads nuevos en "${TOURISM_CAMPAIGN_NAME}" (los repetidos se omiten automáticamente).`,
