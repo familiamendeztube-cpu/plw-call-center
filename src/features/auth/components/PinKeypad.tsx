@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type Ref } from 'react';
 import { Delete } from 'lucide-react';
 import { PIN_LENGTH } from '@/features/auth/models/demoAccess';
 import { cx } from '@/components/ui/cx';
@@ -8,14 +8,25 @@ interface PinKeypadProps {
   onDigit: (digit: string) => void;
   onDelete: () => void;
   disabled?: boolean;
+  /** The last PIN was rejected: the dots turn red until the next digit. */
+  invalid?: boolean;
+  /** The row of dots, so the screen can shake it on a wrong PIN. */
+  dotsRef?: Ref<HTMLDivElement>;
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'delete'] as const;
 
 const KEY_BASE =
-  'flex h-14 w-full items-center justify-center rounded-xl border text-2xl font-semibold shadow-sm transition-[transform,background-color,border-color] duration-150 ease-out enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 sm:h-16';
+  'flex h-14 w-full items-center justify-center rounded-xl border text-2xl font-semibold shadow-sm transition-[transform,background-color,border-color] duration-150 ease-out enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:h-16';
 
-export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKeypadProps) {
+export function PinKeypad({
+  value,
+  onDigit,
+  onDelete,
+  disabled = false,
+  invalid = false,
+  dotsRef,
+}: PinKeypadProps) {
   useEffect(() => {
     if (disabled) {
       return undefined;
@@ -38,6 +49,7 @@ export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKey
   return (
     <div className="flex w-full flex-col items-center gap-5">
       <div
+        ref={dotsRef}
         className="flex items-center gap-4"
         role="status"
         aria-label={`PIN: ${value.length} de ${PIN_LENGTH} dígitos ingresados`}
@@ -50,7 +62,9 @@ export function PinKeypad({ value, onDigit, onDelete, disabled = false }: PinKey
               'h-3.5 w-3.5 rounded-full border-2 transition-[transform,background-color,border-color] duration-150 ease-out',
               index < value.length
                 ? 'scale-110 border-plw-gold-soft bg-plw-gold-soft'
-                : 'border-neutral-400 bg-transparent'
+                : invalid
+                  ? 'border-danger-500 bg-transparent'
+                  : 'border-neutral-400 bg-transparent'
             )}
           />
         ))}

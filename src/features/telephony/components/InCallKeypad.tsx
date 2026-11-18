@@ -21,7 +21,7 @@ export function InCallKeypad() {
             type="button"
             aria-label={`Enviar ${key}`}
             onClick={() => void sendDtmf(key)}
-            className="h-12 rounded-xl border border-neutral-200 bg-white text-lg font-semibold text-plw-navy transition-all hover:border-plw-gold active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
+            className="h-12 rounded-xl border border-neutral-200 bg-white text-lg font-semibold text-plw-navy transition-[border-color,transform] duration-150 ease-out hover:border-plw-gold active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
           >
             {key}
           </button>

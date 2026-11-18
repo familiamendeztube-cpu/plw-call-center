@@ -65,7 +65,15 @@ export default {
         panel: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 40px rgba(0, 0, 0, 0.4)',
         raised: 'inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 80px rgba(0, 0, 0, 0.6)',
       },
+      // A strong ease-out: quick to respond, soft to land. The built-in ease-out is too gentle.
+      transitionTimingFunction: {
+        'out-strong': 'cubic-bezier(0.23, 1, 0.32, 1)',
+      },
       keyframes: {
+        'tooltip-in': {
+          from: { opacity: '0', transform: 'scale(0.96)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
         'fade-in': {
           from: { opacity: '0', transform: 'translateY(4px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
@@ -80,6 +88,7 @@ export default {
         },
       },
       animation: {
+        'tooltip-in': 'tooltip-in 125ms cubic-bezier(0.23, 1, 0.32, 1)',
         'fade-in': 'fade-in 200ms ease-out',
         'slide-in-right': 'slide-in-right 220ms ease-out',
         'slide-in-left': 'slide-in-left 220ms ease-out',

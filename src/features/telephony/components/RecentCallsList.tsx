@@ -56,7 +56,7 @@ export function RecentCallsList() {
                 type="button"
                 onClick={() => changeDialNumber(dialable)}
                 aria-label={`Marcar de nuevo ${customer?.businessName ?? call.remoteNumber}`}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-plw-navy transition-colors hover:bg-plw-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-plw-navy transition-[background-color,transform] duration-150 ease-out hover:bg-plw-ivory active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
               >
                 <Phone size={14} aria-hidden="true" />
               </button>

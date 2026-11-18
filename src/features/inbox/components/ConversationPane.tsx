@@ -154,7 +154,7 @@ export function ConversationPane({
             type="button"
             onClick={scroll.scrollToBottom}
             aria-label="Ir al mensaje más reciente"
-            className="absolute bottom-3 right-5 flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-plw-navy shadow-panel transition-colors hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
+            className="absolute bottom-3 right-5 flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-plw-navy shadow-panel transition-[background-color,transform] duration-150 ease-out hover:bg-neutral-50 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
           >
             <ArrowDown size={18} aria-hidden="true" />
           </button>

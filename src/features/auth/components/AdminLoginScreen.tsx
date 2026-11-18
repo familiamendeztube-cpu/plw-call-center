@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, FlaskConical, Settings, ShieldCheck } from 'lucide-react';
 import { IS_DEMO_MODE } from '@/app/appConfig';
@@ -6,6 +6,7 @@ import { DEMO_ADMIN_PIN } from '@/features/auth/models/demoAccess';
 import { DeviceEnrollmentPanel } from '@/features/auth/components/DeviceEnrollmentPanel';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
+import { useShake } from '@/components/ui/useShake';
 import { PlwWordmark } from '@/components/ui/PlwWordmark';
 import { DemoModeBadge } from '@/components/ui/DemoModeBadge';
 
@@ -29,6 +30,7 @@ export function AdminLoginScreen({
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [fieldRef, shake] = useShake<HTMLInputElement>();
 
   const submit = async (entered: string) => {
     setSubmitting(true);
@@ -38,8 +40,14 @@ export function AdminLoginScreen({
     if (message) {
       setError(message);
       setPasscode('');
+      shake();
     }
   };
+
+  // The field was disabled while checking, which drops focus; give it back to try again.
+  useEffect(() => {
+    if (error) fieldRef.current?.focus();
+  }, [error, fieldRef]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,7 +85,7 @@ export function AdminLoginScreen({
               </p>
               <Link
                 to="/configuracion-inicial"
-                className="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-plw-navy px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-plw-navy/90"
+                className="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-plw-navy px-4 py-2.5 text-sm font-semibold text-white transition-[background-color,transform] duration-150 ease-out hover:bg-plw-navy/90 active:scale-[0.97]"
               >
                 Configurar acceso del propietario
               </Link>
@@ -86,6 +94,8 @@ export function AdminLoginScreen({
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <TextField
+              ref={fieldRef}
+              invalid={error !== null}
               label="Contraseña"
               type="password"
               autoComplete="current-password"

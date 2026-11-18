@@ -74,7 +74,7 @@ export function ReplyPanel({
               aria-controls={`reply-panel-${item}`}
               onClick={() => setTab(item)}
               className={cx(
-                'inline-flex h-8 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors',
+                'inline-flex h-8 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.97]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/50',
                 selected
                   ? 'bg-plw-navy text-white'

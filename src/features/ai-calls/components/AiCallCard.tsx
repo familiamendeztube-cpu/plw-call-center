@@ -120,6 +120,14 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  // While closing, the text stays unclamped so it has a height to shrink from; the "…" clamp
+  // goes back on when the shrink ends. Without calc-size nothing animates, so clamp at once.
+  const [summaryClosing, setSummaryClosing] = useState(false);
+  const toggleSummary = () => {
+    const animates = typeof CSS !== 'undefined' && CSS.supports('height', 'calc-size(auto, size)');
+    if (summaryOpen && animates) setSummaryClosing(true);
+    setSummaryOpen(!summaryOpen);
+  };
   const footer = [
     call.statusBy && call.statusAt
       ? `Último cambio: ${agentNames[call.statusBy] ?? call.statusBy}, ${formatDateTime(call.statusAt)}`
@@ -167,7 +175,7 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
           type="button"
           aria-expanded={summaryOpen}
           aria-controls={`summary-${call.id}`}
-          onClick={() => setSummaryOpen((open) => !open)}
+          onClick={toggleSummary}
           className="flex w-full items-center justify-between gap-2 text-left text-xs font-semibold uppercase tracking-wider text-plw-gold"
         >
           Resumen de la llamada
@@ -177,12 +185,18 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
             className={cx('shrink-0 transition-transform', summaryOpen && 'rotate-180')}
           />
         </button>
+        {/* Closed it is at most two lines (calc-size keeps short summaries short); open it grows
+            to its full height. Browsers without calc-size jump straight there, as before. */}
         <p
           id={`summary-${call.id}`}
+          onTransitionEnd={(event) => {
+            if (event.propertyName === 'height') setSummaryClosing(false);
+          }}
           className={cx(
-            'mt-1 text-sm',
+            'mt-1 overflow-hidden text-sm transition-[height] duration-300 ease-out-strong',
             call.summary ? 'text-plw-ink' : 'text-neutral-400',
-            !summaryOpen && 'line-clamp-2'
+            summaryOpen ? 'h-auto' : 'h-[calc-size(auto,min(size,2lh))]',
+            !summaryOpen && !summaryClosing && 'line-clamp-2'
           )}
         >
           {call.summary ?? 'ElevenLabs no envió un resumen de esta llamada.'}

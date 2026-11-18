@@ -2,6 +2,7 @@ import { useState, type ChangeEvent } from 'react';
 import { useAppServices } from '@/app/ServicesContext';
 import { SALES_STAGE_LABELS, SALES_STAGES, type Prospect } from '@/features/leads/models/prospect';
 import { cx } from '@/components/ui/cx';
+import { sparkBurst } from '@/components/ui/motion';
 
 interface StageSelectProps {
   prospect: Prospect;
@@ -19,10 +20,13 @@ export function StageSelect({ prospect, onChange, compact = false }: StageSelect
     if (!stage || stage === prospect.stage) {
       return;
     }
+    const field = event.currentTarget;
     setSaving(true);
     setError(null);
     try {
       onChange(await leads.updateStage(prospect.id, stage));
+      // A sale closed: the one change worth celebrating.
+      if (stage === 'won') sparkBurst(field.getBoundingClientRect());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo cambiar la etapa.');
     } finally {

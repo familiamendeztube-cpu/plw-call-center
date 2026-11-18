@@ -57,7 +57,7 @@ export function AdminAiOutboundPage() {
                 onClick={() => setSelectedId(campaign.id)}
                 aria-current={selected?.id === campaign.id ? 'true' : undefined}
                 className={cx(
-                  'rounded-xl border px-4 py-3 text-left text-sm transition-colors',
+                  'rounded-xl border px-4 py-3 text-left text-sm transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97]',
                   selected?.id === campaign.id
                     ? 'border-plw-deep bg-white font-semibold text-plw-ink shadow-raised'
                     : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'

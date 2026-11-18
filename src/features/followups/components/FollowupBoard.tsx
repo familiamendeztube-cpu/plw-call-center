@@ -8,7 +8,7 @@ interface FollowupBoardProps {
   followups: Followup[];
   prospectNames: Record<string, string>;
   ownerNames?: Record<string, string>;
-  onToggle?: (followup: Followup) => void;
+  onToggle?: (followup: Followup, origin: DOMRect) => void;
   /** Agents only: move it to another time. */
   onReschedule?: (followup: Followup) => void;
   /** Agents only: the customer's name opens the customer. */

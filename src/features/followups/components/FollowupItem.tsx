@@ -4,6 +4,7 @@ import { formatDateTime } from '@/app/dates';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { cx } from '@/components/ui/cx';
+import { IconSwap } from '@/components/ui/IconSwap';
 import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
 import type { Followup } from '@/features/followups/models/followup';
 import { FOLLOWUP_KIND_LABELS } from '@/features/followups/models/followup';
@@ -13,7 +14,8 @@ interface FollowupItemProps {
   prospectName: string;
   ownerName?: string;
   overdue: boolean;
-  onToggle?: (followup: Followup) => void;
+  /** `origin` is where the checkbox was, for the celebration when it gets done. */
+  onToggle?: (followup: Followup, origin: DOMRect) => void;
   onReschedule?: (followup: Followup) => void;
   linkToCustomer?: boolean;
 }
@@ -37,16 +39,17 @@ export function FollowupItem({
           role="checkbox"
           aria-checked={followup.completed}
           aria-label={`Marcar como ${followup.completed ? 'pendiente' : 'completado'}: ${followup.title}`}
-          onClick={() => onToggle(followup)}
+          onClick={(event) => onToggle(followup, event.currentTarget.getBoundingClientRect())}
           className={cx(
-            'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors',
+            'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
+            'transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.97]',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/50',
             followup.completed
               ? 'border-success-600 bg-success-600 text-white'
               : 'border-neutral-400 bg-white hover:border-plw-gold'
           )}
         >
-          {followup.completed ? <Check size={12} aria-hidden="true" /> : null}
+          <IconSwap swapped={followup.completed} from={null} to={<Check size={12} />} />
         </button>
       ) : (
         <span

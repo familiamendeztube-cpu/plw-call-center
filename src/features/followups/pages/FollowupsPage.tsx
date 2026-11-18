@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { DemoDataNote } from '@/components/ui/DemoDataNote';
+import { sparkBurst } from '@/components/ui/motion';
 
 export function FollowupsPage() {
   const { followups: followupService } = useAppServices();
@@ -35,11 +36,12 @@ export function FollowupsPage() {
     [prospectList]
   );
 
-  const handleToggle = async (followup: Followup) => {
+  const handleToggle = async (followup: Followup, origin: DOMRect) => {
     setActionError(null);
     try {
       const updated = await followupService.setCompleted(followup.id, !followup.completed);
       updateData((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      if (updated.completed) sparkBurst(origin);
     } catch (cause) {
       setActionError(
         cause instanceof Error ? cause.message : 'No se pudo actualizar el seguimiento.'

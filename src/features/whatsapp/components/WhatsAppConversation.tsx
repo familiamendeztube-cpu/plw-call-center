@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Paperclip, SendHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { StatusMessage } from '@/components/ui/StatusMessage';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { ConversationPane, type ChatChannel } from '@/features/inbox/components/ConversationPane';
 import {
   disconnectChatwoot,
@@ -263,7 +264,7 @@ function WhatsAppComposer({
             type="button"
             aria-label={`Quitar ${file.name}`}
             onClick={() => setFile(null)}
-            className="ml-auto shrink-0 rounded p-1 text-neutral-500 hover:text-plw-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
+            className="ml-auto shrink-0 rounded p-1 text-neutral-500 transition-[color,transform] duration-150 ease-out hover:text-plw-ink active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
           >
             <X size={14} aria-hidden="true" />
           </button>
@@ -280,16 +281,17 @@ function WhatsAppComposer({
           tabIndex={-1}
           onChange={(event) => choose(event.target.files?.[0])}
         />
-        <Button
-          variant="secondary"
-          className="w-10 shrink-0 px-0"
-          disabled={sending}
-          onClick={() => picker.current?.click()}
-          aria-label={file ? 'Cambiar el archivo' : 'Adjuntar foto, video o documento'}
-          title="Adjuntar foto, video o documento"
-        >
-          <Paperclip size={16} aria-hidden="true" />
-        </Button>
+        <Tooltip label="Adjuntar foto, video o documento">
+          <Button
+            variant="secondary"
+            className="w-10 shrink-0 px-0"
+            disabled={sending}
+            onClick={() => picker.current?.click()}
+            aria-label={file ? 'Cambiar el archivo' : 'Adjuntar foto, video o documento'}
+          >
+            <Paperclip size={16} aria-hidden="true" />
+          </Button>
+        </Tooltip>
         <label htmlFor={fieldId} className="sr-only">
           Mensaje de WhatsApp
         </label>

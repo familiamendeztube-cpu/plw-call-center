@@ -191,7 +191,7 @@ export function CustomerWorkspace({
                 aria-controls={`customer-panel-${item.id}`}
                 onClick={() => selectTab(item.id)}
                 className={cx(
-                  'h-11 whitespace-nowrap border-b-2 px-3 text-sm font-medium transition-colors duration-150',
+                  'h-11 whitespace-nowrap border-b-2 px-3 text-sm font-medium transition-[color,border-color,transform] duration-150 ease-out active:scale-[0.97]',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60',
                   active
                     ? 'border-plw-gold text-plw-navy'

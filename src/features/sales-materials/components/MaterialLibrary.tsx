@@ -89,7 +89,7 @@ export function MaterialLibrary({ admin = false }: { admin?: boolean }) {
               aria-pressed={active}
               onClick={() => setKindFilter(chip.value)}
               className={cx(
-                'h-8 rounded-full px-3.5 text-sm font-medium transition-colors duration-150',
+                'h-8 rounded-full px-3.5 text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/50',
                 active
                   ? 'bg-plw-navy text-white'

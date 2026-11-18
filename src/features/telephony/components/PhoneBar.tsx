@@ -16,9 +16,16 @@ import { ConnectionStatus } from '@/features/telephony/components/ConnectionStat
 import { DialInput } from '@/features/telephony/components/PhoneScreen';
 import { DIAL_REQUIRES_ACTIVE, useCanDial } from '@/features/presence/hooks/useCanDial';
 import { cx } from '@/components/ui/cx';
+import { IconSwap } from '@/components/ui/IconSwap';
+import { Tooltip } from '@/components/ui/Tooltip';
 
-const MAIN_BUTTON =
-  'flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600';
+const PRESS =
+  'transition-[color,background-color,border-color,transform] duration-150 ease-out enabled:active:scale-[0.97]';
+
+const MAIN_BUTTON = cx(
+  'flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600',
+  PRESS
+);
 
 interface IconButtonProps {
   label: string;
@@ -30,24 +37,26 @@ interface IconButtonProps {
 
 function IconButton({ label, onClick, disabled = false, pressed, children }: IconButtonProps) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      aria-pressed={pressed}
-      onClick={onClick}
-      disabled={disabled}
-      className={cx(
-        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60',
-        'disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-neutral-400',
-        pressed
-          ? 'border-plw-navy bg-plw-navy text-white'
-          : 'border-neutral-200 bg-white text-plw-navy hover:border-plw-gold'
-      )}
-    >
-      {children}
-    </button>
+    <Tooltip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={pressed}
+        onClick={onClick}
+        disabled={disabled}
+        className={cx(
+          'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border',
+          PRESS,
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60',
+          'disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-neutral-400',
+          pressed
+            ? 'border-plw-navy bg-plw-navy text-white'
+            : 'border-neutral-200 bg-white text-plw-navy hover:border-plw-gold'
+        )}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -94,16 +103,19 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
           </label>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={can.incoming ? answerCall : placeCall}
-            disabled={!can.incoming && (!can.canDial || !active)}
-            title={!can.incoming && !active ? DIAL_REQUIRES_ACTIVE : undefined}
-            className={cx(MAIN_BUTTON, 'bg-success-600 hover:bg-success-800')}
-          >
-            <Phone size={18} aria-hidden="true" />
-            <span className="sr-only md:not-sr-only">{can.incoming ? 'Contestar' : 'Llamar'}</span>
-          </button>
+          <Tooltip label={!can.incoming && !active ? DIAL_REQUIRES_ACTIVE : undefined}>
+            <button
+              type="button"
+              onClick={can.incoming ? answerCall : placeCall}
+              disabled={!can.incoming && (!can.canDial || !active)}
+              className={cx(MAIN_BUTTON, 'bg-success-600 hover:bg-success-800')}
+            >
+              <Phone size={18} aria-hidden="true" />
+              <span className="sr-only md:not-sr-only">
+                {can.incoming ? 'Contestar' : 'Llamar'}
+              </span>
+            </button>
+          </Tooltip>
           <button
             type="button"
             onClick={hangUp}
@@ -122,22 +134,14 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
                 disabled={!can.canMute}
                 pressed={can.muted}
               >
-                {can.muted ? (
-                  <MicOff size={18} aria-hidden="true" />
-                ) : (
-                  <Mic size={18} aria-hidden="true" />
-                )}
+                <IconSwap swapped={can.muted} from={<Mic size={18} />} to={<MicOff size={18} />} />
               </IconButton>
               <IconButton
                 label={can.onHold ? 'Reanudar' : 'En espera'}
                 onClick={toggleHold}
                 pressed={can.onHold}
               >
-                {can.onHold ? (
-                  <Play size={18} aria-hidden="true" />
-                ) : (
-                  <Pause size={18} aria-hidden="true" />
-                )}
+                <IconSwap swapped={can.onHold} from={<Pause size={18} />} to={<Play size={18} />} />
               </IconButton>
               <IconButton label="Transferir" onClick={transferCall} disabled={!can.canTransfer}>
                 <PhoneForwarded size={18} aria-hidden="true" />

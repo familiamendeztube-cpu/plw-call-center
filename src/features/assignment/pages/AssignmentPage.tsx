@@ -156,7 +156,7 @@ function BoardContent({
             aria-selected={tab === item}
             onClick={() => onTabChange(item)}
             className={cx(
-              'inline-flex h-9 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors duration-150',
+              'inline-flex h-9 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97]',
               tab === item
                 ? 'border-plw-navy bg-plw-navy text-white'
                 : 'border-neutral-200 bg-white text-neutral-700 hover:border-plw-gold hover:text-plw-navy'

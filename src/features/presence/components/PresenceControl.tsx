@@ -50,7 +50,7 @@ export function PresenceControl({ displayStatus }: PresenceControlProps) {
               aria-checked={selected}
               onClick={() => setAvailability(value)}
               className={cx(
-                'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors duration-150',
+                'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.97]',
                 selected
                   ? value === 'active'
                     ? 'bg-success-600 text-white shadow-sm'

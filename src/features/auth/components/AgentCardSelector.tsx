@@ -16,8 +16,10 @@ export function AgentCardSelector({
   disabled,
 }: AgentCardSelectorProps) {
   return (
+    // Cards keep a third of the row and the row is centered, so two agents (or a short last
+    // row) sit in the middle instead of leaving an empty column on the right.
     <div
-      className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+      className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center"
       role="radiogroup"
       aria-label="Selecciona tu agente"
     >
@@ -33,9 +35,9 @@ export function AgentCardSelector({
             onClick={() => onSelect(agent.id)}
             className={cx(
               // Three across leaves about 160px a card, so the name goes under the avatar there.
-              'group relative flex items-center gap-3 rounded-[18px] border p-4 text-left sm:flex-col sm:gap-2 sm:text-center',
+              'group relative flex items-center gap-3 rounded-[18px] border p-4 text-left sm:w-[calc((100%-1.5rem)/3)] sm:flex-col sm:gap-2 sm:text-center',
               'transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out',
-              'hover:-translate-y-0.5 hover:shadow-panel disabled:cursor-not-allowed disabled:opacity-60',
+              'hover:-translate-y-0.5 hover:shadow-panel enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60',
               selected
                 ? 'border-plw-gold bg-plw-surface-strong shadow-panel ring-1 ring-plw-gold/40'
                 : 'border-white/10 bg-white/[0.04] hover:border-plw-gold/60'

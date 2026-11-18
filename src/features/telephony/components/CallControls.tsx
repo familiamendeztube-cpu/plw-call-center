@@ -4,6 +4,8 @@ import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { callButtons } from '@/features/telephony/models/call';
 import { DIAL_REQUIRES_ACTIVE, useCanDial } from '@/features/presence/hooks/useCanDial';
 import { cx } from '@/components/ui/cx';
+import { IconSwap } from '@/components/ui/IconSwap';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 interface SecondaryButtonProps {
   label: string;
@@ -27,7 +29,8 @@ function SecondaryButton({
       disabled={disabled}
       aria-pressed={active}
       className={cx(
-        'flex h-14 flex-col items-center justify-center gap-1 rounded-2xl border text-xs font-semibold transition-colors',
+        'flex h-14 flex-col items-center justify-center gap-1 rounded-2xl border text-xs font-semibold',
+        'transition-[color,background-color,border-color,transform] duration-150 ease-out enabled:active:scale-[0.97]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60',
         'disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-neutral-400',
         active
@@ -60,19 +63,24 @@ export function CallControls() {
   );
   const active = useCanDial();
 
+  const dialButton = (
+    <button
+      type="button"
+      onClick={incoming ? answerCall : placeCall}
+      disabled={!incoming && (!canDial || !active)}
+      className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-success-600 text-base font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-out hover:bg-success-800 enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 disabled:shadow-none"
+    >
+      <Phone size={20} aria-hidden="true" />
+      {incoming ? 'Contestar' : 'Llamar'}
+    </button>
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={incoming ? answerCall : placeCall}
-          disabled={!incoming && (!canDial || !active)}
-          title={!incoming && !active ? DIAL_REQUIRES_ACTIVE : undefined}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-success-600 text-base font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-out hover:bg-success-800 enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 disabled:shadow-none"
-        >
-          <Phone size={20} aria-hidden="true" />
-          {incoming ? 'Contestar' : 'Llamar'}
-        </button>
+        <Tooltip label={!incoming && !active ? DIAL_REQUIRES_ACTIVE : undefined}>
+          {dialButton}
+        </Tooltip>
         <button
           type="button"
           onClick={hangUp}
@@ -93,7 +101,7 @@ export function CallControls() {
           disabled={!canMute}
           active={muted}
         >
-          {muted ? <MicOff size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
+          <IconSwap swapped={muted} from={<Mic size={18} />} to={<MicOff size={18} />} />
         </SecondaryButton>
         <SecondaryButton
           label={onHold ? 'Reanudar' : 'En espera'}
@@ -101,7 +109,7 @@ export function CallControls() {
           disabled={!canHold}
           active={onHold}
         >
-          {onHold ? <Play size={18} aria-hidden="true" /> : <Pause size={18} aria-hidden="true" />}
+          <IconSwap swapped={onHold} from={<Pause size={18} />} to={<Play size={18} />} />
         </SecondaryButton>
         <SecondaryButton label="Transferir" onClick={transferCall} disabled={!canTransfer}>
           <PhoneForwarded size={18} aria-hidden="true" />

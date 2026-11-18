@@ -1,13 +1,18 @@
-import { useId, type InputHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from 'react';
 import { cx } from '@/components/ui/cx';
 
 interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   hint?: string;
   trailing?: ReactNode;
+  /** The value was rejected (e.g. a wrong password): red border, and aria-invalid. */
+  invalid?: boolean;
 }
 
-export function TextField({ label, hint, trailing, className, ...rest }: TextFieldProps) {
+export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextField(
+  { label, hint, trailing, invalid = false, className, ...rest },
+  ref
+) {
   const inputId = useId();
   const hintId = useId();
   return (
@@ -17,12 +22,16 @@ export function TextField({ label, hint, trailing, className, ...rest }: TextFie
       </label>
       <div className="relative">
         <input
+          ref={ref}
           id={inputId}
           aria-describedby={hint ? hintId : undefined}
+          aria-invalid={invalid || undefined}
           className={cx(
-            'h-10 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-plw-ink',
-            'placeholder:text-neutral-400 transition-colors duration-150',
-            'hover:border-white/20 focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30',
+            'h-10 w-full rounded-lg border bg-white/[0.04] px-3 text-sm text-plw-ink',
+            'placeholder:text-neutral-400 transition-colors duration-150 focus:outline-none focus:ring-2',
+            invalid
+              ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/30'
+              : 'border-white/10 hover:border-white/20 focus:border-plw-gold focus:ring-plw-gold/30',
             'disabled:cursor-not-allowed disabled:bg-white/[0.02] disabled:text-neutral-500',
             trailing ? 'pr-10' : undefined
           )}
@@ -39,4 +48,4 @@ export function TextField({ label, hint, trailing, className, ...rest }: TextFie
       ) : null}
     </div>
   );
-}
+});

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Expandable } from '@/components/ui/Expandable';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { DENTAL_STATUS, sourceLabel, type DentalLead } from '../models/dentalLead';
 import { DentalLeadEditor } from './DentalLeadEditor';
@@ -94,7 +95,7 @@ export function DentalLeadList({
               </Button>
             </div>
           </div>
-          {editing === lead.id && (
+          <Expandable open={editing === lead.id}>
             <DentalLeadEditor
               lead={lead}
               onCancel={() => setEditing(null)}
@@ -103,7 +104,7 @@ export function DentalLeadList({
                 reload();
               }}
             />
-          )}
+          </Expandable>
         </article>
       ))}
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
+import { Expandable } from '@/components/ui/Expandable';
 import { useAuth } from '@/features/auth/context/useAuth';
 import { CallRecording } from '@/features/ai-calls/components/AiCallCard';
 import { CallAudioDownload } from '@/features/ai-calls/components/CallAudioDownload';
@@ -140,66 +141,14 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
                 Recibí esta transferencia
               </Button>
             )}
-          {selected === call.id && (
-            <div className="mt-4 max-h-[32rem] space-y-3 overflow-y-auto border-t pt-4">
-              {!detail ? (
-                <p role="status">
-                  {error
-                    ? 'Transcripción no disponible por el momento.'
-                    : 'Cargando transcripción…'}
-                </p>
-              ) : (
-                <>
-                  {CALL_DETAIL_LABELS.some(([key]) => detail.details?.[key]) && (
-                    <dl className="grid gap-x-4 gap-y-1 rounded-lg border p-3 text-sm sm:grid-cols-[auto_1fr]">
-                      {CALL_DETAIL_LABELS.filter(([key]) => detail.details?.[key]).map(
-                        ([key, label]) => (
-                          <div key={key} className="contents">
-                            <dt className="font-semibold text-neutral-600">{label}</dt>
-                            <dd className="mb-1 break-words sm:mb-0">{detail.details?.[key]}</dd>
-                          </div>
-                        )
-                      )}
-                    </dl>
-                  )}
-                  {detail.summary && (
-                    <p className="rounded-lg bg-plw-ivory p-3 text-sm">{detail.summary}</p>
-                  )}
-                  {!detail.transcript.length && (
-                    <p className="text-sm text-neutral-500">
-                      El proveedor todavía no ha entregado la transcripción.
-                    </p>
-                  )}
-                  {detail.transcript.length > 0 && (
-                    <div>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={textBusy}
-                        onClick={() => void downloadTranscriptText()}
-                      >
-                        Descargar transcripción (texto)
-                      </Button>
-                    </div>
-                  )}
-                  {detail.transcript.map((line, i) => (
-                    <div key={i} className="rounded-lg bg-neutral-50 p-3 text-sm">
-                      <p className="mb-1 font-semibold">
-                        {line.role === 'agent' ? 'Anna' : 'Persona llamada'} ·{' '}
-                        {Math.floor(line.time_in_call_secs)} s
-                      </p>
-                      <p className="whitespace-pre-wrap">{line.message}</p>
-                      {line.tools?.length > 0 && (
-                        <p className="mt-1 text-xs text-neutral-500">
-                          Acción: {line.tools.join(', ')}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
+          <Expandable open={selected === call.id}>
+            <TranscriptDetail
+              detail={detail}
+              failed={Boolean(error)}
+              downloading={textBusy}
+              onDownload={() => void downloadTranscriptText()}
+            />
+          </Expandable>
         </article>
       ))}
       {calls.length > limit && (
@@ -208,5 +157,67 @@ export function DentalCallHistory({ calls, reload }: { calls: DentalCall[]; relo
         </Button>
       )}
     </section>
+  );
+}
+
+function TranscriptDetail({
+  detail,
+  failed,
+  downloading,
+  onDownload,
+}: {
+  detail: DentalTranscript | null;
+  failed: boolean;
+  downloading: boolean;
+  onDownload: () => void;
+}) {
+  return (
+    <div className="mt-4 max-h-[32rem] space-y-3 overflow-y-auto border-t pt-4">
+      {!detail ? (
+        <p role="status">
+          {failed ? 'Transcripción no disponible por el momento.' : 'Cargando transcripción…'}
+        </p>
+      ) : (
+        <>
+          {CALL_DETAIL_LABELS.some(([key]) => detail.details?.[key]) && (
+            <dl className="grid gap-x-4 gap-y-1 rounded-lg border p-3 text-sm sm:grid-cols-[auto_1fr]">
+              {CALL_DETAIL_LABELS.filter(([key]) => detail.details?.[key]).map(([key, label]) => (
+                <div key={key} className="contents">
+                  <dt className="font-semibold text-neutral-600">{label}</dt>
+                  <dd className="mb-1 break-words sm:mb-0">{detail.details?.[key]}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {detail.summary && (
+            <p className="rounded-lg bg-plw-ivory p-3 text-sm">{detail.summary}</p>
+          )}
+          {!detail.transcript.length && (
+            <p className="text-sm text-neutral-500">
+              El proveedor todavía no ha entregado la transcripción.
+            </p>
+          )}
+          {detail.transcript.length > 0 && (
+            <div>
+              <Button size="sm" variant="secondary" disabled={downloading} onClick={onDownload}>
+                Descargar transcripción (texto)
+              </Button>
+            </div>
+          )}
+          {detail.transcript.map((line, i) => (
+            <div key={i} className="rounded-lg bg-neutral-50 p-3 text-sm">
+              <p className="mb-1 font-semibold">
+                {line.role === 'agent' ? 'Anna' : 'Persona llamada'} ·{' '}
+                {Math.floor(line.time_in_call_secs)} s
+              </p>
+              <p className="whitespace-pre-wrap">{line.message}</p>
+              {line.tools?.length > 0 && (
+                <p className="mt-1 text-xs text-neutral-500">Acción: {line.tools.join(', ')}</p>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+    </div>
   );
 }

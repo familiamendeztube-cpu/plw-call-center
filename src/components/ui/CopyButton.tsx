@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { IconSwap } from '@/components/ui/IconSwap';
 
 /** Copies `value` to the clipboard and says so for two seconds. */
 export function CopyButton({ value, label }: { value: string; label: string }) {
@@ -18,7 +19,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
 
   return (
     <Button size="sm" variant="secondary" onClick={() => void copy()} aria-label={label}>
-      {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+      <IconSwap swapped={copied} from={<Copy size={14} />} to={<Check size={14} />} />
       <span aria-live="polite">{copied ? 'Copiado' : 'Copiar'}</span>
     </Button>
   );

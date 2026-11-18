@@ -5,6 +5,7 @@ import { formatDateTime } from '@/app/dates';
 import { useAppServices } from '@/app/ServicesContext';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { sparkBurst } from '@/components/ui/motion';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { useAuth } from '@/features/auth/context/useAuth';
@@ -80,11 +81,12 @@ export function TodayPage() {
       ? (followups.state.data.find((item) => item.id === id) ?? null)
       : null;
 
-  const complete = async (followupId: string) => {
+  const complete = async (followupId: string, origin: DOMRect) => {
     setActionError(null);
     try {
       const updated = await followupService.setCompleted(followupId, true);
       followups.updateData((list) => list.map((item) => (item.id === updated.id ? updated : item)));
+      sparkBurst(origin);
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : 'No se pudo completar.');
     }
@@ -137,7 +139,9 @@ export function TodayPage() {
             <TodayRow
               key={item.id}
               item={item}
-              onComplete={item.followupId ? () => void complete(item.followupId!) : undefined}
+              onComplete={
+                item.followupId ? (origin) => void complete(item.followupId!, origin) : undefined
+              }
               onMove={item.followupId ? () => setMoving(followupById(item.followupId)) : undefined}
             />
           ))}
@@ -175,7 +179,8 @@ function TodayRow({
   onMove,
 }: {
   item: TodayItem;
-  onComplete?: () => void;
+  /** `origin` is where the button was: the row leaves the list once it's done. */
+  onComplete?: (origin: DOMRect) => void;
   onMove?: () => void;
 }) {
   const navigate = useNavigate();
@@ -224,7 +229,11 @@ function TodayRow({
           </Button>
         ) : null}
         {onComplete ? (
-          <Button size="sm" variant="ghost" onClick={onComplete}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(event) => onComplete(event.currentTarget.getBoundingClientRect())}
+          >
             <Check size={14} aria-hidden="true" />
             Hecho
           </Button>

@@ -68,7 +68,8 @@ function StageTag({ label, count, active, colors, onClick }: StageTagProps) {
       aria-pressed={active}
       onClick={onClick}
       className={cx(
-        'inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium ring-1 ring-inset transition-colors duration-150',
+        'inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium ring-1 ring-inset',
+        'transition-[color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60',
         active ? colors.active : colors.tag
       )}

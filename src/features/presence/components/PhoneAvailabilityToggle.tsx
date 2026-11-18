@@ -27,7 +27,9 @@ export function PhoneAvailabilityToggle() {
             aria-checked={selected}
             onClick={() => setAvailability(value)}
             className={cx(
-              'flex h-12 items-center justify-center gap-2 rounded-xl text-base font-semibold transition-colors duration-150',
+              // Concentric corners: the group's 16px radius minus its 6px padding.
+              'flex h-12 items-center justify-center gap-2 rounded-[10px] text-base font-semibold',
+              'transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.97]',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60',
               selected
                 ? value === 'active'

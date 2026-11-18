@@ -10,6 +10,7 @@ import { PinKeypad } from '@/features/auth/components/PinKeypad';
 import { BrandPanel } from '@/features/auth/components/BrandPanel';
 import { Button } from '@/components/ui/Button';
 import { StatusMessage } from '@/components/ui/StatusMessage';
+import { useShake } from '@/components/ui/useShake';
 
 interface LoginScreenProps {
   agents: Agent[];
@@ -30,6 +31,7 @@ export function LoginScreen({
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dotsRef, shake] = useShake<HTMLDivElement>();
 
   const handleDigit = useCallback((digit: string) => {
     setError(null);
@@ -48,8 +50,9 @@ export function LoginScreen({
       setSubmitting(false);
       setError(message);
       setPin('');
+      if (message) shake();
     },
-    [onSignIn]
+    [onSignIn, shake]
   );
 
   // Works in either order: the last digit or the agent can come second.
@@ -92,6 +95,8 @@ export function LoginScreen({
                 onDigit={handleDigit}
                 onDelete={handleDelete}
                 disabled={submitting}
+                invalid={error !== null}
+                dotsRef={dotsRef}
               />
               {shownError ? (
                 <p role="alert" className="text-center text-sm font-medium text-danger-700">

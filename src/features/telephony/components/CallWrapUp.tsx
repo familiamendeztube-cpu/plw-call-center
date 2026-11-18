@@ -4,6 +4,7 @@ import { Phone, X } from 'lucide-react';
 import { useAppServices } from '@/app/ServicesContext';
 import { Button } from '@/components/ui/Button';
 import { cx } from '@/components/ui/cx';
+import { sparkBurst } from '@/components/ui/motion';
 import { useAgentSession } from '@/features/auth/hooks/useAgentSession';
 import {
   CUSTOMER_ACTION_PARAM,
@@ -87,7 +88,8 @@ export function CallWrapUp() {
   const dialable = toCostaRicaNumber(ended.number);
   const close = () => setEnded(null);
 
-  const save = async (target: Prospect, schedule: boolean) => {
+  /** `origin`: the button pressed, for the sparks; the panel itself closes on success. */
+  const save = async (target: Prospect, schedule: boolean, origin?: DOMRect) => {
     setSaving(true);
     setError(null);
     try {
@@ -96,6 +98,7 @@ export function CallWrapUp() {
         agentId,
         body: callNoteText(ended, result, note),
       });
+      if (origin) sparkBurst(origin);
       close();
       const params = new URLSearchParams({ [CUSTOMER_PARAM]: target.id });
       if (schedule) params.set(CUSTOMER_ACTION_PARAM, CUSTOMER_ACTION_SCHEDULE);
@@ -126,7 +129,7 @@ export function CallWrapUp() {
           type="button"
           onClick={close}
           aria-label="Cerrar sin guardar"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-[background-color,transform] duration-150 ease-out hover:bg-neutral-100 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
         >
           <X size={16} aria-hidden="true" />
         </button>
@@ -141,7 +144,8 @@ export function CallWrapUp() {
             aria-checked={result === option}
             onClick={() => setResult(option)}
             className={cx(
-              'h-7 rounded-full px-2.5 text-xs font-medium ring-1 ring-inset transition-colors',
+              'h-7 rounded-full px-2.5 text-xs font-medium ring-1 ring-inset',
+              'transition-[color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97]',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60',
               result === option
                 ? 'bg-plw-navy text-white ring-plw-navy'
@@ -174,14 +178,22 @@ export function CallWrapUp() {
       <div className="flex flex-wrap gap-2">
         {customer ? (
           <>
-            <Button size="sm" disabled={saving} onClick={() => void save(customer, false)}>
+            <Button
+              size="sm"
+              disabled={saving}
+              onClick={(event) =>
+                void save(customer, false, event.currentTarget.getBoundingClientRect())
+              }
+            >
               Guardar nota
             </Button>
             <Button
               size="sm"
               variant="secondary"
               disabled={saving}
-              onClick={() => void save(customer, true)}
+              onClick={(event) =>
+                void save(customer, true, event.currentTarget.getBoundingClientRect())
+              }
             >
               Guardar y agendar
             </Button>

@@ -16,6 +16,8 @@
     color-scheme: dark;
     accent-color: #2f6bff;
     scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+    /* Lets height animate to and from `auto` (Chromium 129+); elsewhere it just snaps. */
+    interpolate-size: allow-keywords;
   }
 
   * {
@@ -129,6 +131,23 @@
 @layer utilities {
   .font-display {
     font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+  }
+}
+
+/* Expandable: grows from 0 to its natural height and back. Outside @layer so it is always
+   emitted; overflow hidden (not clip) so a child's top margin stays inside while it grows. */
+.expandable {
+  overflow: hidden;
+  transition: height 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.expandable[data-open='false'] {
+  height: 0;
+}
+
+@starting-style {
+  .expandable[data-open='true'] {
+    height: 0;
   }
 }
 

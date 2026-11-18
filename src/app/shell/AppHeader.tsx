@@ -30,7 +30,7 @@ export function AppHeader({ displayName, roleLabel, statusControl }: AppHeaderPr
           <button
             type="button"
             onClick={signOut}
-            className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold-soft"
+            className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium text-white/85 transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.97] hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold-soft"
           >
             <LogOut size={16} aria-hidden="true" />
             Salir
