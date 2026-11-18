@@ -45,13 +45,13 @@
       "hasChanged": false,
       "hash": "f4a9548bfb34c7bd1f231fea9e68f2ccd787eb7d12a0de103ae945d80b3f770e"
     },
+    "tourism-dialer": {
+      "hasChanged": false,
+      "hash": "1a26c86812a179b9e1b2ff1f59e4f45aff7d01f4d213165f883856fb70fa5e18"
+    },
     "whatsapp": {
       "hasChanged": false,
       "hash": "07be34126010cc7f64eb0eeb150cd3636a8c48f16471493f9a8d83b943302c6b"
-    },
-    "tourism-dialer": {
-      "hasChanged": false,
-      "hash": "2efa4e8ae09ec5cb2be5a57db4743bb17ba2fc90af10d638c14811fc7b557887"
     }
   }
 }

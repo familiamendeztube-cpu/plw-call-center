@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { isRecord, postStaffFunction, readStaffFunctionError } from '@/integrations/supabase/callStaffFunction';
-import { parseLeadRows } from '@/features/ai-outbound/models/outboundLead';
+import { parseCsvText, parseLeadRows } from '@/features/ai-outbound/models/outboundLead';
 import { readLeadFile } from '@/features/ai-outbound/models/leadFile';
 import {
   createCampaign,
@@ -39,6 +39,7 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [importPreview, setImportPreview] = useState<LeadImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
+  const [pastedCsv, setPastedCsv] = useState('');
 
   const run = async (action: string, payload: Record<string, unknown> = {}) => {
     const response = await postStaffFunction('tourism-dialer', { ...payload, action });
@@ -63,20 +64,19 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
     }
   };
 
-  const onFile = async (file: File) => {
+  const importRows = async (rows: string[][]) => {
     setImporting(true);
     setMessage(null);
     try {
-      const rows = await readLeadFile(file);
       const dncPhones = new Set<string>(await listDoNotCallPhones());
       const preview = parseLeadRows(rows, dncPhones);
       setImportPreview(preview);
       if (preview.tooMany) {
-        setMessage({ kind: 'error', text: 'El archivo pasa de 500 leads válidos; divídalo en dos archivos.' });
+        setMessage({ kind: 'error', text: 'La lista pasa de 500 leads válidos; divídala en dos importaciones.' });
         return;
       }
       if (preview.valid.length === 0) {
-        setMessage({ kind: 'error', text: 'No hay números válidos para importar en el archivo.' });
+        setMessage({ kind: 'error', text: 'No hay números válidos para importar en la lista.' });
         return;
       }
       const campaigns = await listCampaigns();
@@ -98,6 +98,7 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
         kind: 'ok',
         text: `Importados ${imported} de ${preview.valid.length} leads nuevos en "${TOURISM_CAMPAIGN_NAME}" (los repetidos se omiten automáticamente).`,
       });
+      setPastedCsv('');
       onChanged();
     } catch (error) {
       setMessage({
@@ -107,6 +108,22 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
     } finally {
       setImporting(false);
     }
+  };
+
+  const onFile = async (file: File) => {
+    try {
+      await importRows(await readLeadFile(file));
+    } catch {
+      setMessage({ kind: 'error', text: 'No se pudo leer el archivo CSV.' });
+    }
+  };
+
+  const onPaste = () => {
+    if (!pastedCsv.trim()) {
+      setMessage({ kind: 'error', text: 'Pegue el contenido CSV primero.' });
+      return;
+    }
+    void importRows(parseCsvText(pastedCsv));
   };
 
   return (
@@ -195,14 +212,37 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
             if (file) void onFile(file);
           }}
         />
+        <div className="mt-3">
+          <label className="block text-sm font-medium text-slate-700" htmlFor="tourism-csv-paste">
+            O pegue el CSV aquí (mismo formato)
+          </label>
+          <textarea
+            id="tourism-csv-paste"
+            rows={6}
+            value={pastedCsv}
+            disabled={importing}
+            onChange={(event) => setPastedCsv(event.target.value)}
+            placeholder={"Teléfono,Negocio,Contacto,Tipo de negocio\n88887777,Tour Ejemplo,Juan,tours"}
+            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-500 focus:outline-none"
+          />
+          <button
+            type="button"
+            disabled={importing}
+            onClick={onPaste}
+            className="mt-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {importing ? 'Importando…' : 'Importar lo pegado'}
+          </button>
+        </div>
         {importPreview && (
           <div className="mt-2 text-sm text-slate-600">
             <p>
               Válidos: {importPreview.valid.length} · Duplicados: {importPreview.duplicates} ·
-              Bloqueados: {importPreview.doNotCall} · Inválidos: {importPreview.invalid.length}
+              Bloqueados: {importPreview.doNotCall} · Solo WhatsApp: {importPreview.whatsappOnly} ·
+              Inválidos: {importPreview.invalid.length}
             </p>
             {importPreview.tooMany && (
-              <p className="text-red-700">El archivo pasa de 500 leads válidos; divídalo.</p>
+              <p className="text-red-700">La lista pasa de 500 leads válidos; divídala.</p>
             )}
           </div>
         )}

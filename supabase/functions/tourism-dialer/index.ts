@@ -80,6 +80,10 @@ Deno.serve(async (req) => {
           return json({ error: 'No se confirmó la creación de la voz. Revise ElevenLabs antes de repetir.' }, 502);
         await db.from('tourism_dialer_runtime').update({ provider_agent_id: providerId }).eq('id', 1);
       }
+      // The readback must be verified against the agent that actually answers — the freshly
+      // created id on first configuration, when the saved one is still null. Verifying against
+      // the stale route failed every first configure with agent_identity.
+      route.provider_agent_id = providerId;
       let failures = tourismConfigFailures(
         (await providerRequest(apiKey, `/agents/${encodeURIComponent(providerId)}`)).data ?? {},
         route

@@ -7,6 +7,7 @@ export interface OutboundLeadDraft {
   contact_name: string;
   business_name: string;
   business_type: string;
+  channel: string;
 }
 
 export interface LeadImportPreview {
@@ -14,6 +15,7 @@ export interface LeadImportPreview {
   invalid: { line: number; text: string }[];
   duplicates: number;
   doNotCall: number;
+  whatsappOnly: number;
   tooMany: boolean;
 }
 
@@ -26,6 +28,7 @@ const HEADER_ALIASES: Record<LeadColumn, string[]> = {
   business_name: ['negocio', 'nombre del negocio', 'empresa', 'business', 'business name'],
   contact_name: ['contacto', 'nombre', 'persona', 'contact', 'contact name'],
   business_type: ['tipo', 'tipo de negocio', 'giro', 'rubro', 'type', 'business type'],
+  channel: ['canal publicado', 'canal', 'channel'],
 };
 
 function normalizeHeader(value: string): string {
@@ -107,6 +110,7 @@ export function parseLeadRows(rows: string[][], doNotCallPhones: ReadonlySet<str
     invalid: [],
     duplicates: 0,
     doNotCall: 0,
+    whatsappOnly: 0,
     tooMany: false,
   };
   const seen = new Set<string>();
@@ -131,6 +135,11 @@ export function parseLeadRows(rows: string[][], doNotCallPhones: ReadonlySet<str
       preview.invalid.push({ line, text: cells.join(' | ') });
       return;
     }
+    // Rows published only on WhatsApp have no callable line: the AI dialer is voice-only.
+    if (/^whatsapp/i.test(record.channel ?? '')) {
+      preview.whatsappOnly += 1;
+      return;
+    }
     if (doNotCallPhones.has(phone)) {
       preview.doNotCall += 1;
       return;
@@ -145,6 +154,7 @@ export function parseLeadRows(rows: string[][], doNotCallPhones: ReadonlySet<str
       contact_name: (record.contact_name ?? '').slice(0, 120),
       business_name: (record.business_name ?? '').slice(0, 160),
       business_type: (record.business_type ?? '').slice(0, 120),
+      channel: (record.channel ?? '').slice(0, 60),
     });
   });
 

@@ -33,6 +33,7 @@ describe('parseLeadRows', () => {
         contact_name: 'Lucía',
         business_name: 'Salón Bella',
         business_type: 'Salón',
+        channel: '',
       },
     ]);
     expect(preview.invalid).toEqual([]);
@@ -81,5 +82,34 @@ describe('parseLeadRows', () => {
     const preview = parseLeadRows([['', ''], ['8888-1234', 'Uno']], NO_DNC);
     expect(preview.valid).toHaveLength(1);
     expect(preview.invalid).toEqual([]);
+  });
+
+  it('handles the production headings and skips WhatsApp-only rows', () => {
+    const preview = parseLeadRows(
+      [
+        ['Teléfono', 'Negocio', 'Contacto', 'Tipo de negocio', 'Canal publicado'],
+        ['8888-1234', 'Tour Beté', 'Juan', 'tours', ''],
+        ['7777-2233', 'Hotel Vista', 'Ana', 'hoteles', 'WhatsApp'],
+        ['6666-3344', 'Renta Car', 'Beto', 'transporte', 'Llamada'],
+      ],
+      NO_DNC
+    );
+    expect(preview.valid.map((lead) => lead.phone)).toEqual(['88881234', '66663344']);
+    expect(preview.valid.every((lead) => lead.channel !== 'WhatsApp')).toBe(true);
+    expect(preview.whatsappOnly).toBe(1);
+    expect(preview.invalid).toEqual([]);
+  });
+
+  it('excludes do-not-call numbers with the channel column present', () => {
+    const preview = parseLeadRows(
+      [
+        ['Teléfono', 'Negocio', 'Canal publicado'],
+        ['8888-1234', 'Bloqueado', 'Llamada'],
+        ['2222-5678', 'Válido', 'Llamada'],
+      ],
+      new Set(['88881234'])
+    );
+    expect(preview.valid.map((lead) => lead.phone)).toEqual(['22225678']);
+    expect(preview.doNotCall).toBe(1);
   });
 });
