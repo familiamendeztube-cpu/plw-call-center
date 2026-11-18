@@ -124,7 +124,7 @@ it('renders one controls region per selected agent and submits to that agent aft
       <DentalDialerPage />
     </MemoryRouter>
   );
-  const select = screen.getByRole('combobox') as HTMLSelectElement;
+  const select = screen.getByRole('combobox', { name: 'Agente' }) as HTMLSelectElement;
   for (const staff of ['agent-3', 'agent-2', 'agent-3', 'agent-2']) {
     fireEvent.change(select, { target: { value: staff } });
     expect(

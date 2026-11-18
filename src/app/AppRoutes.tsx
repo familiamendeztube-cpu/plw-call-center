@@ -22,6 +22,7 @@ import { AdminAiCallsPage } from '@/features/ai-calls/pages/AdminAiCallsPage';
 import { AdminAiOutboundPage } from '@/features/ai-outbound/pages/AdminAiOutboundPage';
 import { DentalLeadsPage } from '@/features/dental-leads/pages/DentalLeadsPage';
 import { DentalDialerPage } from '@/features/dental-leads/pages/DentalDialerPage';
+import { AdminTestPage } from '@/features/dental-leads/pages/AdminTestPage';
 
 export function AppRoutes() {
   return (
@@ -54,6 +55,7 @@ export function AppRoutes() {
         }
       >
         <Route path="/admin/resumen" element={<AdminOverviewPage />} />
+        <Route path="/admin/test" element={<AdminTestPage />} />
         <Route path="/admin/agentes" element={<AdminAgentsPage />} />
         <Route path="/admin/prospectos" element={<AdminProspectsPage />} />
         <Route path="/admin/asignaciones" element={<AssignmentPage />} />
