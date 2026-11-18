@@ -59,7 +59,15 @@ export async function listLeads(campaignId: string): Promise<OutboundLead[]> {
 }
 
 export async function importLeads(campaignId: string, drafts: OutboundLeadDraft[]): Promise<number> {
-  const rows = drafts.map((draft) => ({ ...draft, campaign_id: campaignId }));
+  // Whitelist the persisted columns; drafts carry extra fields (e.g. channel)
+  // that do not exist in the table and would make PostgREST reject the batch.
+  const rows = drafts.map((draft) => ({
+    phone: draft.phone,
+    contact_name: draft.contact_name,
+    business_name: draft.business_name,
+    business_type: draft.business_type,
+    campaign_id: campaignId,
+  }));
   const { data, error } = await getSupabaseClient()
     .from('ai_outbound_leads')
     .upsert(rows, { onConflict: 'campaign_id,phone', ignoreDuplicates: true })
