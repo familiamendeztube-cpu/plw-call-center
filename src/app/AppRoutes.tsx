@@ -11,6 +11,7 @@ import { TodayPage } from '@/features/today/pages/TodayPage';
 import { FollowupsPage } from '@/features/followups/pages/FollowupsPage';
 import { MaterialsPage } from '@/features/sales-materials/pages/MaterialsPage';
 import { AdminOverviewPage } from '@/features/admin/pages/AdminOverviewPage';
+import { AdminCustomersPage } from '@/features/admin/pages/AdminCustomersPage';
 import { AdminAgentsPage } from '@/features/admin/pages/AdminAgentsPage';
 import { AdminProspectsPage } from '@/features/admin/pages/AdminProspectsPage';
 import { AssignmentPage } from '@/features/assignment/pages/AssignmentPage';
@@ -56,6 +57,7 @@ export function AppRoutes() {
       >
         <Route path="/admin/resumen" element={<AdminOverviewPage />} />
         <Route path="/admin/test" element={<AdminTestPage />} />
+        <Route path="/admin/clientes" element={<AdminCustomersPage />} />
         <Route path="/admin/agentes" element={<AdminAgentsPage />} />
         <Route path="/admin/prospectos" element={<AdminProspectsPage />} />
         <Route path="/admin/asignaciones" element={<AssignmentPage />} />

@@ -9,6 +9,7 @@ import { loadPhoneRecords } from '@/features/admin/services/phoneRecords';
 import type { AdminSnapshot } from '@/features/admin/models/overview';
 import { FOLLOWUP_KIND_LABELS } from '@/features/followups/models/followup';
 import { ConversationPane } from '@/features/inbox/components/ConversationPane';
+import { WhatsAppConversation } from '@/features/whatsapp/components/WhatsAppConversation';
 import {
   PAYMENT_STATUSES,
   PAYMENT_STATUS_LABELS,
@@ -166,9 +167,12 @@ export function AdminCustomerDrawer({
         <section aria-label="Conversación y notas" className="flex flex-col gap-2">
           <h3 className="text-sm font-semibold text-plw-ink">Conversación y notas privadas</h3>
           {prospect.source === 'whatsapp' ? (
-            <p className="text-sm text-neutral-600">El chat de WhatsApp se lee en Chatwoot.</p>
-          ) : null}
-          {conversation ? (
+            <WhatsAppConversation
+              conversationId={prospect.id}
+              prospect={prospect}
+              agentNames={agentNames}
+            />
+          ) : conversation ? (
             <div className="h-[28rem] overflow-hidden rounded-lg border border-neutral-200">
               <ConversationPane conversationId={conversation.id} agentNames={agentNames} />
             </div>

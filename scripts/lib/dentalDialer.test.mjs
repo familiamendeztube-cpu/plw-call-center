@@ -548,7 +548,7 @@ test('the discovery prompt greets, runs brief consultative discovery, then demos
   const prompt = salesPrompt({ dentalMode: true });
   for (const phrase of [
     '¿Usted maneja las citas de la clínica?',
-    'Perfecto. Le llamo de Professional Latino Workers. ¿Las llamadas de la clínica las atiende usted o alguien más del equipo?',
+    'Le llamo de Professional Latino Workers. Soy Ana Chacón Méndez.',
     'Entiendo. ¿Les entran muchas llamadas durante el día?',
     '¿En qué horario suelen atenderlas? ¿Como de ocho a cinco?',
     'Le pregunto porque cuando usted está con un paciente o la clínica está cerrada, nosotros podemos contestar y dejarle las solicitudes de cita en español. ¿Tiene treinta segundos? Le doy un ejemplo rapidito.',
@@ -643,13 +643,15 @@ test('the prompt introduces Ana once with the exact authorized greeting and vers
   const { salesPrompt, DENTAL_FIRST_MESSAGE, SALES_SCRIPT_VERSION } = await import(
     '../../supabase/functions/dental-dialer/salesScript.js'
   );
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-discovery');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-greeting-contact');
   assert.equal(
     DENTAL_FIRST_MESSAGE,
-    'Hola, pura vida. Soy Ana Chacón Méndez de PLW. ¿Usted maneja las citas de la clínica?'
+    'Hola, pura vida. ¿Hablo con {{business_name | la clínica}}?'
   );
   const prompt = salesPrompt({ dentalMode: true });
   assert.ok(prompt.includes('Tu nombre y la empresa se dicen una sola vez, en el saludo.'));
+  assert.ok(prompt.includes('¿por quién pregunta?'));
+  assert.ok(prompt.includes('NEGOCIO EQUIVOCADO O DESCONOCIDO'));
   assert.ok(!prompt.includes('Anna Chacón-Méndez'));
   assert.ok(!/protocol/i.test(prompt));
   assert.ok(prompt.includes('PEDIDO DE MENSAJE O NÚMERO (tiene prioridad sobre lo demás)'));

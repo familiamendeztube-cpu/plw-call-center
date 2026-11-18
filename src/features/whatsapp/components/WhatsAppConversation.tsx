@@ -29,7 +29,8 @@ interface WhatsAppConversationProps {
   /** The customer's PLW conversation: header, sales stage and private notes. */
   conversationId: string;
   prospect: Prospect;
-  agentId: AgentId;
+  /** The signed-in agent; the administrator has none. */
+  agentId?: AgentId;
   agentNames: Record<string, string>;
   /** Called once the chat is on screen: the server has marked it read. */
   onRead?: () => void;

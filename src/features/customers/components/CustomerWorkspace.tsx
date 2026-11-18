@@ -41,7 +41,8 @@ const WHATSAPP_TAB: TabItem = { id: 'whatsapp', label: 'WhatsApp' };
 
 interface CustomerWorkspaceProps {
   entry: CustomerEntry;
-  agentId: AgentId;
+  /** The signed-in agent; the administrator has none and loses the schedule button. */
+  agentId?: AgentId;
   agentNames: Record<string, string>;
   /** The stage or details changed in the chat header, so the customer list can follow. */
   onProspectChange?: (prospect: Prospect) => void;
@@ -126,10 +127,12 @@ export function CustomerWorkspace({
                 Marcar en el teléfono
               </Button>
             ) : null}
-            <Button variant="ghost" size="sm" onClick={() => setScheduling('')}>
-              <CalendarPlus size={14} aria-hidden="true" />
-              Agendar
-            </Button>
+            {agentId ? (
+              <Button variant="ghost" size="sm" onClick={() => setScheduling('')}>
+                <CalendarPlus size={14} aria-hidden="true" />
+                Agendar
+              </Button>
+            ) : null}
             {onProspectChange ? (
               <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
                 <Pencil size={14} aria-hidden="true" />
@@ -229,7 +232,6 @@ export function CustomerWorkspace({
               agentId={agentId}
               agentNames={agentNames}
               onRead={markRead}
-              onProspectChange={onProspectChange}
               initialText={whatsAppDraft}
             />
           ) : (
@@ -283,7 +285,7 @@ export function CustomerWorkspace({
         />
       ) : null}
 
-      {scheduling !== null ? (
+      {scheduling !== null && agentId ? (
         <ScheduleFollowupDialog
           agentId={agentId}
           prospects={[prospect]}

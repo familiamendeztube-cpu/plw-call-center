@@ -26,6 +26,7 @@ export function DentalDialerControls({
     phone: '',
     businessName: '',
     businessType: 'Clínica dental',
+    contactName: '',
     requestId: crypto.randomUUID(),
     message: '',
     ok: false,
@@ -45,6 +46,7 @@ export function DentalDialerControls({
         phone: anaTest.phone,
         businessName: anaTest.businessName,
         businessType: anaTest.businessType,
+        contactName: anaTest.contactName,
         voiceModel: anaTest.voiceModel,
         candidateVoiceId:
           anaTest.voiceModel === 'current' ? '' : anaTest.candidateVoiceId.trim(),
@@ -284,6 +286,17 @@ export function DentalDialerControls({
                 maxLength={120}
                 onChange={(e) => setAnaTest({ ...anaTest, businessType: e.target.value })}
                 placeholder="Clínica dental"
+                className="h-11 rounded-lg border bg-white px-3"
+                disabled={busy}
+              />
+            </label>
+            <label className="grid gap-1">
+              Persona a contactar (opcional)
+              <input
+                value={anaTest.contactName}
+                maxLength={120}
+                onChange={(e) => setAnaTest({ ...anaTest, contactName: e.target.value })}
+                placeholder="Dra. Solís — vacío: la persona encargada"
                 className="h-11 rounded-lg border bg-white px-3"
                 disabled={busy}
               />

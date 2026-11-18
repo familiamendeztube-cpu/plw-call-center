@@ -356,7 +356,7 @@ test('asterisk_calls: an agent sees only their own calls and the administrator s
 for (const table of ADMIN_ONLY_TABLES) {
   test(`${table}: only the administrator can read it`, async () => {
     assert.deepEqual(await visibleIds(AGENT_1, table), []);
-    assert.equal((await visibleIds(ADMIN, table)).length, 1);
+    assert.equal((await visibleIds(ADMIN, table)).length, table === 'admin_audit_events' ? 2 : 1);
   });
 }
 

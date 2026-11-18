@@ -66,7 +66,7 @@ export async function dispatchCall(db, apiKey, claim, fetchImpl = fetch, ttsOver
           dynamic_variables: {
             business_name: lead.business_name,
             business_type: lead.business_type || 'Clínica dental',
-            contact_name: lead.contact_name || 'la persona encargada',
+            contact_name: lead.contact_name || 'la persona encargada de las citas o de atención al paciente',
             saludo: greetingFor(),
             plw_dental_call_id: call.id,
             plw_script_version: SALES_SCRIPT_VERSION,

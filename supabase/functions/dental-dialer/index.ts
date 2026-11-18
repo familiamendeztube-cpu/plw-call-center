@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
         p_phone: phone,
         p_business_name: businessName,
         p_business_type: businessType,
-        p_contact_name: contactName || 'la persona encargada',
+        p_contact_name: contactName || 'la persona encargada de las citas o de atención al paciente',
       });
       if (error)
         return json(

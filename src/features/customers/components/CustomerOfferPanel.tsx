@@ -11,7 +11,8 @@ import type { AgentId } from '@/features/auth/models/agent';
 
 interface CustomerOfferPanelProps {
   prospect: Prospect;
-  agentId: AgentId;
+  /** The signed-in agent; the administrator has none and cannot leave notes here. */
+  agentId?: AgentId;
 }
 
 interface FactProps {
@@ -55,11 +56,13 @@ export function CustomerOfferPanel({ prospect, agentId }: CustomerOfferPanelProp
             Solo tú y el equipo la ven. El cliente no recibe esta nota.
           </p>
         </div>
-        <PrivateNoteComposer
-          prospectId={prospect.id}
-          agentId={agentId}
-          onSaved={() => setNoteSaved(true)}
-        />
+        {agentId ? (
+          <PrivateNoteComposer
+            prospectId={prospect.id}
+            agentId={agentId}
+            onSaved={() => setNoteSaved(true)}
+          />
+        ) : null}
         {noteSaved ? (
           <p role="status" className="text-xs font-medium text-success-700">
             Nota guardada. Solo tu equipo puede verla.

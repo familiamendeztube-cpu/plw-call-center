@@ -19,6 +19,7 @@ export const AGENT_NAV_ITEMS: NavItem[] = [
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/admin/resumen', label: 'Resumen' },
   { to: '/admin/test', label: 'Test' },
+  { to: '/admin/clientes', label: 'Clientes' },
   { to: '/admin/agentes', label: 'Agentes' },
   { to: '/admin/prospectos', label: 'Prospectos' },
   { to: '/admin/asignaciones', label: 'Asignaciones' },
