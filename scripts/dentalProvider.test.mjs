@@ -210,7 +210,7 @@ test('Anna opens without an AI label and reveals she is AI in the demonstration;
   );
   assert.equal(DENTAL_FIRST_MESSAGE, 'Hola, pura vida. Soy Ana Chacón Méndez de PLW. ¿Usted maneja las citas de la clínica?');
   assert.ok(!/inteligencia|robot|IA\b/i.test(DENTAL_FIRST_MESSAGE));
-  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-agenda-gate');
+  assert.equal(SALES_SCRIPT_VERSION, 'anna-2026-11-18-discovery');
   assert.equal(
     DENTAL_FIRST_MESSAGE,
     'Hola, pura vida. Soy Ana Chacón Méndez de PLW. ¿Usted maneja las citas de la clínica?'
@@ -373,7 +373,7 @@ test('the readback reports the version actually running on the live agent', asyn
   const config = dentalAgentConfig('Alejandro', route, 'voice');
   const readback = agentReadback({ agent_id: route.provider_agent_id, ...config });
   assert.deepEqual(readback, {
-    script_version: 'anna-2026-11-18-agenda-gate',
+    script_version: 'anna-2026-11-18-discovery',
     script_current: true,
     model: 'eleven_v3_conversational',
     voice_id: 'voice',
@@ -382,7 +382,7 @@ test('the readback reports the version actually running on the live agent', asyn
   });
   const stale = structuredClone(config);
   stale.conversation_config.agent.prompt.prompt = stale.conversation_config.agent.prompt.prompt.replace(
-    'anna-2026-11-18-agenda-gate',
+    'anna-2026-11-18-discovery',
     'old'
   );
   assert.equal(agentReadback(stale).script_current, false);
