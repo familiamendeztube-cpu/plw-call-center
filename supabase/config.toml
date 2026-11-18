@@ -40,3 +40,7 @@ verify_jwt = false
 [functions.dental-dialer]
 # Live staff sessions or the dedicated Vault scheduler key are checked in the handler.
 verify_jwt = false
+
+[functions.tourism-dialer]
+# Live admin sessions or the shared dedicated Vault scheduler key are checked in the handler.
+verify_jwt = false

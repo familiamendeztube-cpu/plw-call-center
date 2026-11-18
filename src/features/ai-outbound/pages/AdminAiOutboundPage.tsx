@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Phone, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -7,13 +7,35 @@ import { CampaignDetail } from '@/features/ai-outbound/components/CampaignDetail
 import { CreateCampaignDialog } from '@/features/ai-outbound/components/CreateCampaignDialog';
 import { TestCallDialog } from '@/features/ai-outbound/components/TestCallDialog';
 import { useOutboundCampaigns } from '@/features/ai-outbound/hooks/useOutboundCampaigns';
+import { TourismDialerCard, type TourismRuntime } from '@/features/ai-outbound/components/TourismDialerCard';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { cx } from '@/components/ui/cx';
 
 export function AdminAiOutboundPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [tourism, setTourism] = useState<TourismRuntime | null>(null);
+  const [tourismError, setTourismError] = useState<string | null>(null);
   const { state, reload } = useOutboundCampaigns();
+
+  const reloadTourism = () => {
+    getSupabaseClient()
+      .from('tourism_dialer_runtime')
+      .select('scheduler_ready,last_tick_at,last_error,provider_agent_id,config_verified_at,transfer_uri,dialed_today,daily_cap')
+      .eq('id', 1)
+      .maybeSingle()
+      .then(({ data, error }: { data: TourismRuntime | null; error: { message: string } | null }) => {
+        setTourismError(error ? 'No se pudo leer el estado del marcador de turismo.' : null);
+        setTourism(data ?? null);
+      });
+  };
+
+  useEffect(() => {
+    reloadTourism();
+    const timer = setInterval(reloadTourism, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const campaigns = state.status === 'ready' ? state.data : [];
   const selected = campaigns.find((campaign) => campaign.id === selectedId) ?? campaigns[0] ?? null;
@@ -87,6 +109,8 @@ export function AdminAiOutboundPage() {
       />
 
       <TestCallDialog open={testing} onClose={() => setTesting(false)} />
+
+      <TourismDialerCard runtime={tourism} runtimeError={tourismError} onChanged={reloadTourism} />
     </div>
   );
 }

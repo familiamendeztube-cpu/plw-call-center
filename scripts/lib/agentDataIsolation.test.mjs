@@ -47,6 +47,9 @@ const OUTBOUND_INTAKE_TABLES = OUTBOUND_ADMIN_TABLES.filter(
   (table) => !['ai_outbound_settings', 'ai_outbound_test_calls'].includes(table)
 );
 const SHARED_TABLES = ['sales_materials', 'settings'];
+// Tourism dialer: the browser (admin UI) reads runtime state and its own campaign rows;
+// callbacks and call rows are service_role only, so they appear only in this read list.
+const TOURISM_DIALER_TABLES = ['tourism_callbacks', 'tourism_calls', 'tourism_dialer_runtime'];
 
 // Any new entry here is a new way for a browser to reach data, so it needs its own
 // isolation test before it joins these lists.
@@ -61,6 +64,7 @@ const BROWSER_READABLE_TABLES = [
   ...PERSONAL_TABLES.map(([table]) => table),
   ...ADMIN_ONLY_TABLES,
   ...OUTBOUND_ADMIN_TABLES,
+  ...TOURISM_DIALER_TABLES,
   ...SHARED_TABLES,
   'staff_presence',
   'staff_profiles',
@@ -86,9 +90,11 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'confirm_dental_transfer',
   'control_dental_dialer',
   'control_dental_dialer_if_active',
+  'control_tourism_dialer',
   'create_inquiry',
   'current_staff_id',
   'email_sending_ready',
+  'enable_tourism_scheduler',
   'get_reply_target',
   'is_admin',
   'list_overdue_conversations',

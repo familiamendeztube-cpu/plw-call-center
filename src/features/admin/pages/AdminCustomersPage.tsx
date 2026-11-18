@@ -9,7 +9,6 @@ import { useAgentNames } from '@/features/auth/hooks/useAgentNames';
 import { useAdminSnapshot } from '@/features/admin/hooks/useAdminSnapshot';
 import {
   buildCustomerEntries,
-  type CustomerEntry,
 } from '@/features/customers/models/customerEntries';
 import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
 import { CustomerList } from '@/features/customers/components/CustomerList';
@@ -69,7 +68,7 @@ export function AdminCustomersPage() {
 
   // The stage or details changed inside the chat: the snapshot refreshes in place, so the
   // customer list follows without waiting for the next poll.
-  const handleProspectChange = (_updated: CustomerEntry['prospect']) => refresh();
+  const handleProspectChange = () => refresh();
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6 lg:p-8">
