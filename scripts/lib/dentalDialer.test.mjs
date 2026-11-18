@@ -180,6 +180,58 @@ test('test requests are idempotent, transcripts private and only the receiving a
     await denied(tx, "UPDATE dental_calls SET transfer_status='none'", [], /permission denied/);
   }));
 
+test('Ana test reservation is admin-only, idempotent by request and isolated from leads and counters', async () =>
+  fixture(async (tx) => {
+    await as(tx);
+    const args = [
+      id(900),
+      'agent-2',
+      '22223333',
+      'Clínica Ana Prueba',
+      'Clínica dental',
+      'Recepción',
+    ];
+    const first = (await tx.query('SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6) AS data', args))
+      .rows[0].data;
+    assert.equal(first.claimed, true);
+    assert.equal(first.lead.business_name, 'Clínica Ana Prueba');
+    assert.equal(first.lead.business_type, 'Clínica dental');
+    assert.equal(first.lead.contact_name, 'Recepción');
+    assert.equal(first.call.is_test, true);
+    assert.equal(first.call.lead_id, null);
+    // Same request again: reserved once, no second dispatch.
+    const repeat = (await tx.query('SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6) AS data', args))
+      .rows[0].data;
+    assert.equal(repeat.claimed, false);
+    // A different request id is a deliberate later call: allowed once the previous one finished.
+    await tx.query("UPDATE dental_calls SET state='completed' WHERE id=$1::uuid", [first.call.id]);
+    const again = (
+      await tx.query('SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6) AS data', [
+        id(901),
+        'agent-2',
+        '22223333',
+        'Clínica Ana Prueba',
+        'Clínica dental',
+        'Recepción',
+      ])
+    ).rows[0].data;
+    assert.equal(again.claimed, true);
+    await as(tx, 1);
+    await denied(
+      tx,
+      'SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6)',
+      [id(902), 'agent-2', '22223333', 'Clínica', 'Clínica dental', 'Recepción'],
+      /permission denied/
+    );
+    await as(tx, 0);
+    await denied(
+      tx,
+      'SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6)',
+      [id(903), 'agent-2', '22223333', 'Clínica', 'Clínica dental', 'Recepción'],
+      /permission denied/
+    );
+  }));
+
 test('Alejandro pilot stops at 20 new attempts, preserves the twentieth dispatch and cannot be resumed past the cap', async () =>
   fixture(async (tx) => {
     await as(tx);

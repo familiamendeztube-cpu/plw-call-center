@@ -65,7 +65,7 @@ export async function dispatchCall(db, apiKey, claim, fetchImpl = fetch) {
         conversation_initiation_client_data: {
           dynamic_variables: {
             business_name: lead.business_name,
-            business_type: 'Clínica dental',
+            business_type: lead.business_type || 'Clínica dental',
             contact_name: lead.contact_name || 'la persona encargada',
             saludo: greetingFor(),
             plw_dental_call_id: call.id,

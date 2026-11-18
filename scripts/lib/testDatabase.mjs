@@ -4,6 +4,8 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 const MIGRATIONS = new URL('../../supabase/migrations/', import.meta.url);
 const UNAVAILABLE_EXTENSIONS = /CREATE EXTENSION IF NOT EXISTS pg_(net|cron)[^;]*;/gi;
+// PGlite has no storage schema; migrations that touch it cannot replay in the harness.
+const STORAGE_MIGRATIONS = /(^|[^a-z_])storage\./i;
 
 // Only what Supabase provides around the migrations. The tables, policies and
 // functions under test are the real ones.
@@ -47,6 +49,7 @@ export async function createTestDatabase() {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(SUPABASE_PLATFORM);
   for (const file of readdirSync(MIGRATIONS).sort()) {
+    if (STORAGE_MIGRATIONS.test(readFileSync(new URL(file, MIGRATIONS), 'utf8'))) continue;
     const sql = readFileSync(new URL(file, MIGRATIONS), 'utf8');
     try {
       await db.exec(sql.replace(UNAVAILABLE_EXTENSIONS, ''));

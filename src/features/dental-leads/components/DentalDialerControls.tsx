@@ -22,14 +22,51 @@ export function DentalDialerControls({
   const [message, setMessage] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
   const [readback, setReadback] = useState<AnaReadback | null>(null);
-  const [phone, setPhone] = useState('');
-  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const [anaTest, setAnaTest] = useState({
+    phone: '',
+    businessName: '',
+    businessType: 'Clínica dental',
+    requestId: crypto.randomUUID(),
+    message: '',
+    ok: false,
+  });
+  async function runAnaTest() {
+    // One id per submission: a double click reuses it (reserved once, no second dispatch);
+    // after a success a fresh id lets the owner dial another deliberate test — no persistent cap.
+    setBusy(true);
+    setAnaTest((s) => ({ ...s, message: '', ok: false }));
+    try {
+      await dentalServerAction({
+        action: 'ana_test',
+        staffId: route.staff_id,
+        requestId: anaTest.requestId,
+        phone: anaTest.phone,
+        businessName: anaTest.businessName,
+        businessType: anaTest.businessType,
+      });
+      setAnaTest((s) => ({
+        ...s,
+        ok: true,
+        requestId: crypto.randomUUID(),
+        message: 'Prueba registrada. La grabación y la transcripción aparecerán en el historial.',
+      }));
+      reload();
+    } catch (e) {
+      setAnaTest((s) => ({
+        ...s,
+        ok: false,
+        message: e instanceof Error ? e.message : 'No se pudo completar.',
+      }));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function run(action: string) {
     setBusy(true);
     setMessage('');
     try {
       if (['configure', 'test', 'sync'].includes(action))
-        await dentalServerAction({ action, staffId: route.staff_id, phone, requestId }).then(
+        await dentalServerAction({ action, staffId: route.staff_id }).then(
           (result) => {
             if (result && typeof result === 'object' && 'readback' in result)
               setReadback((result as { readback: AnaReadback }).readback);
@@ -39,7 +76,7 @@ export function DentalDialerControls({
       else await controlDialer(route.staff_id, action);
       setMessage(
         action === 'test'
-          ? 'Prueba registrada. Compruebe el resultado en el historial.'
+          ? 'Prueba de transferencia registrada. Compruebe el resultado en el historial.'
           : action === 'configure'
             ? 'Configuración aplicada y verificada en el proveedor. La lectura del agente aparece abajo.'
             : action === 'next_batch'
@@ -201,31 +238,69 @@ export function DentalDialerControls({
                 : ' — todavía corre un guion anterior; pulse el botón de arriba.'}
             </p>
           )}
-          <label className="grid gap-1">
-            {pilot ? 'Su número para una prueba opcional' : 'Su número para la prueba'}
-            <input
-              value={phone}
-              inputMode="tel"
-              maxLength={20}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                setRequestId(crypto.randomUUID());
-              }}
-              placeholder="Número en Costa Rica"
-              className="h-11 rounded-lg border bg-white px-3"
-              disabled={busy}
-            />
-          </label>
-          <Button
-            disabled={busy || !route.config_verified_at || !phone}
-            onClick={() => void run('test')}
-          >
-            Probar llamada y transferencia
-          </Button>
-          <p>
-            El agente debe iniciar sesión, activar su disponibilidad y conectar su teléfono. Una
-            transferencia solicitada aún no confirma que llegó al agente.
+        </div>
+      )}
+      {route.provider_agent_id && route.state !== 'running' && (
+        <div className="grid gap-3 rounded-lg border p-4 text-sm" aria-label="Prueba de Ana">
+          <p className="font-semibold">Prueba de Ana — llamada real con el guion vigente</p>
+          <p className="text-neutral-600">
+            Ana llama desde su línea de campaigns con el mismo tono, voz y demostración de las
+            llamadas reales. No transfiere, no crea clientes ni gasta la tanda. La grabación y
+            transcripción aparecen en el historial como prueba.
           </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="grid gap-1">
+              Número de Costa Rica
+              <input
+                value={anaTest.phone}
+                inputMode="tel"
+                maxLength={13}
+                onChange={(e) => setAnaTest({ ...anaTest, phone: e.target.value })}
+                placeholder="2222 3333 o +506…"
+                className="h-11 rounded-lg border bg-white px-3"
+                disabled={busy}
+              />
+            </label>
+            <label className="grid gap-1">
+              Nombre del negocio
+              <input
+                value={anaTest.businessName}
+                maxLength={120}
+                onChange={(e) => setAnaTest({ ...anaTest, businessName: e.target.value })}
+                placeholder="Clínica Dental Ejemplo"
+                className="h-11 rounded-lg border bg-white px-3"
+                disabled={busy}
+              />
+            </label>
+            <label className="grid gap-1">
+              Tipo de negocio
+              <input
+                value={anaTest.businessType}
+                maxLength={120}
+                onChange={(e) => setAnaTest({ ...anaTest, businessType: e.target.value })}
+                placeholder="Clínica dental"
+                className="h-11 rounded-lg border bg-white px-3"
+                disabled={busy}
+              />
+            </label>
+          </div>
+          <div>
+            <Button
+              variant="success"
+              disabled={busy || !route.config_verified_at}
+              onClick={() => void runAnaTest()}
+            >
+              Llamar de prueba
+            </Button>
+          </div>
+          {anaTest.message && (
+            <p
+              role={anaTest.ok ? 'status' : 'alert'}
+              className={anaTest.ok ? 'text-sm font-semibold text-success-700' : 'text-sm text-danger-700'}
+            >
+              {anaTest.message}
+            </p>
+          )}
         </div>
       )}
       <div className="grid gap-2 rounded-lg border p-4 text-sm">

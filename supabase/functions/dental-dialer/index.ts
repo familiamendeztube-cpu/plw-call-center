@@ -220,6 +220,53 @@ Deno.serve(async (req) => {
       if (claim.claimed) await dispatchCall(db, apiKey, claim);
       return json({ ok: true, id: claim.call.id });
     }
+    if (input.action === 'ana_test') {
+      // "Prueba de Ana": the administrator dials with the live agent, hearing the real pitch,
+      // voice and demo. Test context only: no transfer, no counters, no scheduler changes.
+      const phone = String(input.phone ?? '')
+        .replace(/\D/g, '')
+        .replace(/^506(?=\d{8}$)/, '');
+      const businessName = String(input.businessName ?? '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+      const businessType = String(input.businessType ?? '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+      const contactName = String(input.contactName ?? '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+      if (!/^[2-8]\d{7}$/.test(phone))
+        return json({ error: 'Use un número de Costa Rica de 8 dígitos (acepta +506).' }, 400);
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.requestId ?? ''))
+        return json({ error: 'Solicitud no válida; recargue la página.' }, 400);
+      if (!businessName || !businessType)
+        return json({ error: 'Escriba el nombre del negocio y el tipo para la prueba.' }, 400);
+      const cfg = await providerRequest(
+        apiKey,
+        `/agents/${encodeURIComponent(route.provider_agent_id)}`,
+        undefined
+      );
+      if (!cfg.ok || !safeAgent(cfg.data, route))
+        return json({ error: 'Primero configure y verifique la voz.' }, 409);
+      const { data: claim, error } = await db.rpc('reserve_dental_ana_test', {
+        p_id: input.requestId,
+        p_staff_id: input.staffId,
+        p_phone: phone,
+        p_business_name: businessName,
+        p_business_type: businessType,
+        p_contact_name: contactName || 'la persona encargada',
+      });
+      if (error)
+        return json(
+          { error: 'No se pudo reservar la prueba. Revise llamadas activas y números bloqueados.' },
+          409
+        );
+      if (claim.claimed) await dispatchCall(db, apiKey, claim);
+      return json({ ok: true, id: claim.call.id });
+    }
     return json({ error: 'Acción no válida.' }, 400);
   } catch {
     return json(
