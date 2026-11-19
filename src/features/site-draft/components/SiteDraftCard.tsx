@@ -58,6 +58,8 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
   const [faqs, setFaqs] = useState<SiteDraftFaq[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set right after the agent opens a composer; only the explicit confirm button records sharing.
+  const [sharePrompt, setSharePrompt] = useState<'email' | 'whatsapp' | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -161,6 +163,7 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
         p_prospect_id: prospect.id,
         p_channel: channel,
       });
+      setSharePrompt(null);
       setPhase({ kind: 'saved', draft: { ...draft, sharedAt: new Date().toISOString() } });
     } catch {
       // Sharing status is a note, not a promise: a failure leaves the draft itself intact.
@@ -181,7 +184,7 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
         'noopener'
       );
     }
-    void markShared(channel);
+    setSharePrompt(channel);
   };
 
   const updateFact = (index: number, patch: Partial<SiteDraftFact>) => {
@@ -254,6 +257,30 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
               </Button>
             </div>
           ) : null}
+          {sharePrompt && canEdit && !draft.sharedAt ? (
+            <div className="grid gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm">
+              <span className="text-neutral-700">
+                ¿Ya envió el enlace por {sharePrompt === 'email' ? 'correo' : 'WhatsApp'}?
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => void markShared(sharePrompt)}
+                >
+                  <Check size={14} aria-hidden="true" />
+                  Marcar como compartido
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setSharePrompt(null)}
+                >
+                  Todavía no
+                </Button>
+              </div>
+            </div>
+          ) : null}
           {draft.sharedAt ? (
             <p className="text-xs text-neutral-500">
               <Check size={12} className="inline" aria-hidden="true" /> Marcado como compartido.
@@ -261,7 +288,6 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
           ) : null}
         </div>
       ) : null}
-
       {open && canEdit ? (
         <Dialog
           open
