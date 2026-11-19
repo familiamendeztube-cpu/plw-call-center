@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Globe, ExternalLink, Mail, MessageCircle, Check } from 'lucide-react';
+import { Globe, ExternalLink, Mail, MessageCircle, Check, Search, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { TextField } from '@/components/ui/TextField';
@@ -11,8 +11,10 @@ import {
   SITE_SLUGS,
   buildPreviewUrl,
   draftFromRow,
-  suggestServices,
+  DRAFT_ROW_COLUMNS,
   type ProspectSiteDraft,
+  type SiteDraftFact,
+  type SiteDraftFaq,
 } from '../models/siteDraft';
 
 const FIELD =
@@ -46,10 +48,14 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
   const [category, setCategory] = useState<'tours' | 'lodging'>(defaultCategory);
   const [businessName, setBusinessName] = useState(prospect.businessName);
   const [locale, setLocale] = useState('');
-  const [services, setServices] = useState(suggestServices(defaultCategory, prospect.serviceInterest).join(', '));
+  // Quick create starts blank on purpose: these exist only if the agent types them.
+  const [services, setServices] = useState('');
   const [highlight, setHighlight] = useState('');
   const [bookingPhone, setBookingPhone] = useState('');
   const [phoneConfirmed, setPhoneConfirmed] = useState(false);
+  const [description, setDescription] = useState('');
+  const [facts, setFacts] = useState<SiteDraftFact[]>([]);
+  const [faqs, setFaqs] = useState<SiteDraftFaq[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,20 +63,40 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
     let alive = true;
     supabase
       .from('prospect_site_drafts')
-      .select(
-        'prospect_id, site_slug, business_name, locale, category, services, highlight, booking_phone, preview_token, shared_at'
-      )
+      .select(DRAFT_ROW_COLUMNS)
       .eq('prospect_id', prospect.id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (!alive) return;
-        setPhase(data ? { kind: 'saved', draft: draftFromRow(data) } : { kind: 'form' });
-      })
-      .catch(() => alive && setPhase({ kind: 'form' }));
+      .then(
+        ({ data }) => {
+          if (!alive) return;
+          if (!data) {
+            setPhase({ kind: 'form' });
+            return;
+          }
+          const draft = draftFromRow(data);
+          hydrate(draft);
+          setPhase({ kind: 'saved', draft });
+        },
+        () => alive && setPhase({ kind: 'form' })
+      );
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, prospect.id]);
+
+  function hydrate(draft: ProspectSiteDraft) {
+    setCategory(draft.category);
+    setBusinessName(draft.businessName);
+    setLocale(draft.locale);
+    setServices(draft.services.join(', '));
+    setHighlight(draft.highlight);
+    setBookingPhone(draft.bookingPhone);
+    setPhoneConfirmed(draft.bookingPhone.trim() !== '');
+    setDescription(draft.description);
+    setFacts(draft.facts);
+    setFaqs(draft.faqs);
+  }
 
   if (phase.kind === 'loading') return null;
 
@@ -78,7 +104,8 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!phoneConfirmed) {
+    const typedPhone = bookingPhone.trim();
+    if (typedPhone !== '' && !phoneConfirmed) {
       setError('Confirma que el cliente aprobó publicar ese teléfono en su página.');
       return;
     }
@@ -97,16 +124,23 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
           .filter(Boolean)
           .slice(0, 12),
         p_highlight: highlight.trim(),
-        p_booking_phone: bookingPhone.trim(),
+        p_booking_phone: typedPhone,
+        p_description: description.trim(),
+        p_facts: facts
+          .map((fact) => ({ label: fact.label.trim(), value: fact.value.trim() }))
+          .filter((fact) => fact.label !== '' && fact.value !== '')
+          .slice(0, 12),
+        p_faqs: faqs
+          .map((faq) => ({ question: faq.question.trim(), answer: faq.answer.trim() }))
+          .filter((faq) => faq.question !== '' && faq.answer !== '')
+          .slice(0, 12),
       });
       if (rpcError || typeof draftId !== 'string') {
         throw new Error(rpcError?.message || 'No se pudo guardar el borrador.');
       }
       const { data, error: readError } = await supabase
         .from('prospect_site_drafts')
-        .select(
-          'prospect_id, site_slug, business_name, locale, category, services, highlight, booking_phone, preview_token, shared_at'
-        )
+        .select(DRAFT_ROW_COLUMNS)
         .eq('id', draftId)
         .maybeSingle();
       if (readError || !data) throw new Error('No se pudo guardar el borrador.');
@@ -148,6 +182,13 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
       );
     }
     void markShared(channel);
+  };
+
+  const updateFact = (index: number, patch: Partial<SiteDraftFact>) => {
+    setFacts((current) => current.map((fact, i) => (i === index ? { ...fact, ...patch } : fact)));
+  };
+  const updateFaq = (index: number, patch: Partial<SiteDraftFaq>) => {
+    setFaqs((current) => current.map((faq, i) => (i === index ? { ...faq, ...patch } : faq)));
   };
 
   return (
@@ -247,11 +288,7 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
               <span className="font-medium text-neutral-700">Tipo</span>
               <select
                 value={category}
-                onChange={(event) => {
-                  const next = event.target.value as 'tours' | 'lodging';
-                  setCategory(next);
-                  setServices(suggestServices(next, prospect.serviceInterest).join(', '));
-                }}
+                onChange={(event) => setCategory(event.target.value as 'tours' | 'lodging')}
                 className={FIELD}
               >
                 <option value="tours">Tours</option>
@@ -279,12 +316,11 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
               />
             </label>
             <TextField
-              label="Teléfono público de reservas"
+              label="Teléfono público de reservas (opcional)"
               type="tel"
               value={bookingPhone}
               maxLength={20}
-              required
-              hint="El cliente debe confirmar este número antes de publicarlo."
+              hint="Escríbelo solo si el cliente quiere que aparezca en su página."
               onChange={(event) => setBookingPhone(event.target.value)}
             />
             <label className="flex items-start gap-2 text-sm text-neutral-700">
@@ -294,8 +330,144 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
                 onChange={(event) => setPhoneConfirmed(event.target.checked)}
                 className="mt-0.5 h-4 w-4"
               />
-              El cliente confirmó que este número puede aparecer en su página pública.
+              Si escribiste un teléfono: el cliente confirmó que puede aparecer en su página
+              pública.
             </label>
+
+            <details className="rounded-lg border border-neutral-200 bg-neutral-50/60">
+              <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm font-medium text-plw-navy">
+                <ChevronDown size={14} aria-hidden="true" />
+                Mejorar la muestra (opcional)
+              </summary>
+              <div className="grid gap-4 border-t border-neutral-200 px-3 py-3">
+                <p className="text-xs text-neutral-500">
+                  Agregue detalles solo con las palabras del dueño, verificadas con él o con una
+                  fuente pública que usted abra y confirme. Nada se toma del expediente interno.
+                </p>
+                <label className="grid gap-1.5 text-sm">
+                  <span className="font-medium text-neutral-700">Descripción pública</span>
+                  <textarea
+                    value={description}
+                    maxLength={2000}
+                    rows={4}
+                    placeholder="Ej.: Tours en lancha por el Río Frío con guías locales."
+                    onChange={(event) => setDescription(event.target.value)}
+                    className={FIELD}
+                  />
+                </label>
+
+                <div className="grid gap-2">
+                  <span className="font-medium text-neutral-700">Datos del negocio</span>
+                  {facts.map((fact, index) => (
+                    <div key={index} className="flex flex-wrap items-center gap-2">
+                      <input
+                        value={fact.label}
+                        maxLength={120}
+                        placeholder="Dato (ej. Horario)"
+                        aria-label={`Dato ${index + 1}`}
+                        onChange={(event) => updateFact(index, { label: event.target.value })}
+                        className={`${FIELD} w-40 flex-none sm:w-48`}
+                      />
+                      <input
+                        value={fact.value}
+                        maxLength={600}
+                        placeholder="Valor (ej. Lunes a sábado, 8 am–5 pm)"
+                        aria-label={`Valor del dato ${index + 1}`}
+                        onChange={(event) => updateFact(index, { value: event.target.value })}
+                        className={`${FIELD} min-w-0 flex-1`}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        aria-label={`Quitar dato ${index + 1}`}
+                        onClick={() => setFacts((current) => current.filter((_, i) => i !== index))}
+                      >
+                        Quitar
+                      </Button>
+                    </div>
+                  ))}
+                  {facts.length < 12 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="justify-self-start"
+                      onClick={() => setFacts((current) => [...current, { label: '', value: '' }])}
+                    >
+                      Agregar dato
+                    </Button>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-2">
+                  <span className="font-medium text-neutral-700">Preguntas frecuentes</span>
+                  {faqs.map((faq, index) => (
+                    <div key={index} className="grid gap-2 rounded-lg border border-neutral-200 p-2">
+                      <input
+                        value={faq.question}
+                        maxLength={300}
+                        placeholder="Pregunta (ej. ¿Incluye el almuerzo?)"
+                        aria-label={`Pregunta frecuente ${index + 1}`}
+                        onChange={(event) => updateFaq(index, { question: event.target.value })}
+                        className={FIELD}
+                      />
+                      <textarea
+                        value={faq.answer}
+                        maxLength={2000}
+                        rows={2}
+                        placeholder="Respuesta"
+                        aria-label={`Respuesta frecuente ${index + 1}`}
+                        onChange={(event) => updateFaq(index, { answer: event.target.value })}
+                        className={FIELD}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="justify-self-start"
+                        aria-label={`Quitar pregunta frecuente ${index + 1}`}
+                        onClick={() => setFaqs((current) => current.filter((_, i) => i !== index))}
+                      >
+                        Quitar
+                      </Button>
+                    </div>
+                  ))}
+                  {faqs.length < 12 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="justify-self-start"
+                      onClick={() =>
+                        setFaqs((current) => [...current, { question: '', answer: '' }])
+                      }
+                    >
+                      Agregar pregunta
+                    </Button>
+                  ) : null}
+                </div>
+
+                {businessName.trim() ? (
+                  <p className="text-xs text-neutral-500">
+                    <Search size={12} className="inline" aria-hidden="true" />{' '}
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(
+                        `${businessName.trim()} ${locale.trim()}`.trim()
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-plw-navy underline underline-offset-4"
+                    >
+                      Buscar el negocio en una búsqueda pública
+                    </a>{' '}
+                    (abre una pestaña nueva). Copie usted mismo los datos confirmados y escribalos
+                    arriba; nada se copia solo.
+                  </p>
+                ) : null}
+              </div>
+            </details>
+
             {error ? (
               <p role="alert" className="text-sm text-danger-700">
                 {error}

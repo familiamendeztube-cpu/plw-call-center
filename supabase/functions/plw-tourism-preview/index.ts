@@ -47,7 +47,9 @@ Deno.serve(async (req) => {
   );
   const { data, error } = await db
     .from('prospect_site_drafts')
-    .select('id, site_slug, business_name, locale, category, services, highlight, booking_phone')
+    .select(
+      'id, site_slug, business_name, locale, category, services, highlight, booking_phone, description, facts, faqs'
+    )
     .eq('preview_token', token)
     .maybeSingle();
   if (error) {

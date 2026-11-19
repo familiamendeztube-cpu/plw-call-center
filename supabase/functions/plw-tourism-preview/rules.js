@@ -14,10 +14,24 @@ export function normalizeToken(raw) {
   return TOKEN.test(token) ? token : null;
 }
 
+function cleanPairs(raw, keyA, keyB, max) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      const a = item?.[keyA];
+      const b = item?.[keyB];
+      return typeof a === 'string' && typeof b === 'string'
+        ? { [keyA]: a.trim().slice(0, max), [keyB]: b.trim().slice(0, max * 4) }
+        : null;
+    })
+    .filter((pair) => pair !== null && pair[keyA] !== '' && pair[keyB] !== '');
+}
+
 /**
  * Kike's SavedSite shape. Only the explicitly confirmed public booking phone is emitted;
  * there is no dedicated public email/address field yet, so those stay empty rather than
- * falling back to private data.
+ * falling back to private data. description/facts/faqs are the owner-confirmed
+ * "Mejorar la muestra" details and ride along under tourismDemo.
  */
 export function toSavedSite(row, draftId) {
   const phone = PHONE.test(row.booking_phone ?? '') ? row.booking_phone : '';
@@ -41,6 +55,9 @@ export function toSavedSite(row, draftId) {
       tourismDemo: {
         services,
         highlight: row.highlight ?? '',
+        description: typeof row.description === 'string' ? row.description : '',
+        facts: cleanPairs(row.facts, 'label', 'value', 120),
+        faqs: cleanPairs(row.faqs, 'question', 'answer', 300),
       },
     },
   };
