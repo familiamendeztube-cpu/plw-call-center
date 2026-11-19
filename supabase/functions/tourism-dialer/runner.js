@@ -1,15 +1,18 @@
 // Tourism dispatcher runner: same proven mechanics as the dental runner (dispatch, sync,
 // reconcile) against tourism tables, with tourism outcome mapping and exactly-once
 // callback scheduling. Never touches dental rows.
-import { providerReason } from './provider.js';
+import { providerReason, tourismCallResults, tourismConfigFailures } from './provider.js';
 import {
   TOURISM_SCRIPT_VERSION,
   greetingFor,
 } from './tourismScript.js';
-import { tourismCallResults } from './provider.js';
 
 const OUTBOUND_TIMEOUT_S = 45;
 const STUCK_GIVE_UP_MS = 15 * 60_000;
+
+// ponytail: the 'scheduler_paused' marker is the pre-20261119200000 pause. Honouring it keeps
+// this code safe if Bolt deploys it before that migration runs; drop it once the SQL is live.
+export const isPaused = (runtime) => runtime.paused === true || runtime.last_error === 'scheduler_paused';
 
 async function checked(query) {
   const { data, error } = await query;
@@ -18,11 +21,11 @@ async function checked(query) {
 }
 
 export async function dispatchTourismCall(db, apiKey, claim, fetchImpl = fetch) {
-  const { call, lead } = claim;
-  const runtime = await checked(
-    db.from('tourism_dialer_runtime').select('last_error,scheduler_ready,transfer_uri').eq('id', 1).maybeSingle()
-  );
-  if (!runtime?.scheduler_ready || runtime.last_error === 'scheduler_paused') {
+  // Admin test calls (reserve_tourism_test) carry no lead and run while the dialer is paused.
+  const { call } = claim;
+  const lead = claim.lead ?? {};
+  const runtime = await checked(db.from('tourism_dialer_runtime').select('*').eq('id', 1).maybeSingle());
+  if (!call.is_test && (!runtime?.scheduler_ready || isPaused(runtime))) {
     await checked(
       db
         .from('tourism_calls')
@@ -186,7 +189,12 @@ export async function syncTourismCalls(db, apiKey, fetchImpl = fetch) {
                 { onConflict: 'phone', ignoreDuplicates: true }
               )
           );
-        if (update.state) await scheduleCallback(db, call, results.details).catch(() => {});
+        if (update.state) {
+          await scheduleCallback(db, call, results.details).catch(() => {});
+          // Interested calls land in Clientes for Alejandro; idempotent per conversation.
+          const { error } = await db.rpc('tourism_call_to_customer', { p_call_id: call.id });
+          if (error) console.error('tourism customer not created', error.code);
+        }
       } catch {
         /* Retain reservations until the provider can be reconciled. */
       }
@@ -260,42 +268,42 @@ export async function reconcileTourismStuckCalls(db, apiKey, fetchImpl = fetch, 
   }
 }
 
+const setRuntime = (db, values) => checked(db.from('tourism_dialer_runtime').update(values).eq('id', 1));
+
 export async function runTourismTick(db, apiKey, fetchImpl = fetch) {
-  // Heartbeat must record while paused too, or Iniciar's 2-minute freshness check can
-  // never pass. The pause marker stays untouched here: only Pausar/Iniciar change it,
-  // and the gate below still blocks claiming and dispatch while paused.
-  await checked(
-    db
-      .from('tourism_dialer_runtime')
-      .update({ last_tick_at: new Date().toISOString() })
-      .eq('id', 1)
-  );
+  // Heartbeat records while paused too, or Iniciar's 2-minute freshness check can never
+  // pass. Only Pausar/Iniciar touch the `paused` flag.
+  await setRuntime(db, { last_tick_at: new Date().toISOString() });
   await syncTourismCalls(db, apiKey, fetchImpl);
   await reconcileTourismStuckCalls(db, apiKey, fetchImpl).catch(() => {});
   const runtime = await checked(db.from('tourism_dialer_runtime').select('*').eq('id', 1).maybeSingle());
-  if (!runtime?.scheduler_ready || runtime.last_error === 'scheduler_paused' || !runtime.provider_agent_id) return;
-  // Verified-agent gate: any drift from the saved configuration pauses tourism dialing.
+  if (!runtime?.scheduler_ready || isPaused(runtime) || !runtime.provider_agent_id || !runtime.config_verified_at)
+    return;
+  // Verified-agent gate. A provider hiccup (network, 5xx, 429, unreadable body) only skips
+  // this tick; real drift un-verifies the configuration but keeps the agent id, so
+  // Reconfigurar patches the same ElevenLabs agent instead of creating a new one.
+  let failures;
   try {
     const config = await fetchImpl(
       `https://api.elevenlabs.io/v1/convai/agents/${encodeURIComponent(runtime.provider_agent_id)}`,
       { headers: { 'xi-api-key': apiKey }, signal: AbortSignal.timeout(18000) }
     );
-    const { tourismConfigFailures } = await import('./provider.js');
-    if (!config.ok || tourismConfigFailures(await config.json().catch(() => null), runtime).length) {
-      await checked(
-        db
-          .from('tourism_dialer_runtime')
-          .update({ provider_agent_id: null, config_verified_at: null, last_error: 'La configuración de voz cambió. Revísela antes de continuar.' })
-          .eq('id', 1)
-      );
-      return;
-    }
+    failures = config.ok ? tourismConfigFailures(await config.json().catch(() => null), runtime) : ['provider_read'];
   } catch {
-    await checked(
-      db.from('tourism_dialer_runtime').update({ last_error: 'No se pudo verificar la voz. Las reservas permanecen protegidas.' }).eq('id', 1)
-    );
+    failures = ['provider_read'];
+  }
+  if (failures.includes('provider_read')) {
+    await setRuntime(db, { last_error: 'No se pudo verificar la voz en ElevenLabs; se reintentará. No se marca mientras tanto.' });
     return;
   }
+  if (failures.length) {
+    await setRuntime(db, {
+      config_verified_at: null,
+      last_error: `La configuración de voz cambió (${failures.join(', ')}). Presione Reconfigurar.`,
+    });
+    return;
+  }
+  if (runtime.last_error) await setRuntime(db, { last_error: '' });
   // Shared line: at most one in-flight call across ALL dialers. Claim twice at most, then
   // dispatch in parallel; the claim function itself enforces the cap again under its lock.
   const claims = [];

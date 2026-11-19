@@ -17,6 +17,8 @@ const TOURISM_AGENT_ID = 'agent-2';
 
 export interface TourismRuntime {
   scheduler_ready: boolean;
+  /** Only Iniciar clears it; Configurar never starts dialing. */
+  paused: boolean;
   last_tick_at: string | null;
   last_error: string;
   provider_agent_id: string | null;
@@ -26,16 +28,62 @@ export interface TourismRuntime {
   daily_cap: number;
 }
 
+export interface TourismCall {
+  id: string;
+  created_at: string;
+  phone: string;
+  state: string;
+  outcome: string | null;
+  summary: string;
+  error: string;
+  is_test: boolean;
+  lead: { business_name: string } | null;
+}
+
+const STATE_LABELS: Record<string, string> = {
+  reserved: 'Reservada',
+  started: 'En curso',
+  uncertain: 'Sin confirmar',
+  completed: 'Terminada',
+  failed: 'Fallida',
+  cancelled: 'Cancelada',
+};
+
+const OUTCOME_LABELS: Record<string, string> = {
+  APPOINTMENT_CONFIRMED: 'Cita confirmada',
+  INTERESTED_FOLLOW_UP: 'Interesado',
+  WHATSAPP_INFO_REQUESTED: 'Pidió WhatsApp',
+  EMAIL_INFO_REQUESTED: 'Pidió correo',
+  CALLBACK_REQUESTED: 'Volver a llamar',
+  RECEPTIONIST_CONTACT: 'Recepción',
+  DECISION_MAKER_UNAVAILABLE: 'Encargado no disponible',
+  NOT_INTERESTED: 'No interesado',
+  DO_NOT_CALL: 'No llamar',
+  WRONG_NUMBER: 'Número equivocado',
+  NO_ANSWER: 'No contestó',
+  VOICEMAIL: 'Buzón de voz',
+  TECHNICAL_FAILURE: 'Falla técnica',
+};
+
+const crTime = (iso: string) =>
+  new Date(iso).toLocaleString('es-CR', {
+    timeZone: 'America/Costa_Rica',
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+
 interface Props {
   runtime: TourismRuntime | null;
   runtimeError: string | null;
+  calls: TourismCall[];
   onChanged: () => void;
 }
 
 type Busy = 'configure' | 'start' | 'pause' | 'test' | null;
 
-export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
+export function TourismDialerCard({ runtime, runtimeError, calls, onChanged }: Props) {
   const [busy, setBusy] = useState<Busy>(null);
+  const [testPhone, setTestPhone] = useState('');
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [importPreview, setImportPreview] = useState<LeadImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
@@ -130,6 +178,10 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
     void importRows(parseCsvText(pastedCsv));
   };
 
+  const verified = Boolean(runtime?.config_verified_at && runtime?.provider_agent_id);
+  const paused = runtime?.paused !== false;
+  const status = !verified ? 'Sin configurar' : paused ? 'Pausado' : 'Marcando';
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -143,18 +195,14 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
         </div>
         <span
           className={
-            runtime?.last_error === 'scheduler_paused'
-              ? 'rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800'
-              : runtime?.config_verified_at && runtime?.provider_agent_id
-                ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800'
+            status === 'Marcando'
+              ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800'
+              : status === 'Pausado'
+                ? 'rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800'
                 : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600'
           }
         >
-          {runtime?.last_error === 'scheduler_paused'
-            ? 'Pausado'
-            : runtime?.config_verified_at && runtime?.provider_agent_id
-              ? 'Verificado'
-              : 'Sin configurar'}
+          {status}
         </span>
       </header>
 
@@ -177,10 +225,10 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
         >
           {busy === 'configure' ? 'Configurando…' : runtime?.provider_agent_id ? 'Reconfigurar Ana Turismo' : 'Configurar Ana Turismo'}
         </button>
-        {runtime?.last_error === 'scheduler_paused' ? (
+        {paused ? (
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={busy !== null || !verified}
             onClick={() => withBusy('start', () => run('control', { state: 'start' }))}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
           >
@@ -189,7 +237,7 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
         ) : (
           <button
             type="button"
-            disabled={busy !== null || !runtime?.config_verified_at}
+            disabled={busy !== null}
             onClick={() => withBusy('pause', () => run('control', { state: 'pause' }))}
             className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
           >
@@ -199,6 +247,65 @@ export function TourismDialerCard({ runtime, runtimeError, onChanged }: Props) {
         <span className="self-center text-sm text-slate-500">
           Hoy: {runtime?.dialed_today ?? 0}/{runtime?.daily_cap ?? 100} llamadas
         </span>
+      </div>
+
+      <form
+        className="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void withBusy('test', () => run('test', { phone: testPhone, requestId: crypto.randomUUID() }));
+        }}
+      >
+        <label className="grid gap-1 text-sm font-medium text-slate-700" htmlFor="tourism-test-phone">
+          Llamada de prueba con Anna Turismo
+          <input
+            id="tourism-test-phone"
+            type="tel"
+            inputMode="tel"
+            value={testPhone}
+            onChange={(event) => setTestPhone(event.target.value)}
+            placeholder="8888 7777"
+            className="w-44 rounded-lg border border-slate-300 px-3 py-2 font-normal focus:border-slate-500 focus:outline-none"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy !== null || !verified || testPhone.trim() === ''}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {busy === 'test' ? 'Llamando…' : 'Llamar'}
+        </button>
+        <span className="basis-full text-xs text-slate-500">
+          Funciona aunque el marcador esté pausado; no cuenta en el límite diario.
+        </span>
+      </form>
+
+      <div className="mt-4 border-t border-slate-100 pt-4">
+        <h3 className="text-sm font-medium text-slate-700">Últimas llamadas</h3>
+        {calls.length === 0 ? (
+          <p className="mt-1 text-sm text-slate-500">Todavía no hay llamadas.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-slate-100 text-sm">
+            {calls.map((call) => (
+              <li key={call.id} className="grid gap-0.5 py-2">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-medium text-slate-900">
+                    {call.is_test ? 'Prueba' : call.lead?.business_name || 'Sin nombre'}
+                  </span>
+                  <span className="text-slate-500">
+                    {call.phone} · {crTime(call.created_at)}
+                  </span>
+                  <span className="ml-auto text-slate-700">
+                    {call.outcome ? (OUTCOME_LABELS[call.outcome] ?? call.outcome) : (STATE_LABELS[call.state] ?? call.state)}
+                  </span>
+                </div>
+                {call.summary || call.error ? (
+                  <p className="line-clamp-2 text-slate-600">{call.summary || call.error}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="mt-4 border-t border-slate-100 pt-4">

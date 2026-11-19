@@ -1,10 +1,7 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';import { authorizeAdmin } from './auth.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { authorizeAdmin } from './auth.ts';
 import { runTourismTick, dispatchTourismCall, syncTourismCalls, reconcileTourismStuckCalls } from './runner.js';
-import {
-  tourismAgentConfig,
-  tourismConfigFailures,
-} from './provider.js';
-import { providerRequest, sanitizeProviderError } from './provider.js';
+import { providerRequest, sanitizeProviderError, tourismAgentConfig, tourismConfigFailures } from './provider.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -50,6 +47,10 @@ Deno.serve(async (req) => {
     if (input.action === 'configure') {
       const runtime = await db.from('tourism_dialer_runtime').select('*').eq('id', 1).maybeSingle();
       if (!runtime.data) return json({ error: 'Falta la tabla del marcador de turismo.' }, 409);
+      // Configuring never starts or resumes dialing: `paused` is untouched, and the legacy
+      // pause marker survives every last_error write (see isPaused in runner.js).
+      const keepPause = (message: string) =>
+        runtime.data.last_error === 'scheduler_paused' ? 'scheduler_paused' : message;
       const { data: settings, error } = await db
         .from('ai_outbound_settings')
         .select('voice_id,caller_phone_number_id')
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
           const detail = JSON.stringify(sanitizeProviderError(patched.data)).slice(0, 300);
           await db
             .from('tourism_dialer_runtime')
-            .update({ last_error: `Verificación pendiente: ${failures.join(', ')}. ${detail}` })
+            .update({ last_error: keepPause(`Verificación pendiente: ${failures.join(', ')}. ${detail}`) })
             .eq('id', 1);
           return json({ error: `La configuración no pasó la verificación. Motivo técnico: ${failures.join(', ')}. ${detail}` }, 409);
         }
@@ -114,7 +115,7 @@ Deno.serve(async (req) => {
         .update({
           config_verified_at: new Date().toISOString(),
           transfer_uri: route.transfer_uri,
-          last_error: '',
+          last_error: keepPause(''),
         })
         .eq('id', 1);
       if (verifyError) throw verifyError;
@@ -138,7 +139,7 @@ Deno.serve(async (req) => {
       );
       const { error } = await userDb.rpc('control_tourism_dialer', { p_action: input.state });
       if (error)
-        return json({ error: 'No se pudo cambiar el estado. Revise el latido del servidor.' }, 409);
+        return json({ error: error.message || 'No se pudo cambiar el estado. Revise el latido del servidor.' }, 409);
       return json({ ok: true });
     }
 

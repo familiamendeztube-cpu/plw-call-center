@@ -138,19 +138,13 @@ const OUTCOME_FIELD = {
       'VOICEMAIL, TECHNICAL_FAILURE. Use DO_NOT_CALL whenever the person asked not to be called again.',
   },
 };
-const OUTCOME_LEAD_STATUS = {
-  APPOINTMENT_CONFIRMED: 'interested',
-  INTERESTED_FOLLOW_UP: 'interested',
-  RECEPTIONIST_CONTACT: 'callback',
-  DECISION_MAKER_UNAVAILABLE: 'callback',
-  CALLBACK_REQUESTED: 'callback',
-  VOICEMAIL: 'callback',
-  WHATSAPP_INFO_REQUESTED: 'contacted',
-  EMAIL_INFO_REQUESTED: 'contacted',
-  NOT_INTERESTED: 'not_interested',
-  WRONG_NUMBER: 'wrong_number',
-  DO_NOT_CALL: 'do_not_call',
-};
+// Every code the plw_outcome field offers. The interested ones become customers through
+// tourism_call_to_customer (SQL); the rest stay on the call row for the admin list.
+export const TOURISM_OUTCOMES = [
+  'APPOINTMENT_CONFIRMED', 'INTERESTED_FOLLOW_UP', 'WHATSAPP_INFO_REQUESTED', 'EMAIL_INFO_REQUESTED',
+  'CALLBACK_REQUESTED', 'RECEPTIONIST_CONTACT', 'DECISION_MAKER_UNAVAILABLE', 'NOT_INTERESTED',
+  'DO_NOT_CALL', 'WRONG_NUMBER', 'NO_ANSWER', 'VOICEMAIL', 'TECHNICAL_FAILURE',
+];
 
 export function tourismAgentConfig(staffName, route, voiceId, { basicTurn = false } = {}) {
   return {
@@ -232,7 +226,7 @@ export function tourismCallResults(analysis) {
     if (typeof id === 'string' && entry && typeof entry === 'object' && !values.has(id))
       values.set(id, entry.value ?? null);
   const outcomeText = String(values.get('plw_outcome') ?? '').trim().toUpperCase();
-  const outcome = Object.keys(OUTCOME_LEAD_STATUS).includes(outcomeText) ? outcomeText : null;
+  const outcome = TOURISM_OUTCOMES.includes(outcomeText) ? outcomeText : null;
   const details = {};
   for (const id of Object.keys(DETAIL_FIELDS)) {
     const value = values.get(id);
