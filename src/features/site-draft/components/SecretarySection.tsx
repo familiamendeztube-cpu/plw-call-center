@@ -3,7 +3,12 @@ import { Bot, Check, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { SITE_PREVIEW_BASE, DRAFT_ROW_COLUMNS, type ProspectSiteDraft } from '../models/siteDraft';
+import {
+  SITE_PREVIEW_BASE,
+  DRAFT_ROW_COLUMNS,
+  draftFromRow,
+  type ProspectSiteDraft,
+} from '../models/siteDraft';
 
 const FIELD =
   'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-normal text-plw-ink focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30';
@@ -66,8 +71,9 @@ export function SecretarySection({
           if (loadError) {
             setLoadError(loadError.message || LOAD_ERROR);
           } else if (data) {
-            const loaded = data as unknown as ProspectSiteDraft & Record<string, unknown>;
-            setDraft(loaded);
+            // Parse through the shared mapper: the raw row is snake_case and carries the
+            // preview token; reading camelCase off it left the demo links empty.
+            setDraft(draftFromRow(data as Record<string, unknown>));
             if (typeof loaded.secretary_name === 'string' && loaded.secretary_name.trim() !== '') {
               setName(loaded.secretary_name);
             }
@@ -221,26 +227,34 @@ export function SecretarySection({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 font-medium text-plw-navy underline underline-offset-4"
             >
-              Ver demo de secretaria
+              Abrir demo
               <ExternalLink size={13} aria-hidden="true" />
             </a>
             <Button size="sm" variant="secondary" onClick={() => void copy(secretaryUrl)}>
               Copiar enlace
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void copy(`${secretaryUrl}\n${siteUrl}`)}
-            >
-              Copiar ambos enlaces
-            </Button>
+            {siteUrl ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void copy(`${secretaryUrl}\n${siteUrl}`)}
+              >
+                Copiar ambos enlaces
+              </Button>
+            ) : null}
           </div>
           <p className="text-xs text-neutral-500">
             Demostración disponible 24/7; no hace reservas reales ni promete nada en nombre del
             negocio.
           </p>
         </div>
-      ) : null}
+      ) : (
+        <p className="mt-3 text-sm text-neutral-600">
+          Aún no hay muestra de sitio web para este cliente, y la secretaria usa el mismo enlace de
+          vista previa. Cree la muestra en la pestaña «Muestra de sitio web» y vuelva aquí: los
+          enlaces de la demo aparecerán solos.
+        </p>
+      )}
     </section>
   );
 }
