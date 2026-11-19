@@ -21,11 +21,12 @@ const MODEL = 'eleven_multilingual_v2';
 const VOICE_ID = Deno.env.get('ELEVENLABS_PREVIEW_VOICE_ID') ?? '21m00Tcm4TlvDq8ikWAM';
 const MAX_TEXT = 400;
 const RATE_LIMIT = 10; // requests per minute per token+IP
-const CORS_ORIGIN = Deno.env.get('PLW_APP_ORIGIN') ?? '';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return corsPreflight();
-  const origin = CORS_ORIGIN || allowedOrigin(req);
+  // CORS is derived per request from the trusted allowlist; never a global env value,
+  // which can go stale (e.g. a localhost origin leaking into production).
+  const origin = allowedOrigin(req);
+  if (req.method === 'OPTIONS') return corsPreflight(req);
   if (req.method !== 'POST') return json({ error: 'Método no permitido.' }, 405, origin);
 
   let body: unknown;

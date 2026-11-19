@@ -1,6 +1,14 @@
 import { createHash } from 'node:crypto';
 import { ANSWER_IDS, buildAnswer, isAnswerId, type AnswerContext } from './grounding.ts';
 
+// Trusted origins that may embed the public preview. Requests from any other origin get
+// the first entry echoed back (still a fixed allowlist value, never an untrusted origin).
+const TRUSTED_ORIGINS = [
+  'https://familiamendeztube-cp-q9tc.bolt.host',
+  'https://plw-callcenter.bolt.host',
+  'http://localhost:5173',
+] as const;
+
 export function json(body: unknown, status: number, origin: string): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -30,26 +38,24 @@ export function audioResponse(mp3: Uint8Array, origin: string): Response {
   });
 }
 
-export function corsPreflight(): Response {
+// Mirrors plw-tourism-preview: reflect a trusted per-request Origin, otherwise the primary origin.
+export function corsPreflight(request: Request): Response {
   return new Response(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowedOrigin(request),
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+      Vary: 'Origin',
     },
   });
 }
 
-// Allowed origins mirror plw-tourism-preview.
-export function allowedOrigin(request: Request): string | null {
+export function allowedOrigin(request: Request): string {
   const origin = request.headers.get('Origin') ?? '';
-  const allowed = [
-    'https://familiamendeztube-cp-q9tc.bolt.host',
-    'https://plw-callcenter.bolt.host',
-    'http://localhost:5173',
-  ];
-  return allowed.includes(origin) ? origin : allowed[0];
+  return (TRUSTED_ORIGINS as readonly string[]).includes(origin)
+    ? origin
+    : TRUSTED_ORIGINS[0];
 }
 
 const TOKEN = /^[0-9a-f]{48}$/;
