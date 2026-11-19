@@ -164,6 +164,48 @@ test('marking shared stamps the time once the draft exists, not before', async (
   });
 });
 
+test('only the customer owner marks shared or saves the secretary; a reassigned owner sees the draft', async () => {
+  await db.transaction(async (tx) => {
+    const run = async (person, sql, params = []) => {
+      await tx.exec('RESET ROLE');
+      const claims = { sub: person.userId, session_id: person.sessionId };
+      await tx.query(`SELECT set_config('request.jwt.claims', $1, true)`, [JSON.stringify(claims)]);
+      await tx.exec('SET LOCAL ROLE authenticated');
+      return (await tx.query(sql, params)).rows;
+    };
+    const refused = async (person, sql, pattern) => {
+      await tx.exec('SAVEPOINT refused');
+      await assert.rejects(run(person, sql), pattern);
+      await tx.exec('ROLLBACK TO SAVEPOINT refused');
+    };
+    await tx.query('DELETE FROM public.prospect_site_drafts WHERE prospect_id = $1', [CLIENT_OF_1]);
+    // The secretary save creates the draft when none exists (no booking phone yet).
+    await run(AGENT_1, `SELECT public.set_prospect_secretary_demo('${CLIENT_OF_1}', 'Tour Rincón', 'tourism')`);
+    const [draft] = await run(
+      AGENT_1,
+      'SELECT secretary_name, secretary_type, booking_phone, preview_token FROM public.prospect_site_drafts'
+    );
+    assert.deepEqual({ ...draft, preview_token: undefined }, {
+      secretary_name: 'Tour Rincón',
+      secretary_type: 'tourism',
+      booking_phone: '',
+      preview_token: undefined,
+    });
+    assert.match(draft.preview_token, /^[0-9a-f]{48}$/);
+    // The draft exists in this transaction, so these refusals are about access.
+    await refused(AGENT_2, `SELECT public.mark_prospect_site_shared('${CLIENT_OF_1}', 'whatsapp')`, /No autorizado/);
+    await refused(AGENT_2, `SELECT public.set_prospect_secretary_demo('${CLIENT_OF_1}', 'Ajeno', 'retail')`, /No autorizado/);
+    await refused(AGENT_1, `UPDATE public.prospect_site_drafts SET secretary_name = 'x'`, /permission denied/);
+    assert.equal((await run(AGENT_2, 'SELECT id FROM public.prospect_site_drafts')).length, 0);
+    // Reassigned: the new owner reads the sample the previous agent created.
+    await tx.exec('RESET ROLE');
+    await tx.query("UPDATE public.prospects SET owner_id = 'agent-2' WHERE id = $1", [CLIENT_OF_1]);
+    assert.equal((await run(AGENT_2, 'SELECT id FROM public.prospect_site_drafts')).length, 1);
+    await run(AGENT_2, `SELECT public.mark_prospect_site_shared('${CLIENT_OF_1}', 'whatsapp')`);
+    await tx.rollback();
+  });
+});
+
 test('the administrator opens the draft for verification, read-write through the same door', async () => {
   await as(ADMIN, async (run) => {
     const [{ id: draftId }] = await run(save(CLIENT_OF_1, 'Tour Rincón'));

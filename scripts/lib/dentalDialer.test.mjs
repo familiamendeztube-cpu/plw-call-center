@@ -98,61 +98,49 @@ test('paused, offline, busy, out-of-hours and opted-out prospects cannot be dial
     );
     assert.equal(await claim(tx), null);
   }));
-test('admin activation requires transfer verification and a fresh server heartbeat; agents cannot dispatch or schedule', async () =>
+// The campaign was retired live on 2026-11-19 (migrations 20261119024826..025559): every
+// start path fails closed while pause/stop, history and transfer confirmation keep working.
+test('the retired dental campaign cannot be started, batched, tested or rescheduled; pause and stop still work', async () =>
   fixture(async (tx) => {
-    await as(tx, 0);
-    await denied(tx, "SELECT control_dental_dialer('agent-2','activate')", [], /señal reciente/);
     await tx.exec('RESET ROLE');
-    await tx.exec(
-      "UPDATE dental_dialer_runtime SET scheduler_ready=true,last_tick_at=now();UPDATE dental_agent_dialers SET transfer_verified_at=NULL WHERE staff_id='agent-2'"
-    );
+    await tx.exec('UPDATE dental_dialer_runtime SET scheduler_ready=true,last_tick_at=now()');
     await as(tx, 0);
+    for (const action of ['activate', 'resume'])
+      await denied(tx, `SELECT control_dental_dialer('agent-2','${action}')`, [], /retirada/);
+    await denied(tx, "SELECT start_next_dental_batch('agent-2')", [], /retirada/);
+    await tx.exec("SELECT control_dental_dialer('agent-2','pause')");
+    await tx.exec("SELECT control_dental_dialer('agent-3','stop')");
+    await tx.exec('RESET ROLE');
+    assert.deepEqual(
+      (await tx.query('SELECT staff_id,state FROM dental_agent_dialers ORDER BY staff_id')).rows,
+      [
+        { staff_id: 'agent-2', state: 'paused' },
+        { staff_id: 'agent-3', state: 'stopped' },
+      ]
+    );
+    await as(tx);
+    // Retired reservations check is_admin() first, so the server role is refused outright.
+    const retired = /retirada|Solo administración/;
+    await denied(tx, 'SELECT reserve_dental_test($1,$2,$3)', [id(500), 'agent-2', '22223333'], retired);
     await denied(
       tx,
-      "SELECT control_dental_dialer('agent-2','activate')",
-      [],
-      /confirmar una transferencia/
+      'SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6)',
+      [id(900), 'agent-2', '22223333', 'Clínica', 'Clínica dental', 'Recepción'],
+      retired
     );
-    await tx.exec('RESET ROLE');
-    await tx.exec(
-      "UPDATE dental_agent_dialers SET transfer_verified_at=now() WHERE staff_id='agent-2'"
-    );
-    await as(tx, 0);
-    await tx.exec(
-      "SELECT control_dental_dialer('agent-2','activate');SELECT control_dental_dialer('agent-2','pause')"
-    );
-    assert.equal(
-      (await tx.query("SELECT state FROM dental_agent_dialers WHERE staff_id='agent-2'")).rows[0]
-        .state,
-      'paused'
-    );
+    await denied(tx, 'SELECT enable_dental_scheduler()', [], /retirada/);
     await as(tx, 1);
-    await denied(
-      tx,
-      "SELECT control_dental_dialer('agent-2','activate')",
-      [],
-      /Solo administración/
-    );
+    await denied(tx, "SELECT control_dental_dialer('agent-2','pause')", [], /Solo administración/);
     await denied(tx, "SELECT claim_dental_call('agent-2')", [], /permission denied/);
     await denied(tx, 'SELECT enable_dental_scheduler()', [], /permission denied/);
   }));
-test('test requests are idempotent, transcripts private and only the receiving agent can confirm', async () =>
+test('dental transcripts stay private and only the receiving agent can confirm a transfer', async () =>
   fixture(async (tx) => {
     await as(tx);
-    const args = [id(500), 'agent-2', '22223333'];
-    assert.equal(
-      (await tx.query('SELECT reserve_dental_test($1,$2,$3) AS data', args)).rows[0].data.claimed,
-      true
-    );
-    assert.equal(
-      (await tx.query('SELECT reserve_dental_test($1,$2,$3) AS data', args)).rows[0].data.claimed,
-      false
-    );
-    await denied(
-      tx,
-      'SELECT reserve_dental_test($1,$2,$3)',
-      [id(500), 'agent-3', '22223333'],
-      /Solicitud ya utilizada/
+    // Test reservations are retired; an existing call row stands in for one from history.
+    await tx.query(
+      "INSERT INTO dental_calls(id,is_test,staff_id,phone,provider_agent_id,transfer_uri) VALUES($1,true,'agent-2','22223333','dental_agent-2','sip:agent-2@phone.example.com')",
+      [id(500)]
     );
     await tx.query(
       'UPDATE dental_calls SET transfer_status=\'requested\',transcript=\'[{"role":"agent","message":"Hola"}]\' WHERE id=$1',
@@ -180,158 +168,6 @@ test('test requests are idempotent, transcripts private and only the receiving a
     await denied(tx, "UPDATE dental_calls SET transfer_status='none'", [], /permission denied/);
   }));
 
-test('Ana test reservation is admin-only, idempotent by request and isolated from leads and counters', async () =>
-  fixture(async (tx) => {
-    await as(tx);
-    const args = [
-      id(900),
-      'agent-2',
-      '22223333',
-      'Clínica Ana Prueba',
-      'Clínica dental',
-      'Recepción',
-    ];
-    const first = (await tx.query('SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6) AS data', args))
-      .rows[0].data;
-    assert.equal(first.claimed, true);
-    assert.equal(first.lead.business_name, 'Clínica Ana Prueba');
-    assert.equal(first.lead.business_type, 'Clínica dental');
-    assert.equal(first.lead.contact_name, 'Recepción');
-    assert.equal(first.call.is_test, true);
-    assert.equal(first.call.lead_id, null);
-    // Same request again: reserved once, no second dispatch.
-    const repeat = (await tx.query('SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6) AS data', args))
-      .rows[0].data;
-    assert.equal(repeat.claimed, false);
-    // A different request id is a deliberate later call: allowed once the previous one finished.
-    await tx.query("UPDATE dental_calls SET state='completed' WHERE id=$1::uuid", [first.call.id]);
-    const again = (
-      await tx.query('SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6) AS data', [
-        id(901),
-        'agent-2',
-        '22223333',
-        'Clínica Ana Prueba',
-        'Clínica dental',
-        'Recepción',
-      ])
-    ).rows[0].data;
-    assert.equal(again.claimed, true);
-    await as(tx, 1);
-    await denied(
-      tx,
-      'SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6)',
-      [id(902), 'agent-2', '22223333', 'Clínica', 'Clínica dental', 'Recepción'],
-      /permission denied/
-    );
-    await as(tx, 0);
-    await denied(
-      tx,
-      'SELECT reserve_dental_ana_test($1,$2,$3,$4,$5,$6)',
-      [id(903), 'agent-2', '22223333', 'Clínica', 'Clínica dental', 'Recepción'],
-      /permission denied/
-    );
-  }));
-
-test('Alejandro pilot stops at 20 new attempts, preserves the twentieth dispatch and cannot be resumed past the cap', async () =>
-  fixture(async (tx) => {
-    await as(tx);
-    for (let n = 0; n < 25; n++)
-      await tx.query(
-        "INSERT INTO dental_leads(id,campaign_id,phone,business_name,source_url,source_name,source_checked_at,owner_staff_id) VALUES($1,$2,$3,'Piloto','https://example.org','Fuente','2026-11-10','agent-2')",
-        [id(600 + n), id(1), `223344${String(n).padStart(2, '0')}`]
-      );
-    const earlier = await claim(tx);
-    await tx.query("UPDATE dental_calls SET state='completed' WHERE id=$1", [earlier.call.id]);
-    await tx.exec(
-      "UPDATE dental_agent_dialers SET pilot_call_limit=20,pilot_baseline_count=1,pilot_started_at=now(),transfer_verified_at=NULL WHERE staff_id='agent-2';UPDATE dental_dialer_runtime SET scheduler_ready=true,last_tick_at=now()"
-    );
-    await as(tx, 0);
-    await tx.exec("SELECT control_dental_dialer('agent-2','activate')");
-    assert.equal(
-      (
-        await tx.query(
-          "SELECT transfer_verified_at FROM dental_agent_dialers WHERE staff_id='agent-2'"
-        )
-      ).rows[0].transfer_verified_at,
-      null
-    );
-    await as(tx);
-    const testArgs = [id(800), 'agent-2', '22223344'];
-    await tx.query('SELECT reserve_dental_test($1,$2,$3)', testArgs);
-    await tx.query("UPDATE dental_calls SET state='completed' WHERE id=$1", [id(800)]);
-    for (let round = 0; round < 10; round++) {
-      const a = await claim(tx),
-        b = await claim(tx);
-      assert.ok(a);
-      assert.ok(b);
-      if (round === 9) {
-        assert.equal(await claim(tx), null);
-        assert.equal(
-          (await tx.query("SELECT state FROM dental_agent_dialers WHERE staff_id='agent-2'"))
-            .rows[0].state,
-          'running'
-        );
-      }
-      await tx.query("UPDATE dental_calls SET state='started' WHERE id=$1", [a.call.id]);
-      assert.equal(
-        (await tx.query("SELECT state FROM dental_agent_dialers WHERE staff_id='agent-2'")).rows[0]
-          .state,
-        'running'
-      );
-      await tx.query("UPDATE dental_calls SET state='started' WHERE id=$1", [b.call.id]);
-      assert.equal(
-        (await tx.query("SELECT state FROM dental_agent_dialers WHERE staff_id='agent-2'")).rows[0]
-          .state,
-        round === 9 ? 'paused' : 'running'
-      );
-      await tx.query("UPDATE dental_calls SET state='completed' WHERE id=ANY($1::uuid[])", [
-        [a.call.id, b.call.id],
-      ]);
-    }
-    assert.equal(
-      (
-        await tx.query(
-          "SELECT count(*)::int n FROM dental_calls WHERE staff_id='agent-2' AND NOT is_test"
-        )
-      ).rows[0].n,
-      21
-    );
-    assert.equal(await claim(tx), null);
-    assert.equal(
-      (
-        await tx.query(
-          "SELECT transfer_verified_at FROM dental_agent_dialers WHERE staff_id='agent-2'"
-        )
-      ).rows[0].transfer_verified_at,
-      null
-    );
-    assert.equal(
-      (await tx.query("SELECT pilot_call_limit FROM dental_agent_dialers WHERE staff_id='agent-3'"))
-        .rows[0].pilot_call_limit,
-      null
-    );
-    await denied(
-      tx,
-      "INSERT INTO dental_calls(lead_id,staff_id,phone,provider_agent_id,transfer_uri) SELECT id,'agent-2',phone,'dental_agent-2','sip:agent-2@phone.example.com' FROM dental_leads WHERE owner_staff_id='agent-2' AND id NOT IN(SELECT lead_id FROM dental_calls WHERE lead_id IS NOT NULL) LIMIT 1",
-      [],
-      /límite/
-    );
-    await as(tx, 0);
-    await denied(tx, "SELECT control_dental_dialer('agent-2','resume')", [], /límite/);
-    await tx.exec('RESET ROLE');
-    await tx.query("UPDATE dental_calls SET transfer_status='requested' WHERE id=$1", [
-      earlier.call.id,
-    ]);
-    await as(tx, 1);
-    await tx.query('SELECT confirm_dental_transfer($1)', [earlier.call.id]);
-    assert.ok(
-      (
-        await tx.query(
-          "SELECT transfer_verified_at FROM dental_agent_dialers WHERE staff_id='agent-2'"
-        )
-      ).rows[0].transfer_verified_at
-    );
-  }));
 test('a number that does not exist gives the pilot attempt back once and marks the lead', async () =>
   fixture(async (tx) => {
     await as(tx);
@@ -838,37 +674,3 @@ test('an email-only request makes one email follow-up for the lead agent and sto
     assert.ok(!JSON.stringify(next ?? {}).includes(id(15)));
   }));
 
-test('the admin starts the next batch once the current one is used up, only under the activation rules', async () =>
-  fixture(async (tx) => {
-    await as(tx);
-    const first = await claim(tx);
-    await tx.query("UPDATE dental_calls SET state='completed' WHERE id=$1", [first.call.id]);
-    await tx.exec(
-      "UPDATE dental_agent_dialers SET pilot_call_limit=1,pilot_baseline_count=0,state='paused' WHERE staff_id='agent-2';UPDATE dental_dialer_runtime SET scheduler_ready=true,last_tick_at=now()"
-    );
-    const dialer = async () => {
-      await tx.exec('RESET ROLE');
-      const row = (
-        await tx.query(
-          "SELECT state,pilot_baseline_count::int AS baseline FROM dental_agent_dialers WHERE staff_id='agent-2'"
-        )
-      ).rows[0];
-      await as(tx, 0);
-      return row;
-    };
-    const next = "SELECT start_next_dental_batch('agent-2')";
-    await as(tx, 1);
-    await denied(tx, next, [], /Solo administración/);
-    // Agent's app closed: refused, and the used-up batch stays as it was.
-    await as(tx, 0);
-    await denied(tx, next, [], /Activo/);
-    assert.deepEqual(await dialer(), { state: 'paused', baseline: 0 });
-    await tx.exec('RESET ROLE');
-    await tx.exec("UPDATE staff_presence SET last_heartbeat_at=now() WHERE staff_id='agent-2'");
-    await as(tx, 0);
-    await tx.query(next);
-    assert.deepEqual(await dialer(), { state: 'running', baseline: 1 });
-    // The new batch has attempts left, so there is nothing to start yet.
-    await denied(tx, next, [], /todavía tiene intentos/);
-    await denied(tx, "SELECT start_next_dental_batch('agent-3')", [], /no trabaja por tandas/);
-  }));
