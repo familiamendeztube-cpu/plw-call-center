@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type Cha
 import { ImagePlus, Loader2, MapPin, RefreshCw, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
-import { getSupabaseClient } from '@/integrations/supabase/client';
+import { callStaffFunction } from '@/integrations/supabase/callStaffFunction';
 import { buildMapsSearchUrl, type SiteDraftImage } from '../models/siteDraft';
 
 const FIELD =
@@ -36,7 +36,6 @@ export function BusinessImagesSection({
   approvedImages,
   onApplyApproved,
 }: BusinessImagesSectionProps) {
-  const supabase = getSupabaseClient();
   const [candidates, setCandidates] = useState<CandidateImage[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [alts, setAlts] = useState<Record<string, string>>({});
@@ -48,28 +47,24 @@ export function BusinessImagesSection({
   const [note, setNote] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  // callStaffFunction surfaces the function's own message ("No autorizado.", "La imagen debe
+  // pesar menos de 5 MB.", ...). supabase.functions.invoke hid it behind "Edge Function
+  // returned a non-2xx status code".
+  const call = useCallback(
+    async (body: Record<string, unknown>): Promise<InvokeResult> =>
+      (await callStaffFunction('plw-site-images', { prospectId, ...body })) as InvokeResult,
+    [prospectId]
+  );
+
   useEffect(() => {
     let alive = true;
-    supabase.functions
-      .invoke<InvokeResult>('plw-site-images', { body: { action: 'status', prospectId } })
-      .then(({ data }) => alive && setGenAvailable(data?.generationAvailable === true))
+    call({ action: 'status' })
+      .then((data) => alive && setGenAvailable(data.generationAvailable === true))
       .catch(() => alive && setGenAvailable(false));
     return () => {
       alive = false;
     };
-  }, [supabase, prospectId]);
-
-  const call = useCallback(
-    async (body: Record<string, unknown>): Promise<InvokeResult> => {
-      const { data, error } = await supabase.functions.invoke<InvokeResult>('plw-site-images', {
-        body: { prospectId, ...body },
-      });
-      if (error) throw new Error(error.message || 'No se pudo completar la acción.');
-      if (data?.error) throw new Error(data.error);
-      return data ?? {};
-    },
-    [supabase, prospectId]
-  );
+  }, [call]);
 
   const importBytes = useCallback(
     async (bytes: Uint8Array) => {

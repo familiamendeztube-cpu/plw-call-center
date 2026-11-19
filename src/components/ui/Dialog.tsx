@@ -23,6 +23,13 @@ export function Dialog({
 }: DialogProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  // Callers pass inline `onClose={() => ...}`, a new function on every render. Reading it
+  // through a ref keeps the focus effect below tied to `open` only: with onClose as a
+  // dependency it re-ran on every keystroke and pulled focus out of the field being typed.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) {
@@ -32,7 +39,7 @@ export function Dialog({
     panelRef.current?.focus();
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
       }
     };
     document.addEventListener('keydown', handleKey);
@@ -40,7 +47,7 @@ export function Dialog({
       document.removeEventListener('keydown', handleKey);
       previouslyFocused?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) {
     return null;

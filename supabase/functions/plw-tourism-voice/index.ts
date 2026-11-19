@@ -19,8 +19,14 @@ import { buildAnswer, buildMandarinLine, type AnswerContext } from './grounding.
 // Verified against the account's synchronous /v1/models endpoint plus a real synthesis
 // (see scripts/lib/verifyElevenModel.mjs); falls back to the previous model if unset.
 const MODEL = Deno.env.get('ELEVENLABS_TTS_MODEL') ?? 'eleven_multilingual_v2';
-// Approved environment voice; falls back to a known voice id if not set.
-const VOICE_ID = Deno.env.get('ELEVENLABS_PREVIEW_VOICE_ID') ?? '21m00Tcm4TlvDq8ikWAM';
+// ELEVENLABS_PREVIEW_VOICE_ID was never set, so every demo spoke with a stock English voice.
+// Without the secret, use PLW's configured ElevenLabs voice (the one Anna calls with).
+async function previewVoiceId(db: ReturnType<typeof createClient>): Promise<string> {
+  const configured = Deno.env.get('ELEVENLABS_PREVIEW_VOICE_ID');
+  if (configured) return configured;
+  const { data } = await db.from('ai_outbound_settings').select('voice_id').eq('id', 1).maybeSingle();
+  return typeof data?.voice_id === 'string' && data.voice_id ? data.voice_id : '21m00Tcm4TlvDq8ikWAM';
+}
 const MAX_TEXT = 400;
 const RATE_LIMIT = 10; // requests per minute per preview link
 
@@ -107,7 +113,8 @@ Deno.serve(async (req) => {
     return json({ error: 'Contenido no disponible para leer en voz alta.' }, 404, origin);
   }
 
-  const ckey = cacheKey(MODEL, VOICE_ID, parsed.language, text);
+  const voiceId = await previewVoiceId(db);
+  const ckey = cacheKey(MODEL, voiceId, parsed.language, text);
 
   // Cached audio first.
   const { data: cached } = await db
@@ -125,7 +132,7 @@ Deno.serve(async (req) => {
 
   let response: Response;
   try {
-    response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+    response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
       method: 'POST',
       headers: {
         'xi-api-key': apiKey,

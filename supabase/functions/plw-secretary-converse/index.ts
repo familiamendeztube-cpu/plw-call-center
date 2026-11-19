@@ -25,7 +25,14 @@ import {
 
 // Same verified voice profile as plw-tourism-voice (see scripts/lib/verifyElevenModel.mjs).
 const MODEL = Deno.env.get('ELEVENLABS_TTS_MODEL') ?? 'eleven_multilingual_v2';
-const VOICE_ID = Deno.env.get('ELEVENLABS_PREVIEW_VOICE_ID') ?? '21m00Tcm4TlvDq8ikWAM';
+// ELEVENLABS_PREVIEW_VOICE_ID was never set, so every demo spoke with a stock English voice.
+// Without the secret, use PLW's configured ElevenLabs voice (the one Anna calls with).
+async function previewVoiceId(db: ReturnType<typeof createClient>): Promise<string> {
+  const configured = Deno.env.get('ELEVENLABS_PREVIEW_VOICE_ID');
+  if (configured) return configured;
+  const { data } = await db.from('ai_outbound_settings').select('voice_id').eq('id', 1).maybeSingle();
+  return typeof data?.voice_id === 'string' && data.voice_id ? data.voice_id : '21m00Tcm4TlvDq8ikWAM';
+}
 const RATE_LIMIT = 20; // requests per minute per preview link
 const STT_URL = 'https://api.elevenlabs.io/v1/speech-to-text';
 const STT_MODEL = 'scribe_v2';
@@ -120,10 +127,10 @@ async function transcribe(
   return { ok: true, text };
 }
 
-async function synthesize(text: string, apiKey: string): Promise<Uint8Array | null> {
+async function synthesize(text: string, apiKey: string, voiceId: string): Promise<Uint8Array | null> {
   let response: Response;
   try {
-    response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+    response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
       method: 'POST',
       headers: {
         'xi-api-key': apiKey,
@@ -215,7 +222,8 @@ Deno.serve(async (req) => {
   if (!text) text = buildConverse('conv-fallback', replyLang, ctx);
   if (!text) return json({ error: 'Respuesta no disponible.' }, 404, origin);
 
-  const ckey = cacheKey(MODEL, VOICE_ID, replyLang, text);
+  const voiceId = await previewVoiceId(db);
+  const ckey = cacheKey(MODEL, voiceId, replyLang, text);
   const { data: cached } = await db
     .from('plw_voice_cache')
     .select('audio_base64')
@@ -227,7 +235,7 @@ Deno.serve(async (req) => {
   if (cached?.audio_base64) {
     mp3 = Uint8Array.from(atob(cached.audio_base64), (ch) => ch.charCodeAt(0));
   } else if (apiKey) {
-    mp3 = await synthesize(text, apiKey);
+    mp3 = await synthesize(text, apiKey, voiceId);
     if (mp3) {
       // Chunked base64: spreading the whole buffer into String.fromCharCode overflows
       // the stack for longer audio, which surfaced as a bare 500.
