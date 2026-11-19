@@ -73,11 +73,12 @@ export function SecretarySection({
           } else if (data) {
             // Parse through the shared mapper: the raw row is snake_case and carries the
             // preview token; reading camelCase off it left the demo links empty.
-            setDraft(draftFromRow(data as Record<string, unknown>));
-            if (typeof loaded.secretary_name === 'string' && loaded.secretary_name.trim() !== '') {
-              setName(loaded.secretary_name);
+            const loaded = draftFromRow(data as Record<string, unknown>);
+            setDraft(loaded);
+            if (loaded.secretaryName.trim() !== '') {
+              setName(loaded.secretaryName);
             }
-            const savedType = loaded.secretary_type;
+            const savedType = loaded.secretaryType;
             if (savedType === 'tourism' || savedType === 'restaurant' || savedType === 'retail' || savedType === 'services') {
               setType(savedType);
             }
