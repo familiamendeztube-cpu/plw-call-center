@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { TextField } from '@/components/ui/TextField';
 import { isRecord, postStaffFunction, readStaffFunctionError } from '@/integrations/supabase/callStaffFunction';
 import { parseCsvText, parseLeadRows } from '@/features/ai-outbound/models/outboundLead';
 import { readLeadFile } from '@/features/ai-outbound/models/leadFile';
@@ -183,124 +186,106 @@ export function TourismDialerCard({ runtime, runtimeError, calls, onChanged }: P
   const status = !verified ? 'Sin configurar' : paused ? 'Pausado' : 'Marcando';
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Marcador de Turismo</h2>
-          <p className="text-sm text-slate-500">
+    <section className="flex flex-col gap-5 rounded-2xl border border-neutral-200 bg-white p-6">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-plw-ink">Marcador de Turismo</h2>
+          <p className="mt-1 text-sm text-neutral-600">
             Campaña &quot;Turismo PLW&quot;: reservas multilingües. Lunes a viernes, 08:00–16:00,
             Costa Rica. Máximo {runtime?.daily_cap ?? 100} llamadas por día, una llamada a la vez
             en la línea compartida.
           </p>
         </div>
-        <span
-          className={
-            status === 'Marcando'
-              ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800'
-              : status === 'Pausado'
-                ? 'rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800'
-                : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600'
-          }
-        >
+        <Badge tone={status === 'Marcando' ? 'success' : status === 'Pausado' ? 'warning' : 'neutral'}>
           {status}
-        </span>
+        </Badge>
       </header>
 
-      {runtimeError && <p className="mb-3 text-sm text-red-700">{runtimeError}</p>}
+      {runtimeError && <p role="alert" className="text-sm text-danger-700">{runtimeError}</p>}
       {runtime?.last_error && runtime.last_error !== 'scheduler_paused' && (
-        <p className="mb-3 text-sm text-amber-700">{runtime.last_error}</p>
+        <p className="text-sm text-warning-700">{runtime.last_error}</p>
       )}
       {message && (
-        <p className={`mb-3 text-sm ${message.kind === 'ok' ? 'text-emerald-700' : 'text-red-700'}`}>
+        <p className={`text-sm ${message.kind === 'ok' ? 'text-success-700' : 'text-danger-700'}`}>
           {message.text}
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={() => withBusy('configure', () => run('configure'))}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-        >
+      <div className="flex flex-wrap items-center gap-3">
+        <Button disabled={busy !== null} onClick={() => withBusy('configure', () => run('configure'))}>
           {busy === 'configure' ? 'Configurando…' : runtime?.provider_agent_id ? 'Reconfigurar Ana Turismo' : 'Configurar Ana Turismo'}
-        </button>
+        </Button>
         {paused ? (
-          <button
-            type="button"
+          <Button
+            variant="success"
             disabled={busy !== null || !verified}
             onClick={() => withBusy('start', () => run('control', { state: 'start' }))}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
           >
             {busy === 'start' ? 'Activando…' : 'Iniciar'}
-          </button>
+          </Button>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             disabled={busy !== null}
             onClick={() => withBusy('pause', () => run('control', { state: 'pause' }))}
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
           >
             {busy === 'pause' ? 'Pausando…' : 'Pausar'}
-          </button>
+          </Button>
         )}
-        <span className="self-center text-sm text-slate-500">
+        <span className="text-sm text-neutral-500">
           Hoy: {runtime?.dialed_today ?? 0}/{runtime?.daily_cap ?? 100} llamadas
         </span>
       </div>
 
       <form
-        className="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4"
+        className="flex flex-wrap items-end gap-3 border-t border-neutral-200 pt-5"
         onSubmit={(event) => {
           event.preventDefault();
           void withBusy('test', () => run('test', { phone: testPhone, requestId: crypto.randomUUID() }));
         }}
       >
-        <label className="grid gap-1 text-sm font-medium text-slate-700" htmlFor="tourism-test-phone">
-          Llamada de prueba con Anna Turismo
-          <input
-            id="tourism-test-phone"
-            type="tel"
-            inputMode="tel"
-            value={testPhone}
-            onChange={(event) => setTestPhone(event.target.value)}
-            placeholder="8888 7777"
-            className="w-44 rounded-lg border border-slate-300 px-3 py-2 font-normal focus:border-slate-500 focus:outline-none"
-          />
-        </label>
-        <button
+        <TextField
+          label="Llamada de prueba con Anna Turismo"
+          type="tel"
+          inputMode="tel"
+          value={testPhone}
+          onChange={(event) => setTestPhone(event.target.value)}
+          placeholder="8888 7777"
+          className="w-48"
+        />
+        <Button
           type="submit"
+          variant="secondary"
           disabled={busy !== null || !verified || testPhone.trim() === ''}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50"
         >
           {busy === 'test' ? 'Llamando…' : 'Llamar'}
-        </button>
-        <span className="basis-full text-xs text-slate-500">
+        </Button>
+        <span className="basis-full text-xs text-neutral-500">
           Funciona aunque el marcador esté pausado; no cuenta en el límite diario.
         </span>
       </form>
 
-      <div className="mt-4 border-t border-slate-100 pt-4">
-        <h3 className="text-sm font-medium text-slate-700">Últimas llamadas</h3>
+      <div className="border-t border-neutral-200 pt-5">
+        <h3 className="text-sm font-medium text-neutral-700">Últimas llamadas</h3>
         {calls.length === 0 ? (
-          <p className="mt-1 text-sm text-slate-500">Todavía no hay llamadas.</p>
+          <p className="mt-1 text-sm text-neutral-500">Todavía no hay llamadas.</p>
         ) : (
-          <ul className="mt-2 divide-y divide-slate-100 text-sm">
+          <ul className="mt-2 divide-y divide-neutral-200 text-sm">
             {calls.map((call) => (
               <li key={call.id} className="grid gap-0.5 py-2">
                 <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium text-slate-900">
+                  <span className="font-medium text-plw-ink">
                     {call.is_test ? 'Prueba' : call.lead?.business_name || 'Sin nombre'}
                   </span>
-                  <span className="text-slate-500">
+                  <span className="text-neutral-500">
                     {call.phone} · {crTime(call.created_at)}
                   </span>
-                  <span className="ml-auto text-slate-700">
+                  <span className="ml-auto text-neutral-700">
                     {call.outcome ? (OUTCOME_LABELS[call.outcome] ?? call.outcome) : (STATE_LABELS[call.state] ?? call.state)}
                   </span>
                 </div>
                 {call.summary || call.error ? (
-                  <p className="line-clamp-2 text-slate-600">{call.summary || call.error}</p>
+                  <p className="line-clamp-2 text-neutral-600">{call.summary || call.error}</p>
                 ) : null}
               </li>
             ))}
@@ -308,23 +293,23 @@ export function TourismDialerCard({ runtime, runtimeError, calls, onChanged }: P
         )}
       </div>
 
-      <div className="mt-4 border-t border-slate-100 pt-4">
-        <label className="block text-sm font-medium text-slate-700" htmlFor="tourism-csv">
+      <div className="border-t border-neutral-200 pt-5">
+        <label className="block text-sm font-medium text-neutral-700" htmlFor="tourism-csv">
           Lista de leads (CSV, hasta 500 por importación)
         </label>
         <input
           id="tourism-csv"
           type="file"
           accept=".csv,.xlsx,.tsv"
-          className="mt-1 block text-sm"
+          className="mt-2 block text-sm text-neutral-700 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-100 file:px-3 file:py-2 file:text-plw-ink"
           disabled={importing}
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) void onFile(file);
           }}
         />
-        <div className="mt-3">
-          <label className="block text-sm font-medium text-slate-700" htmlFor="tourism-csv-paste">
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-neutral-700" htmlFor="tourism-csv-paste">
             O pegue el CSV aquí (mismo formato)
           </label>
           <textarea
@@ -334,26 +319,21 @@ export function TourismDialerCard({ runtime, runtimeError, calls, onChanged }: P
             disabled={importing}
             onChange={(event) => setPastedCsv(event.target.value)}
             placeholder={"Teléfono,Negocio,Contacto,Tipo de negocio\n88887777,Tour Ejemplo,Juan,tours"}
-            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-500 focus:outline-none"
+            className="mt-1.5 block w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-sm text-plw-ink transition-colors duration-150 placeholder:text-neutral-400 hover:border-white/20 focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30"
           />
-          <button
-            type="button"
-            disabled={importing}
-            onClick={onPaste}
-            className="mt-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50"
-          >
+          <Button variant="secondary" className="mt-3" disabled={importing} onClick={onPaste}>
             {importing ? 'Importando…' : 'Importar lo pegado'}
-          </button>
+          </Button>
         </div>
         {importPreview && (
-          <div className="mt-2 text-sm text-slate-600">
+          <div className="mt-3 text-sm text-neutral-600">
             <p>
               Válidos: {importPreview.valid.length} · Duplicados: {importPreview.duplicates} ·
               Bloqueados: {importPreview.doNotCall} · Solo WhatsApp: {importPreview.whatsappOnly} ·
               Inválidos: {importPreview.invalid.length}
             </p>
             {importPreview.tooMany && (
-              <p className="text-red-700">La lista pasa de 500 leads válidos; divídala.</p>
+              <p className="text-danger-700">La lista pasa de 500 leads válidos; divídala.</p>
             )}
           </div>
         )}

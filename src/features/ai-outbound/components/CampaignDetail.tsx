@@ -25,6 +25,7 @@ interface CampaignDetailProps {
 export function CampaignDetail({ campaign, onDeleted }: CampaignDetailProps) {
   const [importing, setImporting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [visible, setVisible] = useState(10);
   const { state, reload } = useCampaignLeads(campaign.id);
   const doNotCall = useDoNotCallPhones();
 
@@ -124,7 +125,7 @@ export function CampaignDetail({ campaign, onDeleted }: CampaignDetailProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">
-              {state.data.map((lead) => (
+              {state.data.slice(0, visible).map((lead) => (
                 <tr key={lead.id}>
                   <td className="py-2 pr-4 font-mono text-plw-ink">{lead.phone}</td>
                   <td className="py-2 pr-4 text-neutral-700">{lead.business_name || '-'}</td>
@@ -154,7 +155,16 @@ export function CampaignDetail({ campaign, onDeleted }: CampaignDetailProps) {
               ))}
             </tbody>
           </table>
-          <p className="mt-3 text-sm text-neutral-500">Contactos: {state.data.length}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <p className="text-sm text-neutral-500">
+              Mostrando {Math.min(visible, state.data.length)} de {state.data.length} contactos
+            </p>
+            {state.data.length > visible ? (
+              <Button variant="secondary" size="sm" onClick={() => setVisible((v) => v + 10)}>
+                Mostrar más
+              </Button>
+            ) : null}
+          </div>
         </div>
       )}
 

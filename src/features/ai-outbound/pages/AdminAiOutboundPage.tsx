@@ -72,6 +72,13 @@ export function AdminAiOutboundPage() {
         }
       />
 
+      <TourismDialerCard
+        runtime={tourism}
+        runtimeError={tourismError}
+        calls={tourismCalls}
+        onChanged={reloadTourism}
+      />
+
       {state.status === 'loading' ? (
         <StatusMessage tone="loading" title="Cargando campañas..." />
       ) : state.status === 'error' ? (
@@ -122,13 +129,6 @@ export function AdminAiOutboundPage() {
       />
 
       <TestCallDialog open={testing} onClose={() => setTesting(false)} />
-
-      <TourismDialerCard
-        runtime={tourism}
-        runtimeError={tourismError}
-        calls={tourismCalls}
-        onChanged={reloadTourism}
-      />
     </div>
   );
 }
