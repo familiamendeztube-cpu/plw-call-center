@@ -44,3 +44,7 @@ verify_jwt = false
 [functions.tourism-dialer]
 # Live admin sessions or the shared dedicated Vault scheduler key are checked in the handler.
 verify_jwt = false
+
+[functions.plw-tourism-preview]
+# Public read-only preview: the opaque token is the only key; no session, no writes.
+verify_jwt = false

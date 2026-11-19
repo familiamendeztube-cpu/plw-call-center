@@ -21,7 +21,8 @@ export const SITE_SLUGS = {
 } as const;
 
 export function buildPreviewUrl(token: string): string {
-  return `${SITE_PREVIEW_BASE}/${token}`;
+  // The plw- prefix is URL-only; the API and Kike both accept the token without it.
+  return `${SITE_PREVIEW_BASE}/plw-${token}`;
 }
 
 /** Readable defaults an agent edits instead of typing from zero. */
