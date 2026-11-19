@@ -21,6 +21,7 @@ import { BusinessImagesSection } from './BusinessImagesSection';
 
 const FIELD =
   'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-normal text-plw-ink focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30';
+const LOAD_ERROR = 'No se pudo cargar la muestra. Verifique su conexión e intente de nuevo.';
 
 interface SiteDraftCardProps {
   prospect: Prospect;
@@ -30,6 +31,7 @@ interface SiteDraftCardProps {
 
 type Phase =
   | { kind: 'loading' }
+  | { kind: 'error'; message: string }
   | { kind: 'form' }
   | { kind: 'saved'; draft: ProspectSiteDraft };
 
@@ -63,32 +65,42 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
   // Set right after the agent opens a composer; only the explicit confirm button records sharing.
   const [sharePrompt, setSharePrompt] = useState<'email' | 'whatsapp' | null>(null);
   const [images, setImages] = useState<SiteDraftImage[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    supabase
-      .from('prospect_site_drafts')
-      .select(DRAFT_ROW_COLUMNS)
-      .eq('prospect_id', prospect.id)
-      .maybeSingle()
-      .then(
-        ({ data }) => {
-          if (!alive) return;
-          if (!data) {
-            setPhase({ kind: 'form' });
-            return;
-          }
-          const draft = draftFromRow(data);
-          hydrate(draft);
-          setPhase({ kind: 'saved', draft });
-        },
-        () => alive && setPhase({ kind: 'form' })
-      );
+    const load = () => {
+      setPhase({ kind: 'loading' });
+      supabase
+        .from('prospect_site_drafts')
+        .select(DRAFT_ROW_COLUMNS)
+        .eq('prospect_id', prospect.id)
+        .maybeSingle()
+        .then(
+          ({ data, error: loadError }) => {
+            if (!alive) return;
+            if (loadError) {
+              setPhase({ kind: 'error', message: loadError.message || LOAD_ERROR });
+              return;
+            }
+            if (!data) {
+              setPhase({ kind: 'form' });
+              return;
+            }
+            const draft = draftFromRow(data);
+            hydrate(draft);
+            setPhase({ kind: 'saved', draft });
+          },
+          () => alive && setPhase({ kind: 'error', message: LOAD_ERROR })
+        );
+    };
+    load();
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, prospect.id]);
+  }, [supabase, prospect.id, reloadKey]);
+  const retryLoad = () => setReloadKey((key) => key + 1);
 
   function hydrate(draft: ProspectSiteDraft) {
     setCategory(draft.category);
@@ -104,7 +116,33 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
     setImages(draft.approvedImages);
   }
 
-  if (phase.kind === 'loading') return null;
+  if (phase.kind === 'loading') {
+    return (
+      <section aria-label="Muestra de sitio web" className="rounded-xl border border-plw-gold/50 bg-white p-4">
+        <div className="flex items-center gap-3">
+          <Globe size={18} className="text-plw-navy" aria-hidden="true" />
+          <h3 className="text-sm font-semibold text-plw-ink">Muestra de sitio web</h3>
+          <span className="ml-auto text-xs text-neutral-500">Cargando…</span>
+        </div>
+      </section>
+    );
+  }
+  if (phase.kind === 'error') {
+    return (
+      <section aria-label="Muestra de sitio web" className="rounded-xl border border-plw-gold/50 bg-white p-4">
+        <div className="flex items-center gap-3">
+          <Globe size={18} className="text-plw-navy" aria-hidden="true" />
+          <h3 className="text-sm font-semibold text-plw-ink">Muestra de sitio web</h3>
+        </div>
+        <div className="mt-3 grid gap-2">
+          <StatusMessage tone="error" title={phase.message} />
+          <Button size="sm" variant="secondary" className="justify-self-start" onClick={retryLoad}>
+            Intentar de nuevo
+          </Button>
+        </div>
+      </section>
+    );
+  }
 
   const draft = phase.kind === 'saved' ? phase.draft : null;
 
