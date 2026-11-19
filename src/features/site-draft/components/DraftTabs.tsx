@@ -11,8 +11,8 @@ const TABS: Array<{ id: DraftTab; label: string; icon: typeof Globe }> = [
   { id: 'secretaria', label: 'Secretaria IA', icon: Bot },
 ];
 
-// The website samples are tourism templates only (tours / lodging); the secretary demo
-// covers every business type. Categories are free text, so match loosely and accent-free.
+// Only picks the secretary's default business type; both tabs show for every customer.
+// Categories are free text, so match loosely and accent-free.
 const TOURISM = /turis|tour|hosped|hotel|cabin|alojam|hostal|lodge|viaje/;
 
 function isTourismCategory(category: string): boolean {
@@ -28,32 +28,29 @@ interface DraftTabsProps {
 /** Adjacent "Muestra de sitio web | Secretaria IA" tabs sharing the same draft and token. */
 export function DraftTabs({ prospect, canEdit }: DraftTabsProps) {
   const tourism = isTourismCategory(prospect.businessCategory);
-  const tabs = tourism ? TABS : TABS.filter(({ id }) => id === 'secretaria');
-  const [tab, setTab] = useState<DraftTab>(tabs[0].id);
+  const [tab, setTab] = useState<DraftTab>('sitio');
 
   return (
     <div className="grid gap-3">
-      {tabs.length > 1 ? (
-        <div role="tablist" aria-label="Muestra y secretaria" className="flex gap-1 rounded-lg bg-neutral-100 p-1">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              onClick={() => setTab(id)}
-              className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                tab === id
-                  ? 'bg-white text-plw-navy shadow-sm'
-                  : 'text-neutral-500 hover:text-plw-navy'
-              }`}
-            >
-              <Icon size={14} aria-hidden="true" />
-              {label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <div role="tablist" aria-label="Muestra y secretaria" className="flex gap-1 rounded-lg bg-neutral-100 p-1">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              tab === id
+                ? 'bg-white text-plw-navy shadow-sm'
+                : 'text-neutral-500 hover:text-plw-navy'
+            }`}
+          >
+            <Icon size={14} aria-hidden="true" />
+            {label}
+          </button>
+        ))}
+      </div>
       {tab === 'sitio' ? (
         <SiteDraftCard prospect={prospect} canEdit={canEdit} />
       ) : (
