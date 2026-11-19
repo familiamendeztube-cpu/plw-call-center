@@ -2,6 +2,11 @@
 // short lines derived from the confirmed draft (or fixed UI labels) — never arbitrary
 // caller-supplied text. Each answer id maps to a builder over the allowed draft fields.
 
+export interface FaqPair {
+  question: string;
+  answer: string;
+}
+
 export interface AnswerContext {
   businessName: string;
   locale: string;
@@ -9,17 +14,34 @@ export interface AnswerContext {
   services: string[];
   highlight: string;
   description: string;
+  faqs: FaqPair[];
 }
 
 export const ANSWER_IDS = ['welcome', 'services', 'location', 'about'] as const;
 
 export type AnswerId = (typeof ANSWER_IDS)[number];
 
-export function isAnswerId(value: unknown): value is AnswerId {
-  return typeof value === 'string' && (ANSWER_IDS as readonly string[]).includes(value);
+const FAQ_PATTERN = /^faq:([0-9]{1,2})$/;
+
+export function isAnswerId(value: unknown): value is AnswerId | `faq:${number}` {
+  if (typeof value !== 'string') return false;
+  if ((ANSWER_IDS as readonly string[]).includes(value)) return true;
+  return FAQ_PATTERN.test(value);
 }
 
-export function buildAnswer(id: AnswerId, language: 'es' | 'en', ctx: AnswerContext): string | null {
+export function buildAnswer(
+  id: AnswerId | `faq:${number}`,
+  language: 'es' | 'en',
+  ctx: AnswerContext
+): string | null {
+  const faqMatch = FAQ_PATTERN.exec(id);
+  if (faqMatch) {
+    const index = Number(faqMatch[1]);
+    const faq = ctx.faqs[index];
+    if (!faq || faq.answer.trim() === '') return null;
+    return faq.answer.trim().slice(0, 400);
+  }
+
   const name = ctx.businessName.trim();
   if (!name) return null;
   const place = ctx.locale.trim();

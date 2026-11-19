@@ -41,6 +41,10 @@
       "hasChanged": false,
       "hash": "31aa79ff364c84dceb077d2a37cdb25bc7284e57e54ec96374c9c6dfa526a90d"
     },
+    "plw-tourism-voice": {
+      "hasChanged": false,
+      "hash": "7f24db26d14ca28e36cf8018d2b5857defe14dcf3d9fa0f12524b12cebb58e2e"
+    },
     "staff-auth": {
       "hasChanged": false,
       "hash": "5befcff18ee7d1d071d72bc94629a877094523ea38811e87f7ccc54671030b19"
@@ -57,9 +61,9 @@
       "hasChanged": false,
       "hash": "07be34126010cc7f64eb0eeb150cd3636a8c48f16471493f9a8d83b943302c6b"
     },
-    "plw-tourism-voice": {
+    "plw-site-images": {
       "hasChanged": false,
-      "hash": "3f6a83486d179b29ba30237c03cd2216b45dd63f9a1f65bcf726e1c58b5af1a6"
+      "hash": "b27b93a19c672e86310fb97e984582ea473be7035f8e4687d82a2c8f1b81be5e"
     }
   }
 }

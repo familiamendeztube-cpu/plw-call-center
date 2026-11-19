@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Globe, ExternalLink, Mail, MessageCircle, Check, MapPin, ChevronDown } from 'lucide-react';
+import { Globe, ExternalLink, Mail, MessageCircle, Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { TextField } from '@/components/ui/TextField';
@@ -12,13 +12,12 @@ import {
   buildPreviewUrl,
   draftFromRow,
   DRAFT_ROW_COLUMNS,
-  buildMapsSearchUrl,
-  buildBusinessSearchUrl,
   type ProspectSiteDraft,
   type SiteDraftFact,
   type SiteDraftFaq,
   type SiteDraftImage,
 } from '../models/siteDraft';
+import { BusinessImagesSection } from './BusinessImagesSection';
 
 const FIELD =
   'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-normal text-plw-ink focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30';
@@ -199,14 +198,14 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
     setFaqs((current) => current.map((faq, i) => (i === index ? { ...faq, ...patch } : faq)));
   };
 
-  async function applyImages() {
+  async function applyImagesWith(next: SiteDraftImage[]) {
     if (!draft) return;
     setSaving(true);
     setError(null);
     try {
       const { data, error: rpcError } = await supabase.rpc('set_prospect_site_approved_images', {
         p_prospect_id: prospect.id,
-        p_images: images.slice(0, 4),
+        p_images: next.slice(0, 4),
       });
       if (rpcError) throw new Error(rpcError.message || 'No se pudieron guardar las imágenes.');
       const saved = Array.isArray(data) ? (data as SiteDraftImage[]) : [];
@@ -214,9 +213,14 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
       setPhase({ kind: 'saved', draft: { ...draft, approvedImages: saved } });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudieron guardar las imágenes.');
+      throw cause instanceof Error ? cause : new Error('No se pudieron guardar las imágenes.');
     } finally {
       setSaving(false);
     }
+  }
+
+  async function applyImages() {
+    await applyImagesWith(images.slice(0, 4));
   }
 
   return (
@@ -500,61 +504,15 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
                 </div>
 
                 {businessName.trim() ? (
-                  <div className="grid gap-2 rounded-lg border border-neutral-200 bg-white p-3">
-                    <span className="text-sm font-medium text-plw-navy">Imágenes del negocio</span>
-                    <p className="text-xs text-neutral-500">
-                      <MapPin size={12} className="inline" aria-hidden="true" /> Busque el negocio
-                      en un mapa o una búsqueda pública, abra el perfil y verifique que es el lugar
-                      correcto antes de usar cualquier dato o foto.
-                    </p>
-                    <div className="flex flex-wrap gap-3 text-xs">
-                      <a
-                        href={buildMapsSearchUrl(businessName.trim(), locale.trim())}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-plw-navy underline underline-offset-4"
-                      >
-                        Abrir Google Maps
-                      </a>
-                      <a
-                        href={buildBusinessSearchUrl(businessName.trim(), locale.trim())}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-plw-navy underline underline-offset-4"
-                      >
-                        Búsqueda web pública
-                      </a>
-                    </div>
-                    <p className="text-xs text-neutral-500">
-                      Sin un proveedor de imágenes configurado (no hay clave de generación), la
-                      muestra no genera ilustraciones. Puede agregar después fotos propias del
-                      negocio si el cliente las entrega.
-                    </p>
-                    {images.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {images.map((image) => (
-                          <img
-                            key={image.url}
-                            src={image.url}
-                            alt={image.alt}
-                            className="h-16 w-24 rounded-md object-cover"
-                          />
-                        ))}
-                      </div>
-                    ) : null}
-                    {images.length > 0 ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="justify-self-start"
-                        disabled={saving}
-                        onClick={() => void applyImages()}
-                      >
-                        Usar imágenes seleccionadas
-                      </Button>
-                    ) : null}
-                  </div>
+                  <BusinessImagesSection
+                    prospectId={prospect.id}
+                    businessName={businessName.trim()}
+                    locale={locale.trim()}
+                    approvedImages={images}
+                    onApplyApproved={async (next) => {
+                      await applyImagesWith(next);
+                    }}
+                  />
                 ) : null}
               </div>
             </details>

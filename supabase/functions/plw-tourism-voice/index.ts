@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
   // Resolve the active preview draft by token.
   const { data: row, error: lookupError } = await db
     .from('prospect_site_drafts')
-    .select('business_name, locale, category, services, highlight, description')
+    .select('business_name, locale, category, services, highlight, description, faqs')
     .eq('preview_token', parsed.token)
     .maybeSingle();
   if (lookupError) return json({ error: 'Voz no disponible.' }, 502, origin);
@@ -79,10 +79,18 @@ Deno.serve(async (req) => {
     services: Array.isArray(row.services) ? row.services.filter((s) => typeof s === 'string') : [],
     highlight: row.highlight ?? '',
     description: row.description ?? '',
+    faqs: Array.isArray(row.faqs)
+      ? (row.faqs as { question?: unknown; answer?: unknown }[])
+          .filter(
+            (faq): faq is { question: string; answer: string } =>
+              typeof faq?.question === 'string' && typeof faq?.answer === 'string'
+          )
+          .map((faq) => ({ question: faq.question, answer: faq.answer }))
+      : [],
   };
   const text = buildAnswer(parsed.answerId, parsed.language, ctx);
   if (!text || text.length > MAX_TEXT) {
-    return json({ error: 'Contenido no disponible para leer en voz alta.' }, 422, origin);
+    return json({ error: 'Contenido no disponible para leer en voz alta.' }, 404, origin);
   }
 
   const ckey = cacheKey(MODEL, VOICE_ID, parsed.language, text);

@@ -52,3 +52,7 @@ verify_jwt = false
 [functions.plw-tourism-voice]
 # Public, server-only text-to-speech for grounded preview answers; token + answer id, no writes.
 verify_jwt = false
+
+[functions.plw-site-images]
+# Authenticated image import/generate/approve for the site-draft panel; staff session required.
+verify_jwt = true
