@@ -8,6 +8,15 @@ export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
 export const MAX_CANDIDATES_PER_PROSPECT = 24;
 export const MAX_IMAGES_PER_DRAFT = 4;
 
+// Trusted origins that may embed the preview editor. Requests from any other origin get
+// the first entry echoed back (a fixed allowlist value, never an untrusted origin).
+const TRUSTED_ORIGINS = [
+  'https://familiamendeztube-cp-zfid.bolt.host',
+  'https://familiamendeztube-cp-q9tc.bolt.host',
+  'https://plw-callcenter.bolt.host',
+  'http://localhost:5173',
+] as const;
+
 export function json(body: unknown, status: number, origin: string): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -23,26 +32,22 @@ export function json(body: unknown, status: number, origin: string): Response {
   });
 }
 
-export function corsPreflight(): Response {
+export function corsPreflight(request: Request): Response {
   return new Response(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowedOrigin(request),
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+      Vary: 'Origin',
     },
   });
 }
 
-// Allowed origins mirror plw-tourism-preview.
-export function allowedOrigin(request: Request): string | null {
+// Mirrors plw-tourism-voice: reflect a trusted per-request Origin, otherwise the primary origin.
+export function allowedOrigin(request: Request): string {
   const origin = request.headers.get('Origin') ?? '';
-  const allowed = [
-    'https://familiamendeztube-cp-q9tc.bolt.host',
-    'https://plw-callcenter.bolt.host',
-    'http://localhost:5173',
-  ];
-  return allowed.includes(origin) ? origin : allowed[0];
+  return (TRUSTED_ORIGINS as readonly string[]).includes(origin) ? origin : TRUSTED_ORIGINS[0];
 }
 
 /** Detects the real image type from magic bytes; rejects anything else (no type spoofing). */

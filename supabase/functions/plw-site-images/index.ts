@@ -33,7 +33,6 @@ import {
   MAX_UPLOAD_BYTES,
 } from './rules.ts';
 
-const CORS_ORIGIN = Deno.env.get('PLW_APP_ORIGIN') ?? '';
 const IMAGE_MODEL = 'gpt-image-1';
 const MAX_ALT = 200;
 
@@ -45,7 +44,7 @@ interface Session {
 async function authorize(request: Request): Promise<Session | Response> {
   const auth = request.headers.get('Authorization') ?? '';
   const jwt = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  if (!jwt) return json({ error: 'Sesión no válida.' }, 401, CORS_ORIGIN || allowedOrigin(request));
+  if (!jwt) return json({ error: 'Sesión no válida.' }, 401, allowedOrigin(request));
 
   const db = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -53,7 +52,7 @@ async function authorize(request: Request): Promise<Session | Response> {
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
   const { data: userData, error } = await db.auth.getUser(jwt);
-  if (error || !userData?.user) return json({ error: 'Sesión no válida.' }, 401, CORS_ORIGIN || allowedOrigin(request));
+  if (error || !userData?.user) return json({ error: 'Sesión no válida.' }, 401, allowedOrigin(request));
 
   let sessionId: string | null = null;
   try {
@@ -69,7 +68,7 @@ async function authorize(request: Request): Promise<Session | Response> {
   if (resolveError) throw resolveError;
   const row = (Array.isArray(resolved) ? resolved[0] : resolved) as Record<string, unknown> | null;
   if (!row || typeof row.staff_id !== 'string') {
-    return json({ error: 'Sesión revocada o no válida.' }, 401, CORS_ORIGIN || allowedOrigin(request));
+    return json({ error: 'Sesión revocada o no válida.' }, 401, allowedOrigin(request));
   }
   return { db, staffId: row.staff_id };
 }
@@ -89,15 +88,15 @@ async function thumbnailUrl(db: Session['db'], path: string): Promise<string | n
 async function handleUpload(session: Session, prospectId: string, imageBase64: string) {
   const { db } = session;
   if (!(await canAccessProspect(db, prospectId))) {
-    return json({ error: 'No autorizado.' }, 403, CORS_ORIGIN);
+    return json({ error: 'No autorizado.' }, 403, origin);
   }
   const bytes = Uint8Array.from(atob(imageBase64), (ch) => ch.charCodeAt(0));
   if (bytes.byteLength === 0 || bytes.byteLength > MAX_UPLOAD_BYTES) {
-    return json({ error: 'La imagen debe pesar menos de 5 MB.' }, 413, CORS_ORIGIN);
+    return json({ error: 'La imagen debe pesar menos de 5 MB.' }, 413, origin);
   }
   const type = detectImageType(bytes);
   if (!type) {
-    return json({ error: 'Solo se aceptan imágenes JPEG, PNG o WebP.' }, 415, CORS_ORIGIN);
+    return json({ error: 'Solo se aceptan imágenes JPEG, PNG o WebP.' }, 415, origin);
   }
   const { count, error: countError } = await db
     .from('plw_site_image_candidates')
@@ -105,7 +104,7 @@ async function handleUpload(session: Session, prospectId: string, imageBase64: s
     .eq('prospect_id', prospectId);
   if (countError) throw countError;
   if ((count ?? 0) >= MAX_CANDIDATES_PER_PROSPECT) {
-    return json({ error: 'Ya hay demasiadas imágenes en esta lista.' }, 429, CORS_ORIGIN);
+    return json({ error: 'Ya hay demasiadas imágenes en esta lista.' }, 429, origin);
   }
 
   const path = `${prospectId}/${crypto.randomUUID()}`;
@@ -114,7 +113,7 @@ async function handleUpload(session: Session, prospectId: string, imageBase64: s
     .upload(path, bytes, { contentType: type, upsert: false });
   if (uploadError) {
     console.error('plw-site-images upload', uploadError.message);
-    return json({ error: 'No se pudo guardar la imagen.' }, 502, CORS_ORIGIN);
+    return json({ error: 'No se pudo guardar la imagen.' }, 502, origin);
   }
   const { data: inserted, error: insertError } = await db
     .from('plw_site_image_candidates')
@@ -123,7 +122,7 @@ async function handleUpload(session: Session, prospectId: string, imageBase64: s
     .single();
   if (insertError || !inserted) {
     console.error('plw-site-images register', insertError?.message);
-    return json({ error: 'No se pudo registrar la imagen.' }, 502, CORS_ORIGIN);
+    return json({ error: 'No se pudo registrar la imagen.' }, 502, origin);
   }
   const signedUrl = await thumbnailUrl(db, path);
   return json(
@@ -137,27 +136,27 @@ async function handleUpload(session: Session, prospectId: string, imageBase64: s
       },
     },
     201,
-    CORS_ORIGIN
+    origin
   );
 }
 
 async function handleStatus(session: Session) {
   // Presence only: never expose the key value.
   const available = Boolean(Deno.env.get('OPENAI_API_KEY'));
-  return json({ generationAvailable: available }, 200, CORS_ORIGIN);
+  return json({ generationAvailable: available }, 200, origin);
 }
 
 async function handleGenerate(session: Session, prospectId: string, prompt: string) {
   const { db } = session;
   if (!(await canAccessProspect(db, prospectId))) {
-    return json({ error: 'No autorizado.' }, 403, CORS_ORIGIN);
+    return json({ error: 'No autorizado.' }, 403, origin);
   }
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
-    return json({ error: 'La generación de imágenes no está configurada.', available: false }, 503, CORS_ORIGIN);
+    return json({ error: 'La generación de imágenes no está configurada.', available: false }, 503, origin);
   }
   const cleanPrompt = prompt.trim().slice(0, 500);
-  if (!cleanPrompt) return json({ error: 'Falta la descripción de la imagen.' }, 400, CORS_ORIGIN);
+  if (!cleanPrompt) return json({ error: 'Falta la descripción de la imagen.' }, 400, origin);
 
   const { count, error: countError } = await db
     .from('plw_site_image_candidates')
@@ -166,7 +165,7 @@ async function handleGenerate(session: Session, prospectId: string, prompt: stri
     .eq('kind', 'generated');
   if (countError) throw countError;
   if ((count ?? 0) >= MAX_CANDIDATES_PER_PROSPECT) {
-    return json({ error: 'Ya hay demasiadas imágenes en esta lista.' }, 429, CORS_ORIGIN);
+    return json({ error: 'Ya hay demasiadas imágenes en esta lista.' }, 429, origin);
   }
 
   let response: Response;
@@ -183,16 +182,16 @@ async function handleGenerate(session: Session, prospectId: string, prompt: stri
     });
   } catch (cause) {
     console.error('plw-site-images generate fetch', cause);
-    return json({ error: 'Generación no disponible.' }, 502, CORS_ORIGIN);
+    return json({ error: 'Generación no disponible.' }, 502, origin);
   }
   if (!response.ok) {
     console.error('plw-site-images generate status', response.status);
-    return json({ error: 'Generación no disponible.' }, 502, CORS_ORIGIN);
+    return json({ error: 'Generación no disponible.' }, 502, origin);
   }
   const payload = await response.json();
   const b64 = payload?.data?.[0]?.b64_json;
   if (typeof b64 !== 'string' || b64 === '') {
-    return json({ error: 'Generación no disponible.' }, 502, CORS_ORIGIN);
+    return json({ error: 'Generación no disponible.' }, 502, origin);
   }
   const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
 
@@ -202,7 +201,7 @@ async function handleGenerate(session: Session, prospectId: string, prompt: stri
     .upload(path, bytes, { contentType: 'image/png', upsert: false });
   if (uploadError) {
     console.error('plw-site-images generate upload', uploadError.message);
-    return json({ error: 'No se pudo guardar la imagen generada.' }, 502, CORS_ORIGIN);
+    return json({ error: 'No se pudo guardar la imagen generada.' }, 502, origin);
   }
   const { data: inserted, error: insertError } = await db
     .from('plw_site_image_candidates')
@@ -211,7 +210,7 @@ async function handleGenerate(session: Session, prospectId: string, prompt: stri
     .single();
   if (insertError || !inserted) {
     console.error('plw-site-images generate register', insertError?.message);
-    return json({ error: 'No se pudo registrar la imagen generada.' }, 502, CORS_ORIGIN);
+    return json({ error: 'No se pudo registrar la imagen generada.' }, 502, origin);
   }
   const signedUrl = await thumbnailUrl(db, path);
   return json(
@@ -225,7 +224,7 @@ async function handleGenerate(session: Session, prospectId: string, prompt: stri
       },
     },
     201,
-    CORS_ORIGIN
+    origin
   );
 }
 
@@ -238,10 +237,10 @@ async function handleApprove(
 ) {
   const { db } = session;
   if (!(await canAccessProspect(db, prospectId))) {
-    return json({ error: 'No autorizado.' }, 403, CORS_ORIGIN);
+    return json({ error: 'No autorizado.' }, 403, origin);
   }
   const cleanAlt = alt.trim().slice(0, MAX_ALT);
-  if (!cleanAlt) return json({ error: 'Escriba una descripción de la imagen.' }, 400, CORS_ORIGIN);
+  if (!cleanAlt) return json({ error: 'Escriba una descripción de la imagen.' }, 400, origin);
 
   const { data: candidate, error: candidateError } = await db
     .from('plw_site_image_candidates')
@@ -250,18 +249,18 @@ async function handleApprove(
     .eq('prospect_id', prospectId)
     .maybeSingle();
   if (candidateError) throw candidateError;
-  if (!candidate) return json({ error: 'Imagen no encontrada.' }, 404, CORS_ORIGIN);
+  if (!candidate) return json({ error: 'Imagen no encontrada.' }, 404, origin);
 
   const { data: file, error: downloadError } = await db.storage
     .from(CANDIDATE_BUCKET)
     .download(candidate.storage_path);
   if (downloadError || !file) {
     console.error('plw-site-images approve download', downloadError?.message);
-    return json({ error: 'No se pudo leer la imagen.' }, 502, CORS_ORIGIN);
+    return json({ error: 'No se pudo leer la imagen.' }, 502, origin);
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
   const type = detectImageType(bytes);
-  if (!type) return json({ error: 'La imagen no es válida.' }, 415, CORS_ORIGIN);
+  if (!type) return json({ error: 'La imagen no es válida.' }, 415, origin);
 
   const objectName = approvedObjectName(bytes);
   const { error: copyError } = await db.storage
@@ -269,7 +268,7 @@ async function handleApprove(
     .upload(objectName, bytes, { contentType: type, upsert: true });
   if (copyError && !copyError.message.includes('exists')) {
     console.error('plw-site-images approve upload', copyError.message);
-    return json({ error: 'No se pudo publicar la imagen.' }, 502, CORS_ORIGIN);
+    return json({ error: 'No se pudo publicar la imagen.' }, 502, origin);
   }
 
   const publicUrl = `${Deno.env.get('SUPABASE_URL')!}${APPROVED_PUBLIC_BASE}${objectName.replace('approved/', '')}`;
@@ -280,12 +279,12 @@ async function handleApprove(
     .eq('prospect_id', prospectId);
   if (updateError) throw updateError;
 
-  return json({ url: publicUrl, alt: cleanAlt, kind }, 200, CORS_ORIGIN);
+  return json({ url: publicUrl, alt: cleanAlt, kind }, 200, origin);
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return corsPreflight();
-  const origin = CORS_ORIGIN || allowedOrigin(req);
+  const origin = allowedOrigin(req);
+  if (req.method === 'OPTIONS') return corsPreflight(req);
   if (req.method !== 'POST') return json({ error: 'Método no permitido.' }, 405, origin);
 
   let body: Record<string, unknown>;
