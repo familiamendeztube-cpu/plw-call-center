@@ -136,7 +136,7 @@ it('keeps a compact client panel with the lead while the call is active', async 
   expect(screen.queryByRole('alertdialog')).toBeNull();
   expect(await screen.findByRole('heading', { name: 'Clínica Demo' })).toBeTruthy();
   const link = screen.getByRole('link', { name: 'Ver llamada' });
-  expect(link.getAttribute('href')).toBe(`/llamadas-dentales?call=${callId}`);
+  expect(link.getAttribute('href')).toBe(`/dentistas?call=${callId}`);
 });
 
 it('keeps the lead context when Ana completed the dental call at transfer', async () => {

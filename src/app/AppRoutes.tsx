@@ -22,8 +22,6 @@ import { AdminAuditPage } from '@/features/admin/pages/AdminAuditPage';
 import { AdminAiCallsPage } from '@/features/ai-calls/pages/AdminAiCallsPage';
 import { AdminAiOutboundPage } from '@/features/ai-outbound/pages/AdminAiOutboundPage';
 import { DentalLeadsPage } from '@/features/dental-leads/pages/DentalLeadsPage';
-import { DentalDialerPage } from '@/features/dental-leads/pages/DentalDialerPage';
-import { AdminTestPage } from '@/features/dental-leads/pages/AdminTestPage';
 
 export function AppRoutes() {
   return (
@@ -41,7 +39,8 @@ export function AppRoutes() {
         <Route path="/hoy" element={<TodayPage />} />
         <Route path="/clientes" element={<CustomersPage />} />
         <Route path="/dentistas" element={<DentalLeadsPage />} />
-        <Route path="/llamadas-dentales" element={<DentalDialerPage />} />
+        {/* Dental campaign retired: old dialer links go to the current general dialer. */}
+        <Route path="/llamadas-dentales" element={<Navigate to="/admin/marcador-general" replace />} />
         <Route path="/bandeja" element={<Navigate to="/clientes" replace />} />
         <Route path="/prospectos" element={<Navigate to="/clientes" replace />} />
         <Route path="/seguimientos" element={<FollowupsPage />} />
@@ -56,14 +55,15 @@ export function AppRoutes() {
         }
       >
         <Route path="/admin/resumen" element={<AdminOverviewPage />} />
-        <Route path="/admin/test" element={<AdminTestPage />} />
         <Route path="/admin/clientes" element={<AdminCustomersPage />} />
         <Route path="/admin/agentes" element={<AdminAgentsPage />} />
         <Route path="/admin/prospectos" element={<AdminProspectsPage />} />
         <Route path="/admin/asignaciones" element={<AssignmentPage />} />
         <Route path="/admin/solicitudes-ia" element={<AdminAiCallsPage />} />
-        <Route path="/admin/marcador-ia" element={<DentalDialerPage />} />
         <Route path="/admin/marcador-general" element={<AdminAiOutboundPage />} />
+        {/* Dental campaign retired: old dialer/test links redirect to the current dialer. */}
+        <Route path="/admin/marcador-ia" element={<Navigate to="/admin/marcador-general" replace />} />
+        <Route path="/admin/test" element={<Navigate to="/admin/marcador-general" replace />} />
         <Route path="/admin/dentistas" element={<DentalLeadsPage />} />
         <Route path="/admin/seguimientos" element={<AdminFollowupsPage />} />
         <Route path="/admin/material-comercial" element={<MaterialsPage />} />

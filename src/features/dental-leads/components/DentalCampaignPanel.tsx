@@ -64,7 +64,7 @@ export function DentalCampaignPanel({
         </p>
       )}
       <Link
-        to={admin ? '/admin/marcador-ia' : '/llamadas-dentales'}
+        to={admin ? '/admin/dentistas' : '/dentistas'}
         className="rounded-lg bg-black/15 p-3 text-sm underline"
       >
         Abrir marcador: controles, llamadas, transferencias y transcripciones.

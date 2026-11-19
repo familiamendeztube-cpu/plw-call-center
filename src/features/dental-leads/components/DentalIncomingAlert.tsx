@@ -21,8 +21,8 @@ export function DentalIncomingAlert() {
   const lookup = useIncomingDentalCall(call, agentId);
   const context = dentalContext(call, agentId, lookup);
   const historyLink = call?.dentalCallId
-    ? `/llamadas-dentales?call=${encodeURIComponent(call.dentalCallId)}`
-    : '/llamadas-dentales';
+    ? `/dentistas?call=${encodeURIComponent(call.dentalCallId)}`
+    : '/dentistas';
   // Any caller who is already one of the agent's customers, not only Anna's transfers.
   const prospects = useOptionalAgentProspects();
   const customer = call ? (prospects?.findByPhone(call.remoteNumber) ?? null) : null;

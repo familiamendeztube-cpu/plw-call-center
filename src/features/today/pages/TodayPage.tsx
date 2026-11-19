@@ -152,7 +152,7 @@ export function TodayPage() {
         <p className="text-sm text-neutral-600">
           Anna dejó {anna.callback.length} {anna.callback.length === 1 ? 'dentista' : 'dentistas'}{' '}
           para volver a llamar (buzón de voz o sin respuesta).{' '}
-          <Link to="/llamadas-dentales" className="font-medium text-plw-navy underline">
+          <Link to="/dentistas" className="font-medium text-plw-navy underline">
             Ver la lista
           </Link>
         </p>
@@ -218,8 +218,8 @@ function TodayRow({
             Abrir
           </Button>
         ) : (
-          <Button size="sm" variant="secondary" onClick={() => navigate('/llamadas-dentales')}>
-            Ver en Llamadas IA
+          <Button size="sm" variant="secondary" onClick={() => navigate('/dentistas')}>
+            Ver en Dentistas
           </Button>
         )}
         {onMove ? (
