@@ -14,9 +14,11 @@ import {
   rateKey,
   windowBucket,
 } from './rules.ts';
-import { buildAnswer, type AnswerContext } from './grounding.ts';
+import { buildAnswer, buildMandarinLine, type AnswerContext } from './grounding.ts';
 
-const MODEL = 'eleven_multilingual_v2';
+// Verified against the account's synchronous /v1/models endpoint plus a real synthesis
+// (see scripts/lib/verifyElevenModel.mjs); falls back to the previous model if unset.
+const MODEL = Deno.env.get('ELEVENLABS_TTS_MODEL') ?? 'eleven_multilingual_v2';
 // Approved environment voice; falls back to a known voice id if not set.
 const VOICE_ID = Deno.env.get('ELEVENLABS_PREVIEW_VOICE_ID') ?? '21m00Tcm4TlvDq8ikWAM';
 const MAX_TEXT = 400;
@@ -67,7 +69,7 @@ Deno.serve(async (req) => {
   // Resolve the active preview draft by token.
   const { data: row, error: lookupError } = await db
     .from('prospect_site_drafts')
-    .select('business_name, locale, category, services, highlight, description, faqs')
+    .select('business_name, locale, category, services, highlight, description, faqs, secretary_name, secretary_type')
     .eq('preview_token', parsed.token)
     .maybeSingle();
   if (lookupError) return json({ error: 'Voz no disponible.' }, 502, origin);
@@ -88,8 +90,20 @@ Deno.serve(async (req) => {
           )
           .map((faq) => ({ question: faq.question, answer: faq.answer }))
       : [],
+    // Optional secretary profile; defaults to the draft's own name and category upstream.
+    secretary:
+      typeof row.secretary_name === 'string' && row.secretary_name.trim() !== ''
+        ? {
+            businessName: row.secretary_name,
+            businessType: typeof row.secretary_type === 'string' ? row.secretary_type : '',
+          }
+        : undefined,
   };
-  const text = buildAnswer(parsed.answerId, parsed.language, ctx);
+  // Mandarin is only spoken for the secretary-language demo line; same voice profile.
+  const text =
+    parsed.language === 'zh'
+      ? buildMandarinLine(parsed.answerId, ctx)
+      : buildAnswer(parsed.answerId, parsed.language, ctx);
   if (!text || text.length > MAX_TEXT) {
     return json({ error: 'Contenido no disponible para leer en voz alta.' }, 404, origin);
   }
@@ -134,7 +148,14 @@ Deno.serve(async (req) => {
     return json({ error: 'Voz no disponible.' }, 502, origin);
   }
   const buffer = new Uint8Array(await response.arrayBuffer());
-  const base64 = btoa(String.fromCharCode(...buffer));
+  // Chunked base64: spreading the whole buffer into String.fromCharCode overflows the
+  // stack for longer audio (larger secretary lines), which surfaced as a bare 500.
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < buffer.length; i += CHUNK) {
+    binary += String.fromCharCode(...buffer.subarray(i, i + CHUNK));
+  }
+  const base64 = btoa(binary);
 
   // Store in the cache; a failure to cache does not fail the response.
   await db

@@ -39,6 +39,7 @@ const MAX_ALT = 200;
 interface Session {
   db: ReturnType<typeof createClient>;
   staffId: string;
+  staffRole: string;
 }
 
 async function authorize(request: Request): Promise<Session | Response> {
@@ -70,13 +71,25 @@ async function authorize(request: Request): Promise<Session | Response> {
   if (!row || typeof row.staff_id !== 'string') {
     return json({ error: 'Sesión revocada o no válida.' }, 401, allowedOrigin(request));
   }
-  return { db, staffId: row.staff_id };
+  return { db, staffId: row.staff_id, staffRole: typeof row.staff_role === 'string' ? row.staff_role : '' };
 }
 
-async function canAccessProspect(db: Session['db'], prospectId: string): Promise<boolean> {
-  const { data, error } = await db.rpc('can_access_prospect', { p_prospect_id: prospectId });
+// Explicit access check for the service-role context: this function's database calls carry
+// no JWT claims, so can_access_prospect() (auth.uid()-based) cannot see the caller here.
+// Same rule as the browser policies: admin reaches any prospect; an agent only their own.
+async function canAccessProspect(
+  session: Session,
+  prospectId: string
+): Promise<boolean> {
+  if (session.staffRole === 'admin') return true;
+  const { data, error } = await session.db
+    .from('prospects')
+    .select('id')
+    .eq('id', prospectId)
+    .eq('owner_id', session.staffId)
+    .limit(1);
   if (error) throw error;
-  return data === true;
+  return (data?.length ?? 0) > 0;
 }
 
 async function thumbnailUrl(db: Session['db'], path: string): Promise<string | null> {
@@ -87,7 +100,7 @@ async function thumbnailUrl(db: Session['db'], path: string): Promise<string | n
 
 async function handleUpload(session: Session, prospectId: string, imageBase64: string) {
   const { db } = session;
-  if (!(await canAccessProspect(db, prospectId))) {
+  if (!(await canAccessProspect(session, prospectId))) {
     return json({ error: 'No autorizado.' }, 403, origin);
   }
   const bytes = Uint8Array.from(atob(imageBase64), (ch) => ch.charCodeAt(0));
@@ -148,7 +161,7 @@ async function handleStatus(session: Session) {
 
 async function handleGenerate(session: Session, prospectId: string, prompt: string) {
   const { db } = session;
-  if (!(await canAccessProspect(db, prospectId))) {
+  if (!(await canAccessProspect(session, prospectId))) {
     return json({ error: 'No autorizado.' }, 403, origin);
   }
   const apiKey = Deno.env.get('OPENAI_API_KEY');
@@ -236,7 +249,7 @@ async function handleApprove(
   kind: 'business' | 'generated'
 ) {
   const { db } = session;
-  if (!(await canAccessProspect(db, prospectId))) {
+  if (!(await canAccessProspect(session, prospectId))) {
     return json({ error: 'No autorizado.' }, 403, origin);
   }
   const cleanAlt = alt.trim().slice(0, MAX_ALT);

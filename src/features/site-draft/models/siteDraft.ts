@@ -24,7 +24,11 @@ export interface ProspectSiteDraft {
   facts: SiteDraftFact[];
   faqs: SiteDraftFaq[];
   approvedImages: SiteDraftImage[];
+  /** Optional Secretary IA demo profile; falls back to the draft name/category. */
+  secretaryName: string;
+  secretaryType: string;
   previewUrl: string;
+  previewToken: string;
   sharedAt: string | null;
 }
 
@@ -60,7 +64,10 @@ export function draftFromRow(row: Record<string, unknown>): ProspectSiteDraft {
     facts: parsePairs(row['facts']),
     faqs: parseFaqs(row['faqs']),
     approvedImages: parseImages(row['approved_images']),
+    secretaryName: (row['secretary_name'] as string) ?? '',
+    secretaryType: (row['secretary_type'] as string) ?? '',
     previewUrl: buildPreviewUrl(token),
+    previewToken: token,
     sharedAt: (row['shared_at'] as string | null) ?? null,
   };
 }
@@ -106,7 +113,7 @@ export interface SiteDraftService {
 }
 
 export const DRAFT_ROW_COLUMNS =
-  'prospect_id, site_slug, business_name, locale, category, services, highlight, booking_phone, description, facts, faqs, approved_images, preview_token, shared_at';
+  'prospect_id, site_slug, business_name, locale, category, services, highlight, booking_phone, description, facts, faqs, approved_images, secretary_name, secretary_type, preview_token, shared_at';
 
 export interface SiteDraftImage {
   url: string;

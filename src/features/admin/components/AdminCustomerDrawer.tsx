@@ -10,7 +10,7 @@ import type { AdminSnapshot } from '@/features/admin/models/overview';
 import { FOLLOWUP_KIND_LABELS } from '@/features/followups/models/followup';
 import { ConversationPane } from '@/features/inbox/components/ConversationPane';
 import { WhatsAppConversation } from '@/features/whatsapp/components/WhatsAppConversation';
-import { SiteDraftCard } from '@/features/site-draft/components/SiteDraftCard';
+import { DraftTabs } from '@/features/site-draft/components/DraftTabs';
 import {
   PAYMENT_STATUSES,
   PAYMENT_STATUS_LABELS,
@@ -165,9 +165,10 @@ export function AdminCustomerDrawer({
           className="flex flex-col gap-3"
         />
 
-        {/* Same card the agent sees: the administrator verifies the draft and preview link
-            here, including for the isolated test prospect used for real end-to-end checks. */}
-        <SiteDraftCard prospect={prospect} canEdit />
+        {/* Same card the agent sees: the administrator verifies the draft, secretary demo,
+            and preview link here, including for the isolated test prospect used for real
+            end-to-end checks. */}
+        <DraftTabs prospect={prospect} canEdit />
 
         <section aria-label="Conversación y notas" className="flex flex-col gap-2">
           <h3 className="text-sm font-semibold text-plw-ink">Conversación y notas privadas</h3>

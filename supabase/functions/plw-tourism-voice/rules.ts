@@ -77,7 +77,9 @@ export function parseVoiceRequest(body: unknown): VoiceRequest | null {
   const token = normalizeToken((body as Record<string, unknown>)['token']);
   const answerId = (body as Record<string, unknown>)['answerId'];
   const language = (body as Record<string, unknown>)['language'];
-  if (language !== 'es' && language !== 'en') return null;
+  // zh (Mandarin) is only valid for the secretary-language demo line.
+  if (language === 'zh' && answerId !== 'secretary-language') return null;
+  if (language !== 'es' && language !== 'en' && language !== 'zh') return null;
   if (!token || !isAnswerId(answerId)) return null;
   return { token, answerId, language: language };
 }
