@@ -60,8 +60,9 @@ test('answers are built only from confirmed public fields, never private CRM dat
 });
 
 test('keys and windows are stable and text-dependent', () => {
-  assert.equal(rateKey(TOKEN, '1.2.3.4'), rateKey(TOKEN, '1.2.3.4'));
-  assert.notEqual(rateKey(TOKEN, '1.2.3.4'), rateKey(TOKEN, '5.6.7.8'));
+  // One budget per preview link, whatever IP the caller claims in x-forwarded-for.
+  assert.equal(rateKey(TOKEN), rateKey(TOKEN));
+  assert.notEqual(rateKey(TOKEN), rateKey('0'.repeat(48)));
   assert.equal(cacheKey('m', 'v', 'es', 'hola'), cacheKey('m', 'v', 'es', 'hola'));
   assert.notEqual(cacheKey('m', 'v', 'es', 'hola'), cacheKey('m', 'v', 'es', 'adiós'));
   assert.match(windowBucket(), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);

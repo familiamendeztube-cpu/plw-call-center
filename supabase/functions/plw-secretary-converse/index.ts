@@ -1,8 +1,9 @@
 // Public conversational turn for the secretary demo (typed question or microphone).
 // A short caller question is transcribed (Scribe v2), classified into a fixed opaque
-// answer id, and answered with the same approved line the visitor sees — the raw
-// transcript is never retained, never spoken, and never sent to text-to-speech.
-// No agent data, no telephony, no retention of audio in PLW.
+// answer id, and answered with the same approved line the visitor sees. PLW stores neither
+// the audio nor the transcript, and the transcript is never spoken. ElevenLabs keeps the
+// request under the account's normal retention: zero-retention (enable_logging=false, a
+// query parameter) is enterprise-only, so it is not requested here.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
@@ -25,9 +26,9 @@ import {
 // Same verified voice profile as plw-tourism-voice (see scripts/lib/verifyElevenModel.mjs).
 const MODEL = Deno.env.get('ELEVENLABS_TTS_MODEL') ?? 'eleven_multilingual_v2';
 const VOICE_ID = Deno.env.get('ELEVENLABS_PREVIEW_VOICE_ID') ?? '21m00Tcm4TlvDq8ikWAM';
-const RATE_LIMIT = 20; // requests per minute per token+IP
+const RATE_LIMIT = 20; // requests per minute per preview link
 const STT_URL = 'https://api.elevenlabs.io/v1/speech-to-text';
-const STT_MODEL = 'scribe_v1';
+const STT_MODEL = 'scribe_v2';
 
 interface DraftRow {
   business_name: string | null;
@@ -37,6 +38,7 @@ interface DraftRow {
   highlight: string | null;
   description: string | null;
   faqs: unknown;
+  facts: unknown;
   secretary_name: string | null;
   secretary_type: string | null;
 }
@@ -57,6 +59,12 @@ function contextFromDraft(row: DraftRow): AnswerContext {
           )
           .map((faq) => ({ question: faq.question, answer: faq.answer }))
       : [],
+    facts: Array.isArray(row.facts)
+      ? (row.facts as { label?: unknown; value?: unknown }[]).filter(
+          (fact): fact is { label: string; value: string } =>
+            typeof fact?.label === 'string' && typeof fact?.value === 'string'
+        )
+      : [],
     secretary:
       typeof row.secretary_name === 'string' && row.secretary_name.trim() !== ''
         ? {
@@ -67,8 +75,7 @@ function contextFromDraft(row: DraftRow): AnswerContext {
   };
 }
 
-// Scribe v2 transcription. The audio bytes are streamed to ElevenLabs and discarded;
-// logging is disabled and neither the audio nor the transcript is stored in PLW.
+// Scribe v2 transcription. The audio bytes go to ElevenLabs only; PLW stores nothing.
 async function transcribe(
   audio: Uint8Array,
   apiKey: string,
@@ -76,7 +83,6 @@ async function transcribe(
 ): Promise<{ ok: true; text: string } | { ok: false; status: number; error: string }> {
   const form = new FormData();
   form.append('model_id', STT_MODEL);
-  form.append('enable_logging', 'false');
   form.append(
     'file',
     new Blob([audio.buffer.slice(audio.byteOffset, audio.byteOffset + audio.byteLength)], {
@@ -151,9 +157,9 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
 
-  // Conservative rate limit before any external work.
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  const key = rateKey(parsed.token, ip);
+  // Rate limit per preview link before any external work. Keyed on the link alone: the
+  // first x-forwarded-for entry is caller-controlled, so per-IP keys were unlimited.
+  const key = rateKey(parsed.token);
   const bucket = windowBucket();
   const { data: hit } = await db
     .from('plw_voice_rate')
@@ -175,7 +181,7 @@ Deno.serve(async (req) => {
   const { data: row, error: lookupError } = await db
     .from('prospect_site_drafts')
     .select(
-      'business_name, locale, category, services, highlight, description, faqs, secretary_name, secretary_type'
+      'business_name, locale, category, services, highlight, description, faqs, facts, secretary_name, secretary_type'
     )
     .eq('preview_token', parsed.token)
     .maybeSingle();
@@ -202,8 +208,8 @@ Deno.serve(async (req) => {
   }
 
   // Classify into a fixed opaque id; only the approved reply line is spoken or shown.
-  const answerId: ConverseId = classifyTranscript(transcript);
   const ctx = contextFromDraft(row);
+  const answerId: ConverseId = classifyTranscript(transcript, ctx);
   const replyLang = parsed.language === 'zh' || parsed.language === 'auto' ? 'es' : parsed.language;
   let text = buildConverse(answerId, replyLang, ctx);
   if (!text) text = buildConverse('conv-fallback', replyLang, ctx);

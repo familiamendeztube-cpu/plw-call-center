@@ -45,6 +45,54 @@ test('short transcripts classify to fixed opaque answer ids', () => {
   assert.equal(classifyTranscript('12345 !!!'), 'conv-fallback');
 });
 
+test('real visitor questions get the matching answer, not a keyword accident', () => {
+  const cases = [
+    ['¿Atienden turistas de todo Costa Rica?', 'conv-fallback'], // "Costa" is not "costo"
+    ['¿En qué calle están ubicados?', 'conv-location'], // "calle" is not "call"
+    ['Buenas tardes, ¿qué tours tienen?', 'conv-services'], // a greeting is not after-hours
+    ['¿El tour incluye almuerzo?', 'conv-services'], // not the PLW sales bundle
+    ['¿Cuál es el horario?', 'conv-after-hours'],
+    ['¿Tienen disponibilidad el sábado?', 'conv-reservations'],
+    ['¿Cuánto vale el tour?', 'conv-pricing-contact'],
+    ['¿Qué hay en el menú?', 'conv-services'],
+    ['Quiero dejar un mensaje', 'conv-calls'],
+  ];
+  for (const [question, expected] of cases) assert.equal(classifyTranscript(question), expected, question);
+});
+
+test("the owner's own FAQs and facts answer first, with the owner's words", () => {
+  const ctx = {
+    ...CTX,
+    faqs: [{ question: '¿Incluye almuerzo?', answer: 'Sí, almuerzo típico incluido.' }],
+    facts: [{ label: 'Horario', value: '8 am a 5 pm' }],
+  };
+  assert.equal(classifyTranscript('¿El tour incluye almuerzo?', ctx), 'faq:0');
+  assert.equal(buildConverse('faq:0', 'es', ctx), 'Sí, almuerzo típico incluido.');
+  assert.equal(classifyTranscript('¿Cuál es el horario?', ctx), 'fact:0');
+  assert.equal(buildConverse('fact:0', 'es', ctx), 'Horario: 8 am a 5 pm');
+  // One shared word is not enough for a longer FAQ question.
+  const long = { ...CTX, faqs: [{ question: '¿El tour al volcán incluye transporte?', answer: 'Sí.' }] };
+  assert.equal(classifyTranscript('¿Qué tours tienen?', long), 'conv-services');
+  // Services and location come from the draft; without them the reply is the fallback list.
+  assert.equal(buildConverse('conv-services', 'es', CTX), 'Bosque de Bruma Tours ofrece: Caminata al volcán.');
+  assert.equal(buildConverse('conv-location', 'es', { ...CTX, locale: '' }), null);
+});
+
+test('the voice and converse functions ship the same grounding and the same allowed sites', async () => {
+  const { readFileSync } = await import('node:fs');
+  const read = (path) => readFileSync(new URL(`../../supabase/functions/${path}`, import.meta.url), 'utf8');
+  // Each function deploys only its own folder, so the registry is copied; it must not drift.
+  assert.equal(read('plw-tourism-voice/grounding.ts'), read('plw-secretary-converse/grounding.ts'));
+  const origins = (source) => [...source.matchAll(/'(https?:\/\/[^']+)'/g)].map((m) => m[1]).filter((url) => !url.includes('api.'));
+  const lists = [
+    'plw-tourism-preview/index.ts',
+    'plw-tourism-voice/rules.ts',
+    'plw-secretary-converse/rules.ts',
+    'plw-site-images/rules.ts',
+  ].map((path) => origins(read(path)).sort());
+  for (const list of lists) assert.deepEqual(list, lists[0]);
+});
+
 test('converse ids are opaque and replies use only public fields in the matched language', () => {
   for (const id of CONVERSE_IDS) {
     assert.equal(typeof id, 'string');

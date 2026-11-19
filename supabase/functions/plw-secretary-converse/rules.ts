@@ -79,7 +79,9 @@ export interface ParsedConverse {
   language: ConverseLanguage;
 }
 
-const MAX_AUDIO_BYTES = 2 * 1024 * 1024; // ~15s of compressed recording, hard ceiling
+// ~30 s of browser Opus at 128 kbps. The old 2 MB cap allowed several minutes of audio
+// per request, all billed as speech-to-text.
+const MAX_AUDIO_BYTES = 512 * 1024;
 const MAX_TEXT_CHARS = 300;
 
 /** Accepts multipart/form-data (token, audio file or text, language) or JSON. */
@@ -134,8 +136,9 @@ export async function parseConverseRequest(req: Request): Promise<ConverseReques
   return { token: normalized, audio, text: cleanText, language: lang };
 }
 
-export function rateKey(token: string, ip: string): string {
-  return createHash('sha256').update(`${token}|${ip}`).digest('hex');
+/** Per preview link: an IP key is spoofable through x-forwarded-for. */
+export function rateKey(token: string): string {
+  return createHash('sha256').update(`converse|${token}`).digest('hex');
 }
 
 export function windowBucket(): string {

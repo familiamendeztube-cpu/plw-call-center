@@ -36,12 +36,6 @@ import {
 const IMAGE_MODEL = 'gpt-image-1';
 const MAX_ALT = 200;
 
-// The allowlisted Origin is resolved once per request in Deno.serve and passed down to
-// the leaf handlers, which answer every response path (including errors) with it.
-function originOf(request: Request): string {
-  return allowedOrigin(request);
-}
-
 interface Session {
   db: ReturnType<typeof createClient>;
   staffId: string;
@@ -110,7 +104,7 @@ async function handleUpload(
   prospectId: string,
   imageBase64: string
 ) {
-  const origin = originOf(request);
+  const origin = allowedOrigin(request);
   const { db } = session;
   if (!(await canAccessProspect(session, prospectId))) {
     return json({ error: 'No autorizado.' }, 403, origin);
@@ -165,15 +159,15 @@ async function handleUpload(
   );
 }
 
-async function handleStatus(request: Request, session: Session) {
-  const origin = originOf(request);
+async function handleStatus(request: Request) {
+  const origin = allowedOrigin(request);
   // Presence only: never expose the key value.
   const available = Boolean(Deno.env.get('OPENAI_API_KEY'));
   return json({ generationAvailable: available }, 200, origin);
 }
 
 async function handleGenerate(request: Request, session: Session, prospectId: string, prompt: string) {
-  const origin = originOf(request);
+  const origin = allowedOrigin(request);
   const { db } = session;
   if (!(await canAccessProspect(session, prospectId))) {
     return json({ error: 'No autorizado.' }, 403, origin);
@@ -263,7 +257,7 @@ async function handleApprove(
   alt: string,
   kind: 'business' | 'generated'
 ) {
-  const origin = originOf(request);
+  const origin = allowedOrigin(request);
   const { db } = session;
   if (!(await canAccessProspect(session, prospectId))) {
     return json({ error: 'No autorizado.' }, 403, origin);
@@ -334,7 +328,7 @@ Deno.serve(async (req) => {
   if (!isUuid(prospectId)) return json({ error: 'Solicitud no válida.' }, 400, origin);
 
   try {
-    if (action === 'status') return await handleStatus(req, session);
+    if (action === 'status') return await handleStatus(req);
     if (action === 'upload' && typeof body['imageBase64'] === 'string') {
       return await handleUpload(req, session, prospectId, body['imageBase64']);
     }

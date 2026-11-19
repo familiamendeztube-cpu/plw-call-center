@@ -20,7 +20,8 @@ async function main() {
     console.error(JSON.stringify({ verified: false, status: listResponse.status }));
     process.exit(0);
   }
-  const models = (await listResponse.json()) as Array<{ model_id?: string }>;
+  /** @type {Array<{ model_id?: string }>} */
+  const models = await listResponse.json();
   const available = new Set(models.map((m) => m.model_id).filter(Boolean));
 
   // Confirm with a real synchronous synthesis on the chosen model.

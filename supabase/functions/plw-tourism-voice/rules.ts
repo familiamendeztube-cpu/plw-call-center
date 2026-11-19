@@ -5,6 +5,7 @@ import { ANSWER_IDS, buildAnswer, isAnswerId, type AnswerContext } from './groun
 // the first entry echoed back (still a fixed allowlist value, never an untrusted origin).
 const TRUSTED_ORIGINS = [
   'https://familiamendeztube-cp-q9tc.bolt.host',
+  'https://familiamendeztube-cp-zfid.bolt.host',
   'https://plw-callcenter.bolt.host',
   'http://localhost:5173',
 ] as const;
@@ -84,8 +85,9 @@ export function parseVoiceRequest(body: unknown): VoiceRequest | null {
   return { token, answerId, language: language };
 }
 
-export function rateKey(token: string, ip: string): string {
-  return createHash('sha256').update(`${token}|${ip}`).digest('hex');
+/** Per preview link: an IP key is spoofable through x-forwarded-for. */
+export function rateKey(token: string): string {
+  return createHash('sha256').update(`voice|${token}`).digest('hex');
 }
 
 export function windowBucket(): string {

@@ -1,4 +1,6 @@
-// Grounded answer registry for plw-tourism-voice. The voice endpoint only synthesizes
+// Grounded answer registry shared by plw-tourism-voice and plw-secretary-converse (kept as
+// identical copies, checked by scripts/lib/secretaryConverse.test.mjs, because each function
+// deploys its own folder). The voice endpoints only synthesize
 // short lines derived from the confirmed draft (or fixed UI labels) — never arbitrary
 // caller-supplied text. Each answer id maps to a builder over the allowed draft fields.
 
@@ -21,6 +23,8 @@ export interface AnswerContext {
   highlight: string;
   description: string;
   faqs: FaqPair[];
+  /** Owner-typed label/value facts ("Horario": "8 am-5 pm"); only the converse demo reads them. */
+  facts?: { label: string; value: string }[];
   secretary?: SecretaryProfile;
 }
 
@@ -187,8 +191,9 @@ export function buildMandarinLine(id: string, ctx: AnswerContext): string | null
 }
 
 // Conversational turns for the secretary demo. A short caller question (typed or
-// transcribed from the microphone) is classified into one of these fixed opaque ids;
-// only the approved reply line is ever spoken or shown — never the raw transcript.
+// transcribed from the microphone) is classified into a fixed opaque id; only the approved
+// reply line is ever spoken or shown, never the raw transcript. The business's own saved
+// FAQs and facts are checked first, so "¿Incluye almuerzo?" gets the owner's answer.
 export const CONVERSE_IDS = [
   'conv-sales-bundle',
   'conv-website',
@@ -199,37 +204,72 @@ export const CONVERSE_IDS = [
   'conv-reservations',
   'conv-after-hours',
   'conv-other-language',
+  'conv-services',
+  'conv-location',
   'conv-fallback',
 ] as const;
 
-export type ConverseId = (typeof CONVERSE_IDS)[number];
+export type ConverseId = (typeof CONVERSE_IDS)[number] | `faq:${number}` | `fact:${number}`;
 
-// Priority-ordered keyword patterns (Spanish + English). First match wins.
-const CONVERSE_PATTERNS: { id: ConverseId; words: RegExp }[] = [
-  { id: 'conv-pricing-contact', words: /precio|precios|cotiza|costo|cuanto|cuesta|tarifa|price|cost|quote/ },
-  { id: 'conv-website', words: /sitio web|página web|pagina web|web site|website|página|pagina/ },
-  { id: 'conv-whatsapp', words: /whatsapp|chat|mensajes?/ },
-  { id: 'conv-calls', words: /llamada|llamadas|tel[eé]fono|atiende llamadas|call|calls|phone/ },
-  { id: 'conv-orders', words: /pedido|pedidos|orden|compra|order/ },
-  { id: 'conv-reservations', words: /reserva|reservas|cita|citas|agenda|reserv|appointment|booking/ },
-  { id: 'conv-after-hours', words: /despu[eé]s de hora|fuera de hora|noche|tarde|24|after.?hours|night/ },
-  { id: 'conv-other-language', words: /ingl[eé]s|espa[nñ]ol|mandar[ií]n|chino|otro idioma|idiomas?|english|spanish|chinese|language/ },
-  { id: 'conv-sales-bundle', words: /todo|paquete|completo|incluye|bundle|package|everything/ },
+/** Lowercase, accents removed, punctuation as spaces: "¿Cuánto vale?" -> "cuanto vale". */
+export function normalizeQuestion(raw: string): string {
+  return raw
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+const STOP_WORDS = new Set([
+  'para', 'como', 'donde', 'cual', 'cuales', 'tiene', 'tienen', 'esta', 'este', 'estan',
+  'hacen', 'puedo', 'pueden', 'with', 'what', 'does', 'have', 'your', 'that', 'this', 'from',
+]);
+
+const contentWords = (text: string) =>
+  normalizeQuestion(text).split(' ').filter((word) => word.length >= 4 && !STOP_WORDS.has(word));
+
+// Whole words on the normalized text, so "Costa Rica" is not "costo", "calle" is not
+// "call" and "buenas tardes" is not an after-hours question. First match wins.
+const INTENTS: { id: (typeof CONVERSE_IDS)[number]; words: RegExp }[] = [
+  { id: 'conv-pricing-contact', words: /\b(precios?|cotiza\w*|costos?|cuanto|cuesta|cuestan|tarifas?|vale|valen|prices?|cost|costs|quote|how much)\b/ },
+  { id: 'conv-location', words: /\b(donde|ubica\w*|direccion|calle|llegar|where|located|location|address)\b/ },
+  { id: 'conv-reservations', words: /\b(reserv\w*|citas?|agend\w*|disponib\w*|cupos?|appointments?|book\w*|availab\w*)\b/ },
+  { id: 'conv-orders', words: /\b(pedidos?|pedir|ordenar|orden|compra\w*|orders?)\b/ },
+  { id: 'conv-services', words: /\b(tours?|servicios?|ofrece\w*|actividad\w*|paquetes?|productos?|menu|platos?|habitacion\w*|services?|activities|rooms?)\b/ },
+  { id: 'conv-website', words: /\b(sitio|pagina|web|website)\b/ },
+  { id: 'conv-whatsapp', words: /\b(whatsapp|chat)\b/ },
+  { id: 'conv-calls', words: /\b(llamadas?|llamar|telefono|recado|mensajes?|calls?|phone)\b/ },
+  { id: 'conv-after-hours', words: /\b(horarios?|hora|horas|abren|abierto|cierran|noche|madrugada|fin de semana|24|hours|open|close|night|weekend)\b/ },
+  { id: 'conv-other-language', words: /\b(ingles|espanol|mandarin|chino|idiomas?|english|spanish|chinese|languages?)\b/ },
+  { id: 'conv-sales-bundle', words: /\b(incluye todo|que incluye|todo incluido|demo|demostracion|secretaria|asistente|assistant|bundle|package|everything)\b/ },
 ];
 
-export function classifyTranscript(raw: string): ConverseId {
-  const text = spoken(raw).toLowerCase();
-  if (text.length < 2 || text.length > 300) return 'conv-fallback';
-  if (!/[a-záéíóúñüàèìòùäëïöü]/i.test(text)) return 'conv-fallback';
-  for (const { id, words } of CONVERSE_PATTERNS) {
-    if (words.test(text)) return id;
-  }
-  return 'conv-fallback';
+export function classifyTranscript(raw: string, ctx?: AnswerContext): ConverseId {
+  if (raw.length < 2 || raw.length > 300) return 'conv-fallback';
+  const text = normalizeQuestion(raw);
+  if (!/[a-z]/.test(text)) return 'conv-fallback';
+  const asked = new Set(contentWords(raw));
+
+  // 1. The owner's FAQ whose question shares the most words (all of them for a one-word FAQ).
+  let best = { index: -1, overlap: 0 };
+  ctx?.faqs.forEach((faq, index) => {
+    const words = contentWords(faq.question);
+    const overlap = words.filter((word) => asked.has(word)).length;
+    if (overlap >= Math.min(2, words.length) && overlap > best.overlap) best = { index, overlap };
+  });
+  if (best.index >= 0) return `faq:${best.index}`;
+
+  // 2. A saved fact whose label the caller named ("¿Cuál es el horario?" -> Horario).
+  const fact = (ctx?.facts ?? []).findIndex((item) => contentWords(item.label).some((word) => asked.has(word)));
+  if (fact >= 0) return `fact:${fact}`;
+
+  // 3. Fixed demo topics.
+  return INTENTS.find(({ words }) => words.test(text))?.id ?? 'conv-fallback';
 }
 
 // Approved reply lines for a classified converse id. es and en are built here so the
-// spoken audio and the visible reply are always the same text; zh replies fall back to
-// the Mandarin-only lines in the calling function for the two ids that support it.
+// spoken audio and the visible reply are always the same text.
 export function buildConverse(
   id: ConverseId,
   language: 'es' | 'en',
@@ -237,6 +277,14 @@ export function buildConverse(
 ): string | null {
   const { name } = secretaryContext(ctx);
   if (!name) return null;
+  const factMatch = /^fact:([0-9]{1,2})$/.exec(id);
+  if (factMatch) {
+    const fact = ctx.facts?.[Number(factMatch[1])];
+    return fact ? spoken(`${fact.label}: ${fact.value}`).slice(0, 400) : null;
+  }
+  if (FAQ_PATTERN.test(id)) return buildAnswer(id as `faq:${number}`, language, ctx);
+  if (id === 'conv-services') return buildAnswer('services', language, ctx);
+  if (id === 'conv-location') return buildAnswer('location', language, ctx);
   const L = language === 'es';
   switch (id) {
     case 'conv-sales-bundle':
@@ -275,9 +323,9 @@ export function buildConverse(
       return L
         ? `La secretaria de ${name} puede atender en español, inglés y mandarín, con la misma voz.`
         : `${name}'s assistant can serve you in Spanish, English and Mandarin, with the same voice.`;
-    case 'conv-fallback':
+    default:
       return L
-        ? `Puede preguntarme por el sitio web, WhatsApp, llamadas, pedidos, reservas o el horario de ${name}.`
-        : `You can ask me about the website, WhatsApp, calls, orders, reservations or ${name}'s hours.`;
+        ? `Puede preguntarme por los servicios, precios, reservas, ubicación u horario de ${name}.`
+        : `You can ask me about ${name}'s services, prices, reservations, location or hours.`;
   }
 }

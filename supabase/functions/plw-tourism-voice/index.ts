@@ -22,7 +22,7 @@ const MODEL = Deno.env.get('ELEVENLABS_TTS_MODEL') ?? 'eleven_multilingual_v2';
 // Approved environment voice; falls back to a known voice id if not set.
 const VOICE_ID = Deno.env.get('ELEVENLABS_PREVIEW_VOICE_ID') ?? '21m00Tcm4TlvDq8ikWAM';
 const MAX_TEXT = 400;
-const RATE_LIMIT = 10; // requests per minute per token+IP
+const RATE_LIMIT = 10; // requests per minute per preview link
 
 Deno.serve(async (req) => {
   // CORS is derived per request from the trusted allowlist; never a global env value,
@@ -47,9 +47,8 @@ Deno.serve(async (req) => {
   );
 
   // Rate limit before any work.
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
   const bucket = windowBucket();
-  const key = rateKey(parsed.token, ip);
+  const key = rateKey(parsed.token);
   const { data: hit } = await db
     .from('plw_voice_rate')
     .select('hit_count')

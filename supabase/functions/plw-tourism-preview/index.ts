@@ -9,6 +9,7 @@ import { normalizeToken, toSavedSite } from './rules.js';
 // Kike Sites production origin plus this project's own deployments for verified use.
 const ALLOWED_ORIGINS = [
   'https://familiamendeztube-cp-q9tc.bolt.host',
+  'https://familiamendeztube-cp-zfid.bolt.host',
   'https://plw-callcenter.bolt.host',
   'http://localhost:5173',
 ];
