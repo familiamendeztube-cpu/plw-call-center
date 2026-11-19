@@ -36,6 +36,12 @@ import {
 const IMAGE_MODEL = 'gpt-image-1';
 const MAX_ALT = 200;
 
+// The allowlisted Origin is resolved once per request in Deno.serve and passed down to
+// the leaf handlers, which answer every response path (including errors) with it.
+function originOf(request: Request): string {
+  return allowedOrigin(request);
+}
+
 interface Session {
   db: ReturnType<typeof createClient>;
   staffId: string;
@@ -98,7 +104,13 @@ async function thumbnailUrl(db: Session['db'], path: string): Promise<string | n
   return data.signedUrl;
 }
 
-async function handleUpload(session: Session, prospectId: string, imageBase64: string) {
+async function handleUpload(
+  request: Request,
+  session: Session,
+  prospectId: string,
+  imageBase64: string
+) {
+  const origin = originOf(request);
   const { db } = session;
   if (!(await canAccessProspect(session, prospectId))) {
     return json({ error: 'No autorizado.' }, 403, origin);
@@ -153,13 +165,15 @@ async function handleUpload(session: Session, prospectId: string, imageBase64: s
   );
 }
 
-async function handleStatus(session: Session) {
+async function handleStatus(request: Request, session: Session) {
+  const origin = originOf(request);
   // Presence only: never expose the key value.
   const available = Boolean(Deno.env.get('OPENAI_API_KEY'));
   return json({ generationAvailable: available }, 200, origin);
 }
 
-async function handleGenerate(session: Session, prospectId: string, prompt: string) {
+async function handleGenerate(request: Request, session: Session, prospectId: string, prompt: string) {
+  const origin = originOf(request);
   const { db } = session;
   if (!(await canAccessProspect(session, prospectId))) {
     return json({ error: 'No autorizado.' }, 403, origin);
@@ -242,12 +256,14 @@ async function handleGenerate(session: Session, prospectId: string, prompt: stri
 }
 
 async function handleApprove(
+  request: Request,
   session: Session,
   prospectId: string,
   candidateId: string,
   alt: string,
   kind: 'business' | 'generated'
 ) {
+  const origin = originOf(request);
   const { db } = session;
   if (!(await canAccessProspect(session, prospectId))) {
     return json({ error: 'No autorizado.' }, 403, origin);
@@ -315,12 +331,12 @@ Deno.serve(async (req) => {
   if (!isUuid(prospectId)) return json({ error: 'Solicitud no válida.' }, 400, origin);
 
   try {
-    if (action === 'status') return await handleStatus(session);
+    if (action === 'status') return await handleStatus(req, session);
     if (action === 'upload' && typeof body['imageBase64'] === 'string') {
-      return await handleUpload(session, prospectId, body['imageBase64']);
+      return await handleUpload(req, session, prospectId, body['imageBase64']);
     }
     if (action === 'generate' && typeof body['prompt'] === 'string') {
-      return await handleGenerate(session, prospectId, body['prompt']);
+      return await handleGenerate(req, session, prospectId, body['prompt']);
     }
     if (
       action === 'approve' &&
@@ -329,6 +345,7 @@ Deno.serve(async (req) => {
       (body['kind'] === 'business' || body['kind'] === 'generated')
     ) {
       return await handleApprove(
+        req,
         session,
         prospectId,
         body['candidateId'],

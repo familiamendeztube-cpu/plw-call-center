@@ -185,3 +185,99 @@ export function buildMandarinLine(id: string, ctx: AnswerContext): string | null
   if (!name) return null;
   return `您好，我是${name}的语音助理。${typeLine(type, 'zh')} 此演示全天候开放，仅供参考。`;
 }
+
+// Conversational turns for the secretary demo. A short caller question (typed or
+// transcribed from the microphone) is classified into one of these fixed opaque ids;
+// only the approved reply line is ever spoken or shown — never the raw transcript.
+export const CONVERSE_IDS = [
+  'conv-sales-bundle',
+  'conv-website',
+  'conv-whatsapp',
+  'conv-calls',
+  'conv-pricing-contact',
+  'conv-orders',
+  'conv-reservations',
+  'conv-after-hours',
+  'conv-other-language',
+  'conv-fallback',
+] as const;
+
+export type ConverseId = (typeof CONVERSE_IDS)[number];
+
+// Priority-ordered keyword patterns (Spanish + English). First match wins.
+const CONVERSE_PATTERNS: { id: ConverseId; words: RegExp }[] = [
+  { id: 'conv-pricing-contact', words: /precio|precios|cotiza|costo|cuanto|cuesta|tarifa|price|cost|quote/ },
+  { id: 'conv-website', words: /sitio web|página web|pagina web|web site|website|página|pagina/ },
+  { id: 'conv-whatsapp', words: /whatsapp|chat|mensajes?/ },
+  { id: 'conv-calls', words: /llamada|llamadas|tel[eé]fono|atiende llamadas|call|calls|phone/ },
+  { id: 'conv-orders', words: /pedido|pedidos|orden|compra|order/ },
+  { id: 'conv-reservations', words: /reserva|reservas|cita|citas|agenda|reserv|appointment|booking/ },
+  { id: 'conv-after-hours', words: /despu[eé]s de hora|fuera de hora|noche|tarde|24|after.?hours|night/ },
+  { id: 'conv-other-language', words: /ingl[eé]s|espa[nñ]ol|mandar[ií]n|chino|otro idioma|idiomas?|english|spanish|chinese|language/ },
+  { id: 'conv-sales-bundle', words: /todo|paquete|completo|incluye|bundle|package|everything/ },
+];
+
+export function classifyTranscript(raw: string): ConverseId {
+  const text = spoken(raw).toLowerCase();
+  if (text.length < 2 || text.length > 300) return 'conv-fallback';
+  if (!/[a-záéíóúñüàèìòùäëïöü]/i.test(text)) return 'conv-fallback';
+  for (const { id, words } of CONVERSE_PATTERNS) {
+    if (words.test(text)) return id;
+  }
+  return 'conv-fallback';
+}
+
+// Approved reply lines for a classified converse id. es and en are built here so the
+// spoken audio and the visible reply are always the same text; zh replies fall back to
+// the Mandarin-only lines in the calling function for the two ids that support it.
+export function buildConverse(
+  id: ConverseId,
+  language: 'es' | 'en',
+  ctx: AnswerContext
+): string | null {
+  const { name } = secretaryContext(ctx);
+  if (!name) return null;
+  const L = language === 'es';
+  switch (id) {
+    case 'conv-sales-bundle':
+      return L
+        ? `La demo incluye la muestra del sitio, el chat de WhatsApp y la atención de llamadas de ${name}, todo en una misma secretaria.`
+        : `The demo includes the website sample, the WhatsApp chat and call handling for ${name}, all in one assistant.`;
+    case 'conv-website':
+      return L
+        ? `Sí: ${name} puede mostrar su sitio web de ejemplo y atender el WhatsApp y las llamadas al mismo tiempo.`
+        : `Yes: ${name} can show a sample website and handle WhatsApp and calls at the same time.`;
+    case 'conv-whatsapp':
+      return L
+        ? `La secretaria atiende el chat de WhatsApp de ${name} y responde al instante, día y noche.`
+        : `The assistant handles ${name}'s WhatsApp chat and replies instantly, day and night.`;
+    case 'conv-calls':
+      return L
+        ? `La secretaria contesta las llamadas de ${name}, toma el recado y ${name} devuelve la llamada después.`
+        : `The assistant answers ${name}'s calls, takes the message, and ${name} returns the call afterwards.`;
+    case 'conv-pricing-contact':
+      return L
+        ? `Para precios y contacto, ${name} le atiende directamente; esta demostración no hace cotizaciones.`
+        : `For pricing and contact, ${name} assists you directly; this demo does not give quotes.`;
+    case 'conv-orders':
+      return L
+        ? `En esta demo, ${name} puede tomar un pedido de ejemplo y confirmarlo con el cliente.`
+        : `In this demo, ${name} can take a sample order and confirm it with the customer.`;
+    case 'conv-reservations':
+      return L
+        ? `${name} recibe la solicitud de reserva o cita y confirma con el cliente; esta demostración no agenda nada real.`
+        : `${name} receives the reservation or appointment request and confirms with the customer; this demo books nothing real.`;
+    case 'conv-after-hours':
+      return L
+        ? `La asistente de ${name} atiende las 24 horas: recibe el mensaje fuera de horario y ${name} responde al día siguiente.`
+        : `${name}'s assistant answers 24/7: it takes the after-hours message and ${name} follows up the next day.`;
+    case 'conv-other-language':
+      return L
+        ? `La secretaria de ${name} puede atender en español, inglés y mandarín, con la misma voz.`
+        : `${name}'s assistant can serve you in Spanish, English and Mandarin, with the same voice.`;
+    case 'conv-fallback':
+      return L
+        ? `Puede preguntarme por el sitio web, WhatsApp, llamadas, pedidos, reservas o el horario de ${name}.`
+        : `You can ask me about the website, WhatsApp, calls, orders, reservations or ${name}'s hours.`;
+  }
+}

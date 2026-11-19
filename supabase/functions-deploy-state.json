@@ -39,7 +39,7 @@
     },
     "plw-site-images": {
       "hasChanged": false,
-      "hash": "89db11d6aa176b189233ec9723957e542120515fccbdeaa49ab260236803dcbe"
+      "hash": "7621ea5a11a59eea00e1681a54dcb99e38bb90e9ae3a8b52bb8d48e64bf42456"
     },
     "plw-tourism-preview": {
       "hasChanged": false,
@@ -47,7 +47,7 @@
     },
     "plw-tourism-voice": {
       "hasChanged": false,
-      "hash": "807c9df0bc1d1092dbfaa83e74d1c182d067d3c15e2f2b57034dcea68f7266b8"
+      "hash": "2d37b647964d18982e99ebaf69cfe4b6c78aca91c12192b959eff7aba518119b"
     },
     "staff-auth": {
       "hasChanged": false,
@@ -64,6 +64,10 @@
     "whatsapp": {
       "hasChanged": false,
       "hash": "07be34126010cc7f64eb0eeb150cd3636a8c48f16471493f9a8d83b943302c6b"
+    },
+    "plw-secretary-converse": {
+      "hasChanged": false,
+      "hash": "f4d9f38d72e40a0f0db587cb3279c95083b38450c5aa00cd385a9f9e3d83832f"
     }
   }
 }

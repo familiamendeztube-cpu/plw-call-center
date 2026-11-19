@@ -56,3 +56,7 @@ verify_jwt = false
 [functions.plw-site-images]
 # Authenticated image import/generate/approve for the site-draft panel; staff session required.
 verify_jwt = true
+
+[functions.plw-secretary-converse]
+# Public conversational turn for the secretary demo, keyed by the preview token only.
+verify_jwt = false
