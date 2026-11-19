@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PrivateNoteComposer } from '@/features/leads/components/PrivateNoteComposer';
+import { SiteDraftCard } from '@/features/site-draft/components/SiteDraftCard';
 import {
   PAYMENT_STATUS_LABELS,
   SALES_STAGE_LABELS,
@@ -34,6 +35,7 @@ export function CustomerOfferPanel({ prospect, agentId }: CustomerOfferPanelProp
 
   return (
     <div className="flex flex-col gap-5">
+      <SiteDraftCard prospect={prospect} canEdit={Boolean(agentId)} />
       <Panel className="p-5">
         <dl className="grid gap-5 sm:grid-cols-2">
           <Fact label="Lo que le interesa" value={prospect.serviceInterest || 'Sin definir'} />

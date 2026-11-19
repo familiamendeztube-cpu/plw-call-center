@@ -66,6 +66,7 @@ const BROWSER_READABLE_TABLES = [
   ...OUTBOUND_ADMIN_TABLES,
   ...TOURISM_DIALER_TABLES,
   ...SHARED_TABLES,
+  'prospect_site_drafts',
   'staff_presence',
   'staff_profiles',
 ].sort();
@@ -100,6 +101,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'list_overdue_conversations',
   'mark_conversation_read',
   'mark_notifications_read',
+  'mark_prospect_site_shared',
   'mark_whatsapp_read',
   'public_agent_directory',
   'reassign_prospect',
@@ -119,6 +121,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'setting_int',
   'start_next_dental_batch',
   'update_dental_lead',
+  'upsert_prospect_site_draft',
 ];
 
 const OWNER_ACTIONS = [
