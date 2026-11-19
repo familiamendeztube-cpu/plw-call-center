@@ -300,7 +300,10 @@ async function handleApprove(
     return json({ error: 'No se pudo publicar la imagen.' }, 502, origin);
   }
 
-  const publicUrl = `${Deno.env.get('SUPABASE_URL')!}${APPROVED_PUBLIC_BASE}${objectName.replace('approved/', '')}`;
+  // Full approved/ path: the draft-save validation (set_prospect_site_approved_images)
+  // only accepts URLs containing .../plw-site-images/approved/<name>. Stripping the
+  // folder here produced a URL the RPC rejected with 'Las imágenes no son válidas.'
+  const publicUrl = `${Deno.env.get('SUPABASE_URL')!}${APPROVED_PUBLIC_BASE}${objectName}`;
   const { error: updateError } = await db
     .from('plw_site_image_candidates')
     .update({ authorized: true, alt: cleanAlt, kind })
