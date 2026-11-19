@@ -69,7 +69,6 @@ function renderSection() {
     <SecretarySection
       prospectId="bruma-1"
       defaultName="Bosque de Bruma Tours"
-      defaultPhone=""
       defaultType="tourism"
       canEdit={true}
     />
@@ -100,11 +99,11 @@ test('a failed load shows a visible, retryable error instead of hanging', async 
   expect(screen.queryByText('Cargando…')).toBeNull();
 });
 
-test('a draft row without a token shows the create-the-sample route, not a hang', async () => {
+test('a customer without a draft is told that saving creates the demo link, not a hang', async () => {
   setLoadOutcome({ data: null, error: null });
   renderSection();
 
-  expect(await screen.findByText(/Aún no hay muestra de sitio web/)).toBeTruthy();
+  expect(await screen.findByText(/Guarde la secretaria para crear el enlace/)).toBeTruthy();
   expect(screen.queryByText('Cargando…')).toBeNull();
   expect(screen.queryByRole('link')).toBeNull();
 });

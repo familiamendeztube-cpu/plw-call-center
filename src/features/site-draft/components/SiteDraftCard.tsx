@@ -200,16 +200,21 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
 
   async function markShared(channel: 'email' | 'whatsapp') {
     if (!draft) return;
-    try {
-      await supabase.rpc('mark_prospect_site_shared', {
-        p_prospect_id: prospect.id,
-        p_channel: channel,
-      });
-      setSharePrompt(null);
-      setPhase({ kind: 'saved', draft: { ...draft, sharedAt: new Date().toISOString() } });
-    } catch {
-      // Sharing status is a note, not a promise: a failure leaves the draft itself intact.
+    // supabase.rpc reports failures in `error` instead of throwing, so check it explicitly:
+    // the card must not claim "compartido" when the server refused.
+    const { data: sharedAt, error: shareError } = await supabase.rpc('mark_prospect_site_shared', {
+      p_prospect_id: prospect.id,
+      p_channel: channel,
+    });
+    if (shareError) {
+      setError(shareError.message || 'No se pudo marcar como compartido.');
+      return;
     }
+    setSharePrompt(null);
+    setPhase({
+      kind: 'saved',
+      draft: { ...draft, sharedAt: typeof sharedAt === 'string' ? sharedAt : new Date().toISOString() },
+    });
   }
 
   const openComposer = (channel: 'email' | 'whatsapp') => {
@@ -220,8 +225,10 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
         `Muestra del sitio web de ${draft.businessName}`
       )}&body=${encodeURIComponent(text)}`;
     } else {
+      // wa.me needs the country code: Costa Rica numbers are often stored as 8 digits.
+      const digits = prospect.phone.replace(/[^0-9]/g, '');
       window.open(
-        `https://wa.me/${prospect.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`,
+        `https://wa.me/${digits.length === 8 ? `506${digits}` : digits}?text=${encodeURIComponent(text)}`,
         '_blank',
         'noopener'
       );
@@ -255,10 +262,6 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
     } finally {
       setSaving(false);
     }
-  }
-
-  async function applyImages() {
-    await applyImagesWith(images.slice(0, 4));
   }
 
   return (

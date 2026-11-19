@@ -12,7 +12,6 @@ import {
 
 const FIELD =
   'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-normal text-plw-ink focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30';
-const PHONE = /^\+?506\s?\d{4}\s?\d{4}$/;
 const LOAD_ERROR = 'No se pudo cargar la secretaria. Intente de nuevo.';
 
 const TYPE_OPTIONS = [
@@ -26,23 +25,21 @@ export type SecretaryType = (typeof TYPE_OPTIONS)[number]['value'];
 
 interface SecretarySectionProps {
   prospectId: string;
-  /** Known entries prefilled from the customer; the demo never publishes a phone. */
+  /** Business name prefilled from the customer until the agent saves its own. */
   defaultName: string;
-  defaultPhone: string;
   /** Draft category prefills the type until the agent saves a secretary-specific one. */
   defaultType: SecretaryType;
   canEdit: boolean;
 }
 
 /**
- * "Secretaria IA": configures the voice sales demo (name, phone, type) beside the
+ * "Secretaria IA": configures the voice sales demo (name and type) beside the
  * website draft, on the same token. Nothing is dialed, sent, or activated — the demo
  * is a passive voice sample the agent shares as a link.
  */
 export function SecretarySection({
   prospectId,
   defaultName,
-  defaultPhone,
   defaultType,
   canEdit,
 }: SecretarySectionProps) {
@@ -51,20 +48,18 @@ export function SecretarySection({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState(defaultName);
-  const [phone, setPhone] = useState(defaultPhone);
   const [type, setType] = useState<SecretaryType>(defaultType);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const fetchDraft = () =>
+    supabase.from('prospect_site_drafts').select(DRAFT_ROW_COLUMNS).eq('prospect_id', prospectId).maybeSingle();
+
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    supabase
-      .from('prospect_site_drafts')
-      .select(DRAFT_ROW_COLUMNS)
-      .eq('prospect_id', prospectId)
-      .maybeSingle()
+    fetchDraft()
       .then(
         ({ data, error: loadError }) => {
           if (!alive) return;
@@ -90,15 +85,11 @@ export function SecretarySection({
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, prospectId]);
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    const typedPhone = phone.trim();
-    if (typedPhone !== '' && !PHONE.test(typedPhone)) {
-      setError('El teléfono debe ser de Costa Rica: +506 y 8 dígitos.');
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -109,6 +100,9 @@ export function SecretarySection({
       });
       if (rpcError) throw new Error(rpcError.message || 'No se pudo guardar la secretaria.');
       setSaved(true);
+      // Saving creates the draft when there was none: reread it so the demo links appear now.
+      const { data } = await fetchDraft();
+      if (data) setDraft(draftFromRow(data as Record<string, unknown>));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo guardar la secretaria.');
     } finally {
@@ -180,14 +174,6 @@ export function SecretarySection({
             required
             onChange={(event) => setName(event.target.value)}
           />
-          <TextField
-            label="Teléfono de la empresa"
-            type="tel"
-            value={phone}
-            maxLength={20}
-            hint="Costa Rica: +506 y 8 dígitos. Nunca se publica ni se menciona en la demo."
-            onChange={(event) => setPhone(event.target.value)}
-          />
           <label className="grid gap-1.5 text-sm">
             <span className="font-medium text-neutral-700">Tipo de negocio</span>
             <select
@@ -251,9 +237,9 @@ export function SecretarySection({
         </div>
       ) : (
         <p className="mt-3 text-sm text-neutral-600">
-          Aún no hay muestra de sitio web para este cliente, y la secretaria usa el mismo enlace de
-          vista previa. Cree la muestra en la pestaña «Muestra de sitio web» y vuelva aquí: los
-          enlaces de la demo aparecerán solos.
+          {canEdit
+            ? 'Guarde la secretaria para crear el enlace de la demo.'
+            : 'Este cliente todavía no tiene enlace de demostración.'}
         </p>
       )}
     </section>
