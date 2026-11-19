@@ -14,10 +14,15 @@ const FIELD =
   'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-normal text-plw-ink focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30';
 const LOAD_ERROR = 'No se pudo cargar la secretaria. Intente de nuevo.';
 
+// Same business types as the website sample (SITE_TYPES), plus general services.
 const TYPE_OPTIONS = [
   { value: 'tourism', label: 'Turismo (tours u hospedaje)' },
   { value: 'restaurant', label: 'Restaurante' },
+  { value: 'clinic', label: 'Clínica' },
   { value: 'retail', label: 'Tienda / venta al público' },
+  { value: 'gym', label: 'Gimnasio' },
+  { value: 'real_estate', label: 'Bienes raíces' },
+  { value: 'auto', label: 'Taller o agencia de autos' },
   { value: 'services', label: 'Servicios generales' },
 ] as const;
 
@@ -73,10 +78,8 @@ export function SecretarySection({
             if (loaded.secretaryName.trim() !== '') {
               setName(loaded.secretaryName);
             }
-            const savedType = loaded.secretaryType;
-            if (savedType === 'tourism' || savedType === 'restaurant' || savedType === 'retail' || savedType === 'services') {
-              setType(savedType);
-            }
+            const savedType = TYPE_OPTIONS.find((option) => option.value === loaded.secretaryType);
+            if (savedType) setType(savedType.value);
           }
           setLoading(false);
         },

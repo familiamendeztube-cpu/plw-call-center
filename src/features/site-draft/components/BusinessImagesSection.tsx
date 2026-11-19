@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type ChangeEvent } from 'react';
-import { ImagePlus, Loader2, MapPin, RefreshCw, Wand2 } from 'lucide-react';
+import { ImagePlus, Loader2, MapPin, RefreshCw, Wand2, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { callStaffFunction } from '@/integrations/supabase/callStaffFunction';
@@ -8,6 +8,9 @@ import { buildMapsSearchUrl, type SiteDraftImage } from '../models/siteDraft';
 const FIELD =
   'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-normal text-plw-ink focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30';
 const MAX_BYTES = 5 * 1024 * 1024;
+// The draft holds at most 4 images (database check on approved_images).
+const MAX_APPROVED = 4;
+const MAX_PER_PICK = 8;
 const CR_PHONE = /^(?:\+506)?[\s-]?\d{4}[\s-]?\d{4}$/;
 
 export interface CandidateImage {
@@ -92,18 +95,27 @@ export function BusinessImagesSection({
     [call]
   );
 
+  // Several files at once, uploaded one after another (each upload is its own request).
+  const importFiles = async (files: File[]) => {
+    for (const file of files.slice(0, MAX_PER_PICK)) {
+      await importBytes(new Uint8Array(await file.arrayBuffer()));
+    }
+  };
+
   const onFilePicked = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files ?? []);
     event.target.value = '';
-    if (!file) return;
-    void file.arrayBuffer().then((buffer) => importBytes(new Uint8Array(buffer)));
+    if (files.length > 0) void importFiles(files);
   };
 
   const onPaste = (event: ClipboardEvent<HTMLDivElement>) => {
-    const file = Array.from(event.clipboardData.items).find((item) => item.type.startsWith('image/'))?.getAsFile();
-    if (file) {
+    const files = Array.from(event.clipboardData.items)
+      .filter((item) => item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    if (files.length > 0) {
       event.preventDefault();
-      void file.arrayBuffer().then((buffer) => importBytes(new Uint8Array(buffer)));
+      void importFiles(files);
     }
   };
 
@@ -128,6 +140,15 @@ export function BusinessImagesSection({
   const approveSelected = async () => {
     const chosen = candidates.filter((candidate) => selected.has(candidate.id));
     if (chosen.length === 0) return;
+    const room = MAX_APPROVED - approvedImages.length;
+    if (chosen.length > room) {
+      setNote(
+        room === 0
+          ? `La muestra ya tiene ${MAX_APPROVED} imágenes. Quite una para agregar otra.`
+          : `Solo caben ${room} imágenes más (máximo ${MAX_APPROVED}). Desmarque ${chosen.length - room}.`
+      );
+      return;
+    }
     setBusy('approve');
     setNote(null);
     try {
@@ -138,7 +159,7 @@ export function BusinessImagesSection({
         const { url } = await call({ action: 'approve', candidateId: candidate.id, alt, kind });
         if (url) approved.push({ url, alt, kind });
       }
-      await onApplyApproved(approved.slice(0, 4));
+      await onApplyApproved(approved);
       setSelected(new Set());
     } catch (cause) {
       setNote(cause instanceof Error ? cause.message : 'No se pudieron usar las imágenes.');
@@ -223,6 +244,7 @@ export function BusinessImagesSection({
         <input
           ref={fileInput}
           type="file"
+          multiple
           accept="image/jpeg,image/png,image/webp"
           className="hidden"
           aria-label="Elegir imagen del negocio"
@@ -248,7 +270,7 @@ export function BusinessImagesSection({
           {genAvailable === false ? 'Generación no configurada' : 'Generar ilustración AI'}
         </Button>
         <span className="self-center text-xs text-neutral-500">
-          También puede pegar una imagen con Ctrl+V.
+          Puede elegir varias a la vez o pegar con Ctrl+V. La muestra usa hasta {MAX_APPROVED} imágenes.
         </span>
       </div>
 
@@ -322,18 +344,28 @@ export function BusinessImagesSection({
       ) : null}
 
       {approvedImages.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {approvedImages.map((image) => (
-            <img
-              key={image.url}
-              src={image.url}
-              alt={image.alt}
-              className="h-16 w-24 rounded-md object-cover"
-            />
-          ))}
-          <span className="self-center text-xs text-neutral-500">
-            Imágenes aprobadas que ya aparecen en la muestra.
+        <div className="grid gap-2">
+          <span className="text-xs text-neutral-500">
+            Imágenes en la muestra: {approvedImages.length} de {MAX_APPROVED}
           </span>
+          <div className="flex flex-wrap gap-2">
+            {approvedImages.map((image) => (
+              <div key={image.url} className="relative">
+                <img src={image.url} alt={image.alt} className="h-16 w-24 rounded-md object-cover" />
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  aria-label={`Quitar imagen: ${image.alt}`}
+                  onClick={() =>
+                    void onApplyApproved(approvedImages.filter((other) => other.url !== image.url)).catch(() => {})
+                  }
+                  className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-white text-neutral-700 shadow ring-1 ring-neutral-300 hover:text-danger-700 disabled:opacity-50"
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 

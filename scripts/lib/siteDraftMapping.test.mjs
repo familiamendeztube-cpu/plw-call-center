@@ -60,3 +60,38 @@ test('approved images and secretary fields survive the mapping for the demo page
   assert.match(DRAFT_ROW_COLUMNS, /preview_token/, 'the loader must select the token column');
   assert.match(DRAFT_ROW_COLUMNS, /secretary_name/, 'the loader must select the secretary fields');
 });
+
+test('every business type maps to its own template, and the customer category picks one', async () => {
+  const { SITE_TYPES, guessSiteCategory, guessSecretaryType, slugFor } = await import(
+    '../../src/features/site-draft/models/siteDraft.ts'
+  );
+  assert.deepEqual(
+    SITE_TYPES.map((type) => type.category),
+    ['tours', 'lodging', 'restaurant', 'clinic', 'shop', 'gym', 'real_estate', 'auto']
+  );
+  assert.equal(new Set(SITE_TYPES.map((type) => type.slug)).size, SITE_TYPES.length);
+  assert.equal(slugFor('auto'), 'plw-auto');
+
+  const guesses = {
+    'Taller mecánico': 'auto',
+    'Agencia de autos': 'auto',
+    'Clínica dental': 'clinic',
+    Hotel: 'lodging',
+    'Tour operador': 'tours',
+    Restaurante: 'restaurant',
+    Gimnasio: 'gym',
+    'Bienes raíces': 'real_estate',
+    'Tienda de ropa': 'shop',
+    Consultoría: null,
+  };
+  for (const [category, expected] of Object.entries(guesses)) {
+    assert.equal(guessSiteCategory(category), expected, category);
+  }
+  assert.equal(guessSecretaryType('Tienda de ropa'), 'retail');
+  assert.equal(guessSecretaryType('Consultoría'), 'services');
+
+  const row = { ...ROW, category: 'auto', site_slug: 'plw-auto' };
+  const draft = draftFromRow(row);
+  assert.equal(draft.category, 'auto');
+  assert.equal(draft.siteSlug, 'plw-auto');
+});

@@ -42,6 +42,9 @@ test('every {{variable}} the agent uses is always supplied, even for an empty dr
   assert.equal(vars.services, 'Caminata al volcán, Tour de café');
   assert.match(vars.faqs, /¿Incluye almuerzo\?: Sí, almuerzo típico\./);
   assert.equal(demoVariables({ business_name: 'Y' }).location, 'No indicado');
+  // A car-shop draft with no saved secretary type still introduces itself correctly.
+  assert.equal(demoVariables({ business_name: 'Taller', category: 'auto' }).business_type, 'taller o agencia de autos');
+  assert.equal(demoVariables({ business_name: 'Y' }).business_type, 'servicios');
   // Text typed into the draft cannot smuggle a new variable or instruction block.
   assert.equal(demoVariables({ ...DRAFT, business_name: 'Tours {{faqs}}' }).business_name, 'Tours faqs');
 });

@@ -8,11 +8,14 @@ import { CopyButton } from '@/components/ui/CopyButton';
 import type { Prospect } from '@/features/leads/models/prospect';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import {
-  SITE_SLUGS,
+  SITE_TYPES,
   buildPreviewUrl,
   draftFromRow,
   DRAFT_ROW_COLUMNS,
+  guessSiteCategory,
+  slugFor,
   type ProspectSiteDraft,
+  type SiteCategory,
   type SiteDraftFact,
   type SiteDraftFaq,
   type SiteDraftImage,
@@ -44,12 +47,9 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [open, setOpen] = useState(false);
 
-  const businessCategory = prospect.businessCategory.toLowerCase();
-  const defaultCategory: 'tours' | 'lodging' = businessCategory.includes('hosped')
-    ? 'lodging'
-    : 'tours';
-
-  const [category, setCategory] = useState<'tours' | 'lodging'>(defaultCategory);
+  const [category, setCategory] = useState<SiteCategory>(
+    guessSiteCategory(prospect.businessCategory) ?? 'tours'
+  );
   const [businessName, setBusinessName] = useState(prospect.businessName);
   const [locale, setLocale] = useState('');
   // Quick create starts blank on purpose: these exist only if the agent types them.
@@ -158,7 +158,7 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
     try {
       const { data: draftId, error: rpcError } = await supabase.rpc('upsert_prospect_site_draft', {
         p_prospect_id: prospect.id,
-        p_site_slug: category === 'tours' ? SITE_SLUGS.tours : SITE_SLUGS.lodging,
+        p_site_slug: slugFor(category),
         p_business_name: businessName.trim(),
         p_locale: locale.trim(),
         p_category: category,
@@ -381,14 +381,17 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
               onChange={(event) => setLocale(event.target.value)}
             />
             <label className="grid gap-1.5 text-sm">
-              <span className="font-medium text-neutral-700">Tipo</span>
+              <span className="font-medium text-neutral-700">Tipo de negocio</span>
               <select
                 value={category}
-                onChange={(event) => setCategory(event.target.value as 'tours' | 'lodging')}
+                onChange={(event) => setCategory(event.target.value as SiteCategory)}
                 className={FIELD}
               >
-                <option value="tours">Tours</option>
-                <option value="lodging">Hospedaje</option>
+                {SITE_TYPES.map((type) => (
+                  <option key={type.category} value={type.category}>
+                    {type.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="grid gap-1.5 text-sm">
@@ -446,7 +449,7 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
                     value={description}
                     maxLength={2000}
                     rows={4}
-                    placeholder="Ej.: Tours en lancha por el Río Frío con guías locales."
+                    placeholder="Ej.: Taller familiar con 20 años de experiencia en Grecia."
                     onChange={(event) => setDescription(event.target.value)}
                     className={FIELD}
                   />

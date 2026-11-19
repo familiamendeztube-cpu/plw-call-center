@@ -3,6 +3,7 @@ import { Bot, Globe } from 'lucide-react';
 import { SiteDraftCard } from './SiteDraftCard';
 import { SecretarySection } from './SecretarySection';
 import type { Prospect } from '@/features/leads/models/prospect';
+import { guessSecretaryType } from '../models/siteDraft';
 
 export type DraftTab = 'sitio' | 'secretaria';
 
@@ -10,14 +11,6 @@ const TABS: Array<{ id: DraftTab; label: string; icon: typeof Globe }> = [
   { id: 'sitio', label: 'Muestra de sitio web', icon: Globe },
   { id: 'secretaria', label: 'Secretaria IA', icon: Bot },
 ];
-
-// Only picks the secretary's default business type; both tabs show for every customer.
-// Categories are free text, so match loosely and accent-free.
-const TOURISM = /turis|tour|hosped|hotel|cabin|alojam|hostal|lodge|viaje/;
-
-function isTourismCategory(category: string): boolean {
-  return TOURISM.test(category.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase());
-}
 
 interface DraftTabsProps {
   prospect: Prospect;
@@ -27,7 +20,6 @@ interface DraftTabsProps {
 
 /** Adjacent "Muestra de sitio web | Secretaria IA" tabs sharing the same draft and token. */
 export function DraftTabs({ prospect, canEdit }: DraftTabsProps) {
-  const tourism = isTourismCategory(prospect.businessCategory);
   const [tab, setTab] = useState<DraftTab>('sitio');
 
   return (
@@ -57,7 +49,7 @@ export function DraftTabs({ prospect, canEdit }: DraftTabsProps) {
         <SecretarySection
           prospectId={prospect.id}
           defaultName={prospect.businessName}
-          defaultType={tourism ? 'tourism' : 'services'}
+          defaultType={guessSecretaryType(prospect.businessCategory)}
           canEdit={canEdit}
         />
       )}

@@ -24,8 +24,23 @@ export const DEMO_USED_UP =
 const TYPE_LABELS: Record<string, string> = {
   tourism: 'turismo (tours u hospedaje)',
   restaurant: 'restaurante',
+  clinic: 'clínica',
   retail: 'tienda',
+  gym: 'gimnasio',
+  real_estate: 'bienes raíces',
+  auto: 'taller o agencia de autos',
   services: 'servicios',
+};
+// Website sample category -> secretary type, for drafts whose secretary type was never saved.
+const CATEGORY_TYPES: Record<string, string> = {
+  tours: 'tourism',
+  lodging: 'tourism',
+  restaurant: 'restaurant',
+  clinic: 'clinic',
+  shop: 'retail',
+  gym: 'gym',
+  real_estate: 'real_estate',
+  auto: 'auto',
 };
 
 export interface DemoDraft {
@@ -67,11 +82,10 @@ export function demoVariables(draft: DemoDraft): Record<string, string> {
   const services = Array.isArray(draft.services)
     ? draft.services.map((s) => clean(s, 80)).filter(Boolean).slice(0, 12).join(', ')
     : '';
-  const type = draft.secretary_type && TYPE_LABELS[draft.secretary_type]
-    ? TYPE_LABELS[draft.secretary_type]
-    : draft.category === 'tours' || draft.category === 'lodging'
-      ? TYPE_LABELS.tourism
-      : TYPE_LABELS.services;
+  const type =
+    TYPE_LABELS[draft.secretary_type ?? ''] ??
+    TYPE_LABELS[CATEGORY_TYPES[draft.category ?? ''] ?? ''] ??
+    TYPE_LABELS.services;
   return {
     business_name: or(clean(draft.secretary_name || draft.business_name, 120)),
     business_type: type,

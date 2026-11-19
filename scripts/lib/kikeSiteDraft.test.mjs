@@ -206,6 +206,35 @@ test('only the customer owner marks shared or saves the secretary; a reassigned 
   });
 });
 
+test('every business type saves with its own template, for the site and the secretary', async () => {
+  const types = [
+    ['restaurant', 'plw-restaurant'],
+    ['clinic', 'plw-clinic'],
+    ['shop', 'plw-shop'],
+    ['gym', 'plw-gym'],
+    ['real_estate', 'plw-real-estate'],
+    ['auto', 'plw-auto'],
+  ];
+  for (const [category, slug] of types) {
+    await as(AGENT_1, async (run) => {
+      await run(`SELECT public.upsert_prospect_site_draft('${CLIENT_OF_1}', '${slug}', 'Taller M y M',
+        'Grecia', '${category}', ARRAY['Mecánica general'], '', '')`);
+      const row = await draftRow(run);
+      assert.deepEqual([row.category, row.site_slug], [category, slug]);
+    });
+  }
+  for (const type of ['clinic', 'gym', 'real_estate', 'auto']) {
+    await as(AGENT_1, (run) =>
+      run(`SELECT public.set_prospect_secretary_demo('${CLIENT_OF_1}', 'Taller M y M', '${type}')`)
+    );
+  }
+  await refuses(
+    AGENT_1,
+    `SELECT public.set_prospect_secretary_demo('${CLIENT_OF_1}', 'X', 'casino')`,
+    /no es válido/
+  );
+});
+
 test('the administrator opens the draft for verification, read-write through the same door', async () => {
   await as(ADMIN, async (run) => {
     const [{ id: draftId }] = await run(save(CLIENT_OF_1, 'Tour Rincón'));

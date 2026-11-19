@@ -11,10 +11,10 @@ export interface SiteDraftFaq {
 
 export interface ProspectSiteDraft {
   prospectId: string;
-  siteSlug: 'plw-tourism-tours' | 'plw-tourism-stays';
+  siteSlug: SiteSlug;
   businessName: string;
   locale: string;
-  category: 'tours' | 'lodging';
+  category: SiteCategory;
   services: string[];
   highlight: string;
   /** Public booking phone the customer explicitly confirmed for the page. */
@@ -34,10 +34,51 @@ export interface ProspectSiteDraft {
 
 export const SITE_PREVIEW_BASE = 'https://familiamendeztube-cp-q9tc.bolt.host/preview';
 
-export const SITE_SLUGS = {
-  tours: 'plw-tourism-tours',
-  lodging: 'plw-tourism-stays',
-} as const;
+/**
+ * Business types an agent can build a sample for: the database category, the label agents
+ * see, the Kike Sites template slug, and the matching Secretaria IA type. Same lists as
+ * migration 20261119220000.
+ */
+export const SITE_TYPES = [
+  { category: 'tours', label: 'Tours', slug: 'plw-tourism-tours', secretary: 'tourism' },
+  { category: 'lodging', label: 'Hospedaje', slug: 'plw-tourism-stays', secretary: 'tourism' },
+  { category: 'restaurant', label: 'Restaurante', slug: 'plw-restaurant', secretary: 'restaurant' },
+  { category: 'clinic', label: 'Clínica', slug: 'plw-clinic', secretary: 'clinic' },
+  { category: 'shop', label: 'Tienda', slug: 'plw-shop', secretary: 'retail' },
+  { category: 'gym', label: 'Gimnasio', slug: 'plw-gym', secretary: 'gym' },
+  { category: 'real_estate', label: 'Bienes raíces', slug: 'plw-real-estate', secretary: 'real_estate' },
+  { category: 'auto', label: 'Taller o agencia de autos', slug: 'plw-auto', secretary: 'auto' },
+] as const;
+
+export type SiteCategory = (typeof SITE_TYPES)[number]['category'];
+export type SiteSlug = (typeof SITE_TYPES)[number]['slug'];
+export type SecretaryType = (typeof SITE_TYPES)[number]['secretary'] | 'services';
+
+const siteType = (category: unknown) => SITE_TYPES.find((type) => type.category === category);
+export const slugFor = (category: SiteCategory): SiteSlug => siteType(category)?.slug ?? 'plw-tourism-tours';
+
+// The customer's category is free text ("Taller mecánico", "Clínica dental", "Hotel"...).
+// First match wins; accents are removed before matching.
+const GUESSES: [RegExp, SiteCategory][] = [
+  [/\b(hosped|hotel|cabin|alojam|hostal|lodge)/, 'lodging'],
+  [/\b(tour|turis|viaje)/, 'tours'],
+  [/\b(restaur|soda|cafeter|pizz|comida|marisquer)/, 'restaurant'],
+  [/\b(clinic|dental|dentist|odonto|medic|consultorio|veterinar|salud)/, 'clinic'],
+  [/\b(gimnas|gym|fitness|crossfit)/, 'gym'],
+  [/\b(inmobil|bienes raices|real estate|propiedad)/, 'real_estate'],
+  [/\b(taller|mecanic|automotr|autos?\b|carros?\b|vehicul|concesionari|dealer)/, 'auto'],
+  [/\b(tienda|shop|boutique|ferreter|almacen|venta|super)/, 'shop'],
+];
+
+export function guessSiteCategory(businessCategory: string): SiteCategory | null {
+  const text = businessCategory.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  return GUESSES.find(([pattern]) => pattern.test(text))?.[1] ?? null;
+}
+
+/** Secretaria IA type for a customer: from the guessed site type, else general services. */
+export function guessSecretaryType(businessCategory: string): SecretaryType {
+  return siteType(guessSiteCategory(businessCategory))?.secretary ?? 'services';
+}
 
 export function buildPreviewUrl(token: string): string {
   // The plw- prefix is URL-only; the API and Kike both accept the token without it.
@@ -49,14 +90,14 @@ export function draftFromRow(row: Record<string, unknown>): ProspectSiteDraft {
   if (typeof token !== 'string' || !token) {
     throw new Error('Fila inválida: falta el enlace de vista previa.');
   }
-  const category = row['category'];
+  const type = siteType(row['category']) ?? SITE_TYPES[0];
   const services = row['services'];
   return {
     prospectId: row['prospect_id'] as string,
-    siteSlug: row['site_slug'] === 'plw-tourism-stays' ? 'plw-tourism-stays' : 'plw-tourism-tours',
+    siteSlug: type.slug,
     businessName: row['business_name'] as string,
     locale: (row['locale'] as string) ?? '',
-    category: category === 'lodging' ? 'lodging' : 'tours',
+    category: type.category,
     services: Array.isArray(services) ? services.map(String) : [],
     highlight: (row['highlight'] as string) ?? '',
     bookingPhone: (row['booking_phone'] as string) ?? '',
@@ -92,10 +133,10 @@ function parseFaqs(raw: unknown): SiteDraftFaq[] {
 
 export interface SiteDraftInput {
   prospectId: string;
-  siteSlug: 'plw-tourism-tours' | 'plw-tourism-stays';
+  siteSlug: SiteSlug;
   businessName: string;
   locale: string;
-  category: 'tours' | 'lodging';
+  category: SiteCategory;
   services: string[];
   highlight: string;
   bookingPhone: string;
