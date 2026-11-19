@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Globe, ExternalLink, Mail, MessageCircle, Check, Search, ChevronDown } from 'lucide-react';
+import { Globe, ExternalLink, Mail, MessageCircle, Check, MapPin, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { TextField } from '@/components/ui/TextField';
@@ -12,9 +12,12 @@ import {
   buildPreviewUrl,
   draftFromRow,
   DRAFT_ROW_COLUMNS,
+  buildMapsSearchUrl,
+  buildBusinessSearchUrl,
   type ProspectSiteDraft,
   type SiteDraftFact,
   type SiteDraftFaq,
+  type SiteDraftImage,
 } from '../models/siteDraft';
 
 const FIELD =
@@ -60,6 +63,7 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
   const [error, setError] = useState<string | null>(null);
   // Set right after the agent opens a composer; only the explicit confirm button records sharing.
   const [sharePrompt, setSharePrompt] = useState<'email' | 'whatsapp' | null>(null);
+  const [images, setImages] = useState<SiteDraftImage[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -98,6 +102,7 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
     setDescription(draft.description);
     setFacts(draft.facts);
     setFaqs(draft.faqs);
+    setImages(draft.approvedImages);
   }
 
   if (phase.kind === 'loading') return null;
@@ -193,6 +198,26 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
   const updateFaq = (index: number, patch: Partial<SiteDraftFaq>) => {
     setFaqs((current) => current.map((faq, i) => (i === index ? { ...faq, ...patch } : faq)));
   };
+
+  async function applyImages() {
+    if (!draft) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { data, error: rpcError } = await supabase.rpc('set_prospect_site_approved_images', {
+        p_prospect_id: prospect.id,
+        p_images: images.slice(0, 4),
+      });
+      if (rpcError) throw new Error(rpcError.message || 'No se pudieron guardar las imágenes.');
+      const saved = Array.isArray(data) ? (data as SiteDraftImage[]) : [];
+      setImages(saved);
+      setPhase({ kind: 'saved', draft: { ...draft, approvedImages: saved } });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudieron guardar las imágenes.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <section
@@ -475,21 +500,61 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
                 </div>
 
                 {businessName.trim() ? (
-                  <p className="text-xs text-neutral-500">
-                    <Search size={12} className="inline" aria-hidden="true" />{' '}
-                    <a
-                      href={`https://www.google.com/search?q=${encodeURIComponent(
-                        `${businessName.trim()} ${locale.trim()}`.trim()
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-plw-navy underline underline-offset-4"
-                    >
-                      Buscar el negocio en una búsqueda pública
-                    </a>{' '}
-                    (abre una pestaña nueva). Copie usted mismo los datos confirmados y escribalos
-                    arriba; nada se copia solo.
-                  </p>
+                  <div className="grid gap-2 rounded-lg border border-neutral-200 bg-white p-3">
+                    <span className="text-sm font-medium text-plw-navy">Imágenes del negocio</span>
+                    <p className="text-xs text-neutral-500">
+                      <MapPin size={12} className="inline" aria-hidden="true" /> Busque el negocio
+                      en un mapa o una búsqueda pública, abra el perfil y verifique que es el lugar
+                      correcto antes de usar cualquier dato o foto.
+                    </p>
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      <a
+                        href={buildMapsSearchUrl(businessName.trim(), locale.trim())}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-plw-navy underline underline-offset-4"
+                      >
+                        Abrir Google Maps
+                      </a>
+                      <a
+                        href={buildBusinessSearchUrl(businessName.trim(), locale.trim())}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-plw-navy underline underline-offset-4"
+                      >
+                        Búsqueda web pública
+                      </a>
+                    </div>
+                    <p className="text-xs text-neutral-500">
+                      Sin un proveedor de imágenes configurado (no hay clave de generación), la
+                      muestra no genera ilustraciones. Puede agregar después fotos propias del
+                      negocio si el cliente las entrega.
+                    </p>
+                    {images.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {images.map((image) => (
+                          <img
+                            key={image.url}
+                            src={image.url}
+                            alt={image.alt}
+                            className="h-16 w-24 rounded-md object-cover"
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                    {images.length > 0 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="justify-self-start"
+                        disabled={saving}
+                        onClick={() => void applyImages()}
+                      >
+                        Usar imágenes seleccionadas
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </details>

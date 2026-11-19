@@ -58,7 +58,27 @@ export function toSavedSite(row, draftId) {
         description: typeof row.description === 'string' ? row.description : '',
         facts: cleanPairs(row.facts, 'label', 'value', 120),
         faqs: cleanPairs(row.faqs, 'question', 'answer', 300),
+        approvedImages: approvedImages(row.approved_images),
       },
     },
   };
+}
+
+// Only safe, public, PLW-owned storage URLs from the approved/ folder are ever emitted.
+const APPROVED_URL =
+  /^https:\/\/[^/]+\/storage\/v1\/object\/public\/plw-site-images\/approved\/[A-Za-z0-9._-]+$/;
+
+function approvedImages(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      const url = item?.url;
+      const alt = typeof item?.alt === 'string' ? item.alt.trim().slice(0, 200) : '';
+      const kind = item?.kind === 'business' ? 'business' : item?.kind === 'generated' ? 'generated' : null;
+      return typeof url === 'string' && APPROVED_URL.test(url) && !url.includes('..') && alt !== '' && kind
+        ? { url, alt, kind }
+        : null;
+    })
+    .filter((image) => image !== null)
+    .slice(0, 4);
 }

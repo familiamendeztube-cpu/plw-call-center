@@ -117,6 +117,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'set_operational_status',
   'set_payment_status',
   'set_prospect_details',
+  'set_prospect_site_approved_images',
   'set_prospect_stage',
   'setting_int',
   'start_next_dental_batch',

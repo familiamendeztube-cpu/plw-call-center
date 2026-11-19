@@ -13,6 +13,10 @@ const ROW = {
   services: ['Tours guiados', 'Reservación en línea'],
   highlight: 'Puentes colgantes',
   booking_phone: '+506 8888-7777',
+  description: 'Tours en lancha por el Río Frío.',
+  facts: [{ label: 'Horario', value: '8 am-5 pm' }],
+  faqs: [{ question: '¿Incluye almuerzo?', answer: 'Sí.' }],
+  approved_images: [],
 };
 
 test('the token is the only key: 48 hex bytes, with or without the plw- URL prefix', () => {
@@ -40,8 +44,40 @@ test('the SavedSite shape carries exactly the public fields Kike renders', () =>
     },
     content: { es: {}, en: {} },
     photos: {},
-    overrides: { tourismDemo: { services: ['Tours guiados', 'Reservación en línea'], highlight: 'Puentes colgantes' } },
+    overrides: {
+      tourismDemo: {
+        services: ['Tours guiados', 'Reservación en línea'],
+        highlight: 'Puentes colgantes',
+        description: 'Tours en lancha por el Río Frío.',
+        facts: [{ label: 'Horario', value: '8 am-5 pm' }],
+        faqs: [{ question: '¿Incluye almuerzo?', answer: 'Sí.' }],
+        approvedImages: [],
+      },
+    },
   });
+});
+
+test('only safe PLW storage URLs pass into approvedImages', () => {
+  const site = toSavedSite(
+    {
+      ...ROW,
+      approved_images: [
+        { url: 'https://x.supabase.co/storage/v1/object/public/plw-site-images/approved/a1.webp', alt: 'Cabaña', kind: 'generated' },
+        { url: 'https://evil.test/whatever', alt: 'Trampa', kind: 'business' },
+        { url: 'https://x.supabase.co/storage/v1/object/public/plw-site-images/candidates/secret.jpg', alt: 'Privada', kind: 'business' },
+        { url: 'https://x.supabase.co/storage/v1/object/public/plw-site-images/approved/b2.webp', alt: '', kind: 'business' },
+        { url: 'https://x.supabase.co/storage/v1/object/public/plw-site-images/approved/c3.webp', alt: 'Ok', kind: 'otra' },
+      ],
+    },
+    'd'
+  );
+  assert.deepEqual(site.overrides.tourismDemo.approvedImages, [
+    {
+      url: 'https://x.supabase.co/storage/v1/object/public/plw-site-images/approved/a1.webp',
+      alt: 'Cabaña',
+      kind: 'generated',
+    },
+  ]);
 });
 
 test('an unconfirmed or malformed booking phone is emitted as empty, not guessed', () => {

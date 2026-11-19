@@ -23,6 +23,7 @@ export interface ProspectSiteDraft {
   description: string;
   facts: SiteDraftFact[];
   faqs: SiteDraftFaq[];
+  approvedImages: SiteDraftImage[];
   previewUrl: string;
   sharedAt: string | null;
 }
@@ -58,6 +59,7 @@ export function draftFromRow(row: Record<string, unknown>): ProspectSiteDraft {
     description: (row['description'] as string) ?? '',
     facts: parsePairs(row['facts']),
     faqs: parseFaqs(row['faqs']),
+    approvedImages: parseImages(row['approved_images']),
     previewUrl: buildPreviewUrl(token),
     sharedAt: (row['shared_at'] as string | null) ?? null,
   };
@@ -93,6 +95,7 @@ export interface SiteDraftInput {
   description: string;
   facts: SiteDraftFact[];
   faqs: SiteDraftFaq[];
+  approvedImages: SiteDraftImage[];
 }
 
 /** Creates the draft on first save, then reopens and updates the same one. */
@@ -103,4 +106,31 @@ export interface SiteDraftService {
 }
 
 export const DRAFT_ROW_COLUMNS =
-  'prospect_id, site_slug, business_name, locale, category, services, highlight, booking_phone, description, facts, faqs, preview_token, shared_at';
+  'prospect_id, site_slug, business_name, locale, category, services, highlight, booking_phone, description, facts, faqs, approved_images, preview_token, shared_at';
+
+export interface SiteDraftImage {
+  url: string;
+  alt: string;
+  kind: 'generated' | 'business';
+}
+
+export function parseImages(raw: unknown): SiteDraftImage[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => {
+    const url = (item as Record<string, unknown> | null)?.['url'];
+    const alt = (item as Record<string, unknown> | null)?.['alt'];
+    const kind = (item as Record<string, unknown> | null)?.['kind'];
+    return typeof url === 'string' && typeof alt === 'string' && (kind === 'generated' || kind === 'business')
+      ? [{ url, alt, kind }]
+      : [];
+  });
+}
+
+/** Public search entry points an agent opens and verifies manually; nothing is crawled. */
+export function buildBusinessSearchUrl(name: string, place: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(`${name} ${place}`.trim())}`;
+}
+
+export function buildMapsSearchUrl(name: string, place: string): string {
+  return `https://www.google.com/maps/search/${encodeURIComponent(`${name} ${place}`.trim())}`;
+}

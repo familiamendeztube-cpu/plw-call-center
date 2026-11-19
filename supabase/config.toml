@@ -48,3 +48,7 @@ verify_jwt = false
 [functions.plw-tourism-preview]
 # Public read-only preview: the opaque token is the only key; no session, no writes.
 verify_jwt = false
+
+[functions.plw-tourism-voice]
+# Public, server-only text-to-speech for grounded preview answers; token + answer id, no writes.
+verify_jwt = false
