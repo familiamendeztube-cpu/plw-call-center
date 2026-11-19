@@ -1,4 +1,8 @@
-// Public conversational turn for the secretary demo (typed question or microphone).
+// Public Secretaria IA demo, keyed by the preview token.
+// - Live conversation (JSON action status/start): see liveDemo and demoAgent.ts.
+// - Scripted turn (typed question or microphone), described below.
+//
+// Scripted turn:
 // A short caller question is transcribed (Scribe v2), classified into a fixed opaque
 // answer id, and answered with the same approved line the visitor sees. PLW stores neither
 // the audio nor the transcript, and the transcript is never spoken. ElevenLabs keeps the
@@ -12,10 +16,21 @@ import {
   cacheKey,
   corsPreflight,
   json,
+  normalizeToken,
   parseConverseRequest,
   rateKey,
   windowBucket,
 } from './rules.ts';
+import {
+  DEMO_AGENT_VERSION,
+  DEMO_CLOSING,
+  DEMO_LIMITS,
+  DEMO_NOTICE,
+  DEMO_SETTINGS_KEY,
+  DEMO_USED_UP,
+  demoAgentConfig,
+  demoVariables,
+} from './demoAgent.ts';
 import {
   buildConverse,
   classifyTranscript,
@@ -150,39 +165,156 @@ async function synthesize(text: string, apiKey: string, voiceId: string): Promis
   return new Uint8Array(await response.arrayBuffer());
 }
 
-Deno.serve(async (req) => {
-  const origin = allowedOrigin(req);
-  if (req.method === 'OPTIONS') return corsPreflight(req);
-  if (req.method !== 'POST') return json({ error: 'Método no permitido.' }, 405, origin);
+type Db = ReturnType<typeof createClient>;
+const serviceDb = (): Db =>
+  createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
-  const parsed = await parseConverseRequest(req);
-  if (!parsed) return json({ error: 'Solicitud no válida.' }, 400, origin);
-
-  const db = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
-
-  // Rate limit per preview link before any external work. Keyed on the link alone: the
-  // first x-forwarded-for entry is caller-controlled, so per-IP keys were unlimited.
-  const key = rateKey(parsed.token);
+/** Per-minute counter in plw_voice_rate. Read-then-write: a burst can pass by one or two. */
+async function rateLimited(db: Db, key: string, limit: number): Promise<boolean> {
   const bucket = windowBucket();
   const { data: hit } = await db
     .from('plw_voice_rate')
     .select('hit_count')
     .match({ rate_key: key, window_bucket: bucket })
     .maybeSingle();
-  const currentCount = hit?.hit_count ?? 0;
-  if (currentCount >= RATE_LIMIT) {
-    return json({ error: 'Demasiadas solicitudes. Intente en un momento.' }, 429, origin);
-  }
+  const count = hit?.hit_count ?? 0;
+  if (count >= limit) return true;
   await db
     .from('plw_voice_rate')
-    .upsert(
-      { rate_key: key, window_bucket: bucket, hit_count: currentCount + 1 },
-      { onConflict: 'rate_key,window_bucket' }
-    );
+    .upsert({ rate_key: key, window_bucket: bucket, hit_count: count + 1 }, { onConflict: 'rate_key,window_bucket' });
+  return false;
+}
+
+const AGENTS_API = 'https://api.elevenlabs.io/v1/convai';
+
+/** The shared demo agent, created or re-PATCHed whenever DEMO_AGENT_VERSION or the voice changes. */
+async function ensureDemoAgent(db: Db, apiKey: string, voiceId: string): Promise<string | null> {
+  const { data } = await db.from('settings').select('value').eq('key', DEMO_SETTINGS_KEY).maybeSingle();
+  const saved = (data?.value ?? {}) as { agent_id?: string; version?: string; voice_id?: string };
+  if (saved.agent_id && saved.version === DEMO_AGENT_VERSION && saved.voice_id === voiceId) return saved.agent_id;
+
+  const send = (path: string, method: string) =>
+    fetch(`${AGENTS_API}${path}`, {
+      method,
+      headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(demoAgentConfig(voiceId)),
+      signal: AbortSignal.timeout(20000),
+    });
+  // ponytail: two very first demo starts at the same instant can each create an agent (one is
+  // left unused in ElevenLabs); add a lock here if that ever shows up.
+  let agentId = saved.agent_id ?? null;
+  let response = agentId ? await send(`/agents/${encodeURIComponent(agentId)}`, 'PATCH') : null;
+  if (!response || response.status === 404) {
+    response = await send('/agents/create', 'POST');
+    agentId = response.ok ? ((await response.json().catch(() => null))?.agent_id ?? null) : null;
+  }
+  if (!response.ok || typeof agentId !== 'string') {
+    console.error('secretary demo agent', response.status, (await response.text().catch(() => '')).slice(0, 300));
+    return null;
+  }
+  await db.from('settings').upsert(
+    {
+      key: DEMO_SETTINGS_KEY,
+      value: { agent_id: agentId, version: DEMO_AGENT_VERSION, voice_id: voiceId },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'key' }
+  );
+  return agentId;
+}
+
+/**
+ * Live demo, JSON {action: 'status' | 'start', token}. status: the notice and how many
+ * conversations are left. start: claims one of the DEMO_LIMITS.conversations and returns a
+ * one-conversation ElevenLabs token plus the business variables for Conversation.startSession.
+ */
+async function liveDemo(action: 'status' | 'start', rawToken: unknown, origin: string): Promise<Response> {
+  const token = normalizeToken(rawToken);
+  if (!token) return json({ error: 'Solicitud no válida.' }, 400, origin);
+  const db = serviceDb();
+  if (await rateLimited(db, rateKey(`demo:${token}`), 10)) {
+    return json({ error: 'Demasiadas solicitudes. Intente en un momento.' }, 429, origin);
+  }
+  const { data: draft, error } = await db
+    .from('prospect_site_drafts')
+    .select('id, business_name, locale, category, services, highlight, description, faqs, facts, secretary_name, secretary_type')
+    .eq('preview_token', token)
+    .maybeSingle();
+  if (error) return json({ error: 'Secretaria no disponible.' }, 502, origin);
+  if (!draft) return json({ error: 'Vista previa no encontrada.' }, 404, origin);
+
+  const { count } = await db
+    .from('plw_secretary_demo_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('draft_id', draft.id);
+  const remaining = Math.max(0, DEMO_LIMITS.conversations - (count ?? 0));
+  const shared = { notice: DEMO_NOTICE, closing: DEMO_CLOSING, limits: DEMO_LIMITS };
+  if (action === 'status') return json({ ...shared, remaining }, 200, origin);
+  const usedUp = json({ ...shared, allowed: false, remaining: 0, message: DEMO_USED_UP }, 200, origin);
+  if (remaining === 0) return usedUp;
+
+  const apiKey = Deno.env.get('ELEVENLABS_API_KEY');
+  const agentId = apiKey ? await ensureDemoAgent(db, apiKey, await previewVoiceId(db)) : null;
+  if (!apiKey || !agentId) {
+    return json({ error: 'La demostración no está disponible en este momento.' }, 503, origin);
+  }
+  const { data: claim, error: claimError } = await db.rpc('claim_secretary_demo_session', {
+    p_draft_id: draft.id,
+    p_limit: DEMO_LIMITS.conversations,
+  });
+  if (claimError) return json({ error: 'Secretaria no disponible.' }, 502, origin);
+  if (!claim?.allowed) return usedUp;
+
+  const tokenResponse = await fetch(
+    `${AGENTS_API}/conversation/token?agent_id=${encodeURIComponent(agentId)}`,
+    { headers: { 'xi-api-key': apiKey }, signal: AbortSignal.timeout(15000) }
+  ).catch(() => null);
+  const issued = tokenResponse?.ok ? await tokenResponse.json().catch(() => null) : null;
+  if (typeof issued?.token !== 'string') {
+    // Give the conversation back: the visitor never got to talk.
+    await db.from('plw_secretary_demo_sessions').delete().eq('id', claim.id);
+    return json({ error: 'No se pudo iniciar la demostración. Intente de nuevo.' }, 502, origin);
+  }
+  if (typeof issued.conversation_id === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(issued.conversation_id)) {
+    await db.from('plw_secretary_demo_sessions').update({ conversation_id: issued.conversation_id }).eq('id', claim.id);
+  }
+  return json(
+    {
+      ...shared,
+      allowed: true,
+      remaining: DEMO_LIMITS.conversations - claim.used,
+      conversationToken: issued.token,
+      dynamicVariables: demoVariables(draft),
+    },
+    200,
+    origin
+  );
+}
+
+Deno.serve(async (req) => {
+  const origin = allowedOrigin(req);
+  if (req.method === 'OPTIONS') return corsPreflight(req);
+  if (req.method !== 'POST') return json({ error: 'Método no permitido.' }, 405, origin);
+
+  // Live demo actions are JSON; read them from a clone so the scripted question path
+  // below can still consume the original body.
+  if ((req.headers.get('Content-Type') ?? '').includes('application/json')) {
+    const peek = await req.clone().json().catch(() => null);
+    if (peek?.action === 'status' || peek?.action === 'start') {
+      return await liveDemo(peek.action, peek.token, origin);
+    }
+  }
+
+  const parsed = await parseConverseRequest(req);
+  if (!parsed) return json({ error: 'Solicitud no válida.' }, 400, origin);
+
+  const db = serviceDb();
+
+  if (await rateLimited(db, rateKey(parsed.token), RATE_LIMIT)) {
+    return json({ error: 'Demasiadas solicitudes. Intente en un momento.' }, 429, origin);
+  }
 
   // Public unlisted preview: resolve the active draft by token only. No staff data.
   const { data: row, error: lookupError } = await db
