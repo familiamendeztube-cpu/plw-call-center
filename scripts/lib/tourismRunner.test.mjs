@@ -5,7 +5,7 @@ import {
   isPaused,
   runTourismTick,
 } from '../../supabase/functions/tourism-dialer/runner.js';
-import { tourismAgentConfig } from '../../supabase/functions/tourism-dialer/provider.js';
+import { tourismAgentConfig, tourismConfigFailures } from '../../supabase/functions/tourism-dialer/provider.js';
 
 const ROUTE = { provider_agent_id: 'tourism_agent', transfer_uri: 'sip:agent-2@phone.example.com' };
 const RUNTIME = {
@@ -93,6 +93,26 @@ test('real drift un-verifies the voice but keeps the agent id so Reconfigurar pa
   assert.match(write.last_error, /first_message/);
   assert.ok(!('provider_agent_id' in write));
   assert.equal(db.rpcs.length, 0);
+});
+
+// Calls of 2026-11-20: Anna narrated every wait on menus and holds, and [slow] tags dragged her
+// speech. Losing any of these settings must stop the dialer until Reconfigurar.
+test('the verifier requires silent waits, menu keys and no expressive tags', () => {
+  const healthy = tourismAgentConfig('Alejandro', ROUTE, 'voice');
+  healthy.agent_id = 'tourism_agent';
+  assert.deepEqual(tourismConfigFailures(healthy, ROUTE), []);
+  const prompt = healthy.conversation_config.agent.prompt.prompt;
+  assert.equal(prompt.match(/BUZÓN DE VOZ/g).length, 1); // one voicemail rule, not two that disagree
+  assert.doesNotMatch(prompt, /\{\{plw_transfer_uri\}\}/);
+  for (const [failure, drift] of [
+    ['skip_turn', (c) => delete c.conversation_config.agent.prompt.built_in_tools.skip_turn],
+    ['keypad', (c) => delete c.conversation_config.agent.prompt.built_in_tools.play_keypad_touch_tone],
+    ['expressive_mode', (c) => delete c.conversation_config.tts.expressive_mode],
+  ]) {
+    const config = structuredClone(healthy);
+    drift(config);
+    assert.deepEqual(tourismConfigFailures(config, ROUTE), [failure]);
+  }
 });
 
 test('a verified voice claims, and the pre-migration pause marker still counts as paused', async () => {

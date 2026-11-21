@@ -84,6 +84,24 @@ const LANGUAGE_TOOL = {
   params: { system_tool_type: 'language_detection' },
 };
 
+// skip_turn is how Anna stays quiet: without it, every hold, menu or pause in a dictated email
+// made her say something ("sigo esperando" on 2026-11-20, which voice menus rejected).
+const SKIP_TURN_TOOL = {
+  type: 'system',
+  name: 'skip_turn',
+  description:
+    'Quédate en silencio sin decir nada: cuando la persona pide un momento o te pone en espera, durante música de espera, grabaciones o menús automáticos, y mientras te dicta un correo o un número que aún no termina.',
+  params: { system_tool_type: 'skip_turn' },
+};
+const KEYPAD_TOOL = {
+  type: 'system',
+  name: 'play_keypad_touch_tone',
+  description:
+    'Marca una opción de un menú automático: reservaciones o ventas; si el menú no la tiene, operadora, recepción o administración.',
+  params: { system_tool_type: 'play_keypad_touch_tone' },
+};
+const BUILT_IN_TOOLS = ['end_call', 'transfer_to_number', 'voicemail_detection', 'language_detection', 'skip_turn', 'play_keypad_touch_tone'];
+
 const BASIC_TURN = { turn_eagerness: 'patient' };
 const IGNORED_REPLIES = [
   'sí', 'si', 'ajá', 'aja', 'mhm', 'ujum', 'ok', 'okey', 'ya', 'bueno', 'claro', 'listo',
@@ -103,7 +121,7 @@ const DETAIL_FIELDS = {
   plw_contact_role: detail('Their role, e.g. encargado, dueño, administrador.'),
   plw_contact_email: {
     type: 'string',
-    description: 'Email the person asked PLW to send information to, spelled letter by letter, lowercase, with @ and dots. Empty if not given or unsure; never guess.',
+    description: 'Email the person asked PLW to send information to, lowercase, with @ and dots. If Anna read it back and the person corrected it, use the corrected version. Empty if not given or unsure; never guess.',
   },
   plw_whatsapp_number: {
     type: 'string',
@@ -155,9 +173,9 @@ export function tourismAgentConfig(staffName, route, voiceId, { basicTurn = fals
         language: 'es',
         first_message: TOURISM_FIRST_MESSAGE,
         prompt: {
-          prompt:
-            tourismPrompt() +
-            `\nVersión: ${TOURISM_SCRIPT_VERSION}.\n\nTRANSFERENCIA\nTransferir no es el objetivo de la llamada: primero está el flujo del guion y solo si la persona quiere hablar ahora mismo con ${staffName}, usa transfer_to_number hacia ${route.transfer_uri}. Si prefiere otro momento, coordina la llamada de seguimiento: acepta el día y la hora que la persona dé, confírmalos en voz alta y cierra. Nunca transfieras sin aceptación ni digas que la comunicaste si la herramienta no lo confirmó.\n\nBUZÓN DE VOZ\nSolo si escuchas un buzón de voz o una contestadora que pide dejar mensaje, usa voicemail_detection de inmediato sin dejar mensaje. Un menú de opciones NO es buzón: espera a que una persona atienda.`,
+          // Transfer and voicemail rules live once, in the script; a second copy here disagreed
+          // with it about menus.
+          prompt: tourismPrompt() + `\nVersión: ${TOURISM_SCRIPT_VERSION}.`,
           tool_ids: [],
           mcp_server_ids: [],
           knowledge_base: [],
@@ -170,6 +188,8 @@ export function tourismAgentConfig(staffName, route, voiceId, { basicTurn = fals
               params: { system_tool_type: 'voicemail_detection' },
             },
             language_detection: LANGUAGE_TOOL,
+            skip_turn: SKIP_TURN_TOOL,
+            play_keypad_touch_tone: KEYPAD_TOOL,
             transfer_to_number: {
               type: 'system',
               name: 'transfer_to_number',
@@ -193,7 +213,9 @@ export function tourismAgentConfig(staffName, route, voiceId, { basicTurn = fals
         fr: { overrides: { agent: {} } },
         zh: { overrides: { agent: {} } },
       },
-      tts: { voice_id: voiceId, model_id: TOURISM_VOICE_MODEL },
+      // Expressive mode lets the LLM write delivery tags; on 2026-11-20 it wrote [slow] into
+      // ordinary replies and Anna dragged. v3 has no speed setting to correct it.
+      tts: { voice_id: voiceId, model_id: TOURISM_VOICE_MODEL, expressive_mode: false },
       vad: { background_voice_detection: true },
       turn: basicTurn ? BASIC_TURN : TURN,
       conversation: { max_duration_seconds: 600 },
@@ -253,6 +275,7 @@ export function tourismConfigFailures(config, route) {
   if (agent?.language !== 'es') failures.push('language');
   if (p?.timezone !== TIMEZONE) failures.push('timezone');
   if (config.conversation_config?.tts?.model_id !== TOURISM_VOICE_MODEL) failures.push('voice_model');
+  if (config.conversation_config?.tts?.expressive_mode !== false) failures.push('expressive_mode');
   if (
     config.conversation_config?.vad?.background_voice_detection !== true ||
     config.conversation_config?.turn?.turn_eagerness !== 'patient'
@@ -265,15 +288,12 @@ export function tourismConfigFailures(config, route) {
   if (p?.tool_ids?.length || p?.mcp_server_ids?.length || p?.knowledge_base?.length) failures.push('extra_tools_or_knowledge');
   if (!text(p?.prompt).includes('TURISMO')) failures.push('prompt_tourism');
   const built = p?.built_in_tools ?? {};
-  if (
-    Object.entries(built).some(
-      ([name, value]) =>
-        value && !['end_call', 'transfer_to_number', 'voicemail_detection', 'language_detection'].includes(name)
-    )
-  )
+  if (Object.entries(built).some(([name, value]) => value && !BUILT_IN_TOOLS.includes(name)))
     failures.push('extra_builtin_tool');
   if (!built.voicemail_detection) failures.push('voicemail_detection');
   if (!built.language_detection) failures.push('language_detection');
+  if (!built.skip_turn) failures.push('skip_turn');
+  if (!built.play_keypad_touch_tone) failures.push('keypad');
   const presets = config.conversation_config?.language_presets ?? {};
   if (
     !['en', 'fr', 'zh'].every((lang) => presets[lang]) ||
