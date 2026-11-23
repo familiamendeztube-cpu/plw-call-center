@@ -162,5 +162,10 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
   config.agent_id = 'tourism_agent';
   assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
-  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-c'));
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-d'));
+  // The coverage question comes before any demo offer, exactly once.
+  const promptText = tourismPrompt();
+  const coverage = 'Cuando un huésped escribe en inglés después de las seis, ¿quién le contesta?';
+  assert.equal(promptText.split(coverage).length - 1, 1, 'the coverage question appears once');
+  assert.ok(promptText.indexOf(coverage) < promptText.indexOf('demostración corta'), 'listen before offering');
 });

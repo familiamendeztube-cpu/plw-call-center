@@ -49,7 +49,13 @@ const OUTBOUND_INTAKE_TABLES = OUTBOUND_ADMIN_TABLES.filter(
 const SHARED_TABLES = ['sales_materials', 'settings'];
 // Tourism dialer: the browser (admin UI) reads runtime state and its own campaign rows;
 // callbacks and call rows are service_role only, so they appear only in this read list.
-const TOURISM_DIALER_TABLES = ['tourism_callbacks', 'tourism_calls', 'tourism_dialer_runtime'];
+const TOURISM_DIALER_TABLES = [
+  'tourism_callbacks',
+  'tourism_calls',
+  'tourism_dialer_alerts',
+  'tourism_dialer_runtime',
+  'tourism_milestones',
+];
 
 // Any new entry here is a new way for a browser to reach data, so it needs its own
 // isolation test before it joins these lists.
@@ -108,6 +114,10 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'request_reply_send',
   'reschedule_followup',
   'reserve_tourism_test',
+  'resolve_tourism_callback',
+  'reschedule_tourism_callback',
+  'restart_tourism_after_alert',
+  'add_tourism_milestone',
   'save_draft',
   'schedule_followup',
   'set_ai_call_status',
@@ -521,8 +531,8 @@ test('browsers can call only the reviewed functions', async () => {
     WHERE n.nspname = 'public' AND p.prokind = 'f'
       AND has_function_privilege('authenticated', p.oid, 'EXECUTE') ORDER BY 1`);
   assert.deepEqual(
-    rows.map((row) => row.proname),
-    BROWSER_CALLABLE_FUNCTIONS
+    rows.map((row) => row.proname).sort(),
+    [...BROWSER_CALLABLE_FUNCTIONS].sort()
   );
   assert.deepEqual(
     rows.filter((row) => row.anonymous).map((row) => row.proname),

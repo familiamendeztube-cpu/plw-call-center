@@ -158,23 +158,47 @@ const DETAIL_FIELDS = {
     type: 'string',
     description: "'true' only if both day and time were confirmed by the person; 'false' otherwise.",
   },
+  plw_demo_coverage_gap: {
+    type: 'string',
+    description:
+      "'true' only if the person said or implied nobody covers English guest messages after hours " +
+      "(e.g. nadie, hasta mañana, se nos complica); 'false' if they said it is covered; empty if the " +
+      'question was not asked or the answer was unclear. Never guess.',
+  },
+  plw_demo_date: {
+    type: 'string',
+    description:
+      'Agreed demo day as YYYY-MM-DD, only if the person CONFIRMED that exact day for the demo in this call. ' +
+      'Empty if only suggested, declined or unknown; never guess.',
+  },
+  plw_demo_clock: {
+    type: 'string',
+    description:
+      'Agreed demo time as HH:MM (24 hours, Costa Rica time), only if the person CONFIRMED that exact time ' +
+      'for the demo in this call. Empty if only suggested, declined or unknown; never guess.',
+  },
+  plw_demo_confirmed: {
+    type: 'string',
+    description: "'true' only if both demo day and time were confirmed by the person; 'false' otherwise.",
+  },
 };
 const OUTCOME_FIELD = {
   plw_outcome: {
     type: 'string',
     description:
       'Exactly one code for how the call ended: APPOINTMENT_CONFIRMED, INTERESTED_FOLLOW_UP, ' +
-      'WHATSAPP_INFO_REQUESTED, EMAIL_INFO_REQUESTED, CALLBACK_REQUESTED, RECEPTIONIST_CONTACT, ' +
-      'DECISION_MAKER_UNAVAILABLE, NOT_INTERESTED, DO_NOT_CALL, WRONG_NUMBER, NO_ANSWER, ' +
-      'VOICEMAIL, TECHNICAL_FAILURE. Use DO_NOT_CALL whenever the person asked not to be called again.',
+      'WHATSAPP_INFO_REQUESTED, EMAIL_INFO_REQUESTED, CALLBACK_REQUESTED, DEMO_SCHEDULED, ' +
+      'RECEPTIONIST_CONTACT, DECISION_MAKER_UNAVAILABLE, NOT_INTERESTED, DO_NOT_CALL, WRONG_NUMBER, ' +
+      'NO_ANSWER, VOICEMAIL, TECHNICAL_FAILURE. Use DEMO_SCHEDULED only when the person confirmed both ' +
+      'day and time for the demo. Use DO_NOT_CALL whenever the person asked not to be called again.',
   },
 };
 // Every code the plw_outcome field offers. The interested ones become customers through
 // tourism_call_to_customer (SQL); the rest stay on the call row for the admin list.
 export const TOURISM_OUTCOMES = [
   'APPOINTMENT_CONFIRMED', 'INTERESTED_FOLLOW_UP', 'WHATSAPP_INFO_REQUESTED', 'EMAIL_INFO_REQUESTED',
-  'CALLBACK_REQUESTED', 'RECEPTIONIST_CONTACT', 'DECISION_MAKER_UNAVAILABLE', 'NOT_INTERESTED',
-  'DO_NOT_CALL', 'WRONG_NUMBER', 'NO_ANSWER', 'VOICEMAIL', 'TECHNICAL_FAILURE',
+  'CALLBACK_REQUESTED', 'DEMO_SCHEDULED', 'RECEPTIONIST_CONTACT', 'DECISION_MAKER_UNAVAILABLE',
+  'NOT_INTERESTED', 'DO_NOT_CALL', 'WRONG_NUMBER', 'NO_ANSWER', 'VOICEMAIL', 'TECHNICAL_FAILURE',
 ];
 
 export function tourismAgentConfig(staffName, route, voiceId, { basicTurn = false } = {}) {

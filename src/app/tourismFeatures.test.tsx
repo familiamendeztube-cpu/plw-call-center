@@ -1,15 +1,24 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { TourismMilestones } from '@/features/customers/components/TourismMilestones';
 import { TourismDialerCard } from '@/features/ai-outbound/components/TourismDialerCard';
 import type { TourismPromise, TourismAlert } from '@/features/ai-outbound/services/tourismPromises';
 import type { TourismRuntime, TourismCall } from '@/features/ai-outbound/components/TourismDialerCard';
 
+// Rows returned by table reads; a test can push into this before rendering.
+export const tableRows: Record<string, unknown[]> = {};
 vi.mock('@/integrations/supabase/client', () => ({
   getSupabaseClient: () => ({
-    from: () => ({
-      select: () => ({ eq: () => ({ then: (r) => r({ data: [], error: null }) }) }),
-      rpc: () => ({ then: (r) => r({ error: null }) }),
+    from: (table: string) => ({
+      select: () => ({
+        eq: () => ({ then: (r: (x: unknown) => void) => r({ data: tableRows[table] ?? [], error: null }) }),
+        order: () => ({
+          limit: () => Promise.resolve({ data: tableRows[table] ?? [], error: null }),
+        }),
+        then: (r: (x: unknown) => void) => r({ data: tableRows[table] ?? [], error: null }),
+      }),
+      rpc: () => ({ then: (r: (x: unknown) => void) => r({ error: null }) }),
     }),
   }),
 }));
@@ -62,7 +71,7 @@ describe('TourismMilestones', () => {
     expect(screen.getByText('Devolución agendada')).toBeTruthy();
     expect(screen.getByText('Demo realizada')).toBeTruthy();
     const buttons = screen.getAllByRole('button', { name: 'Registrar' });
-    expect(buttons.length).toBe(3);
+    expect(buttons.length).toBe(4); // three direct + the Demo agendada form submit
   });
 
   it('never shows a register button to the administrator', () => {
@@ -71,12 +80,15 @@ describe('TourismMilestones', () => {
     expect(screen.queryAllByRole('button', { name: 'Registrar' }).length).toBe(0);
   });
 
-  it('marks a completed milestone with its channel and automatic source', async () => {
-    vi.mocked(
-      (await import('@/integrations/supabase/client')).getSupabaseClient().from as never
-    );
+  it('shows all four stages in order, with the demo slot input only for Demo agendada', async () => {
     render(<TourismMilestones prospectId="p1" agentId="agent-2" />);
     expect(await screen.findByText('Material entregado')).toBeTruthy();
+    expect(screen.getByText('Devolución agendada')).toBeTruthy();
+    expect(screen.getByText('Demo agendada')).toBeTruthy();
+    expect(screen.getByText('Demo realizada')).toBeTruthy();
+    // Demo agendada requires an explicit date and time; the others register directly.
+    expect(screen.getAllByRole('button', { name: 'Registrar' }).length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByLabelText('Fecha y hora de la demo')).toBeTruthy();
   });
 });
 
@@ -144,6 +156,23 @@ describe('TourismDialerCard alert and promises', () => {
       .closest('div') as HTMLElement;
     expect(within(promisesSection).getByText(/El proveedor rechazó la llamada/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Resolver' })).toBeTruthy();
+  });
+
+  it('the admin summary shows the Demo agendada count between the other stages', async () => {
+    const { TourismMilestoneSummary } = await import('@/features/admin/components/TourismMilestoneSummary');
+    tableRows['tourism_milestones'] = [
+      { milestone: 'devolucion_agendada', due_at: null, created_at: '2026-11-20T18:30:00Z', prospect: { business_name: 'Villa del Sueño' } },
+      { milestone: 'demo_agendada', due_at: '2026-11-27T20:00:00Z', created_at: '2026-11-23T14:00:00Z', prospect: { business_name: 'Villa del Sueño' } },
+    ];
+    const user = userEvent.setup();
+    render(<TourismMilestoneSummary />);
+    const demoButton = await screen.findByRole('button', { name: 'Demo agendada: 1' });
+    expect(screen.getByRole('button', { name: 'Devolución agendada: 1' })).toBeTruthy();
+    // Completed demos count separately; an agendada demo is not a realizada one.
+    expect(screen.queryByRole('button', { name: 'Demo realizada: 0' })).toBeNull();
+    await user.click(demoButton);
+    expect(screen.getByText(/Villa del Sueño/)).toBeTruthy();
+    expect(screen.getByText(/hora de Costa Rica/)).toBeTruthy();
   });
 
   it('shows no alert section when every alert is cleared', () => {

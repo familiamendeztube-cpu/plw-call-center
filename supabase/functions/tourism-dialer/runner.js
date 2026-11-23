@@ -230,6 +230,26 @@ export async function syncTourismCalls(db, apiKey, fetchImpl = fetch) {
                 .then(({ error }) => { if (error) console.error('tourism milestone not saved', error.code); }, () => {});
             }
           }
+          // A confirmed demo day+time is "Demo agendada"; the RPC guards duplicates,
+          // slot changes and never completes the demo by itself.
+          if (results.details.demo_date && results.details.demo_clock) {
+            const demoSlot = new Date(
+              `${results.details.demo_date}T${results.details.demo_clock}:00-06:00`
+            );
+            if (!Number.isNaN(demoSlot.getTime())) {
+              await db
+                .rpc('record_tourism_demo_agreement', {
+                  p_call_id: call.id,
+                  p_due_at: demoSlot.toISOString(),
+                })
+                .then(
+                  ({ error: demoError }) => {
+                    if (demoError) console.error('tourism demo agreement not saved', demoError.code);
+                  },
+                  () => {}
+                );
+            }
+          }
           // Interested calls land in Clientes for Alejandro; idempotent per conversation.
           const { error } = await db.rpc('tourism_call_to_customer', { p_call_id: call.id });
           if (error) console.error('tourism customer not created', error.code);

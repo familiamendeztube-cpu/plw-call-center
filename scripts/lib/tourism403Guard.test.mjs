@@ -145,3 +145,33 @@ test('the pause and alert persist: later ticks do not dial and never clear them'
   assert.equal(db.rpcs.some((r) => r.name === 'claim_tourism_call'), false);
   assert.ok(runtimeWrites(db).every((v) => v.paused !== false && v.consecutive_403 !== 0));
 });
+
+import { tourismCallResults } from '../../supabase/functions/tourism-dialer/provider.js';
+
+test('tourismCallResults captures a confirmed demo day+time and the coverage gap', () => {
+  const analysis = {
+    data_collection_results: {
+      plw_outcome: { value: 'DEMO_SCHEDULED' },
+      plw_demo_coverage_gap: { value: 'true' },
+      plw_demo_date: { value: '2026-11-27' },
+      plw_demo_clock: { value: '14:00' },
+      plw_demo_confirmed: { value: 'true' },
+    },
+  };
+  const results = tourismCallResults(analysis);
+  assert.equal(results.outcome, 'DEMO_SCHEDULED');
+  assert.equal(results.details.demo_date, '2026-11-27');
+  assert.equal(results.details.demo_clock, '14:00');
+  // An unconfirmed or declined demo never carries both fields.
+  const declined = tourismCallResults({
+    data_collection_results: {
+      plw_outcome: { value: 'CALLBACK_REQUESTED' },
+      plw_demo_coverage_gap: { value: 'false' },
+      plw_demo_date: { value: '' },
+      plw_demo_clock: { value: '' },
+    },
+  });
+  assert.equal(declined.outcome, 'CALLBACK_REQUESTED');
+  assert.equal(declined.details.demo_date, undefined);
+  assert.equal(declined.details.demo_clock, undefined);
+});

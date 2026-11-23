@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, PackageCheck, PhoneCall, Presentation } from 'lucide-react';
+import { CalendarClock, CheckCircle2, PackageCheck, PhoneCall, Presentation } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
-export type TourismMilestoneCode = 'material_entregado' | 'devolucion_agendada' | 'demo_realizada';
+export type TourismMilestoneCode =
+  | 'material_entregado'
+  | 'devolucion_agendada'
+  | 'demo_agendada'
+  | 'demo_realizada';
 
 export interface TourismMilestone {
   milestone: TourismMilestoneCode;
@@ -11,13 +15,24 @@ export interface TourismMilestone {
   source: 'auto' | 'manual';
   agent_id: string;
   created_at: string;
+  /** Agreed Costa Rica slot as UTC, present on scheduled stages. */
+  due_at: string | null;
 }
 
 const MILESTONES: { code: TourismMilestoneCode; label: string; Icon: typeof PackageCheck }[] = [
   { code: 'material_entregado', label: 'Material entregado', Icon: PackageCheck },
   { code: 'devolucion_agendada', label: 'Devolución agendada', Icon: PhoneCall },
+  { code: 'demo_agendada', label: 'Demo agendada', Icon: CalendarClock },
   { code: 'demo_realizada', label: 'Demo realizada', Icon: Presentation },
 ];
+/** Stages that carry an agreed Costa Rica day and time. */
+const SCHEDULED = new Set<TourismMilestoneCode>(['devolucion_agendada', 'demo_agendada']);
+
+/** A datetime-local value is typed in the browser's zone; the agent works in Costa Rica. */
+const slotToIso = (value: string) => {
+  const parsed = new Date(`${value}:00-06:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+};
 
 const crTime = (iso: string) =>
   new Date(iso).toLocaleString('es-CR', {
@@ -36,7 +51,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 async function loadMilestones(prospectId: string): Promise<TourismMilestone[]> {
   const { data, error } = await getSupabaseClient()
     .from('tourism_milestones')
-    .select('milestone,channel,source,agent_id,created_at')
+    .select('milestone,channel,source,agent_id,created_at,due_at')
     .eq('prospect_id', prospectId);
   if (error) throw new Error('No se pudieron cargar los hitos.');
   return (data ?? []) as unknown as TourismMilestone[];
@@ -66,10 +81,15 @@ export function TourismMilestones({ prospectId, agentId }: Props) {
     reload();
   }, [reload]);
 
-  const add = (code: TourismMilestoneCode) => {
+  const add = (code: TourismMilestoneCode, dueAt?: string) => {
     setBusy(code);
     getSupabaseClient()
-      .rpc('add_tourism_milestone', { p_prospect_id: prospectId, p_milestone: code, p_channel: '' })
+      .rpc('add_tourism_milestone', {
+        p_prospect_id: prospectId,
+        p_milestone: code,
+        p_channel: '',
+        ...(code === 'demo_agendada' ? { p_due_at: dueAt } : {}),
+      })
       .then(({ error: rpcError }) => {
         if (rpcError) setError(rpcError.message || 'No se pudo registrar el hito.');
         else {
@@ -95,10 +115,33 @@ export function TourismMilestones({ prospectId, agentId }: Props) {
               <span className={row ? 'font-medium text-plw-ink' : 'text-neutral-500'}>{label}</span>
               {row ? (
                 <span className="text-xs text-neutral-500">
-                  {crTime(row.created_at)}
+                  {SCHEDULED.has(code) && row.due_at
+                    ? `${crTime(row.due_at)} (hora de Costa Rica)`
+                    : crTime(row.created_at)}
                   {CHANNEL_LABELS[row.channel] ? ` · por ${CHANNEL_LABELS[row.channel]}` : ''}
                   {row.source === 'auto' ? ' · automático' : ''}
                 </span>
+              ) : code === 'demo_agendada' && agentId ? (
+                <form
+                  className="ml-auto flex items-center gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const value = new FormData(event.currentTarget).get('demo_slot');
+                    if (typeof value === 'string' && value) add(code, slotToIso(value));
+                  }}
+                >
+                  <input
+                    name="demo_slot"
+                    type="datetime-local"
+                    required
+                    aria-label="Fecha y hora de la demo"
+                    className="rounded-lg border border-neutral-300 px-2 py-1 text-xs text-plw-ink"
+                  />
+                  <Button type="submit" size="sm" variant="ghost" disabled={busy !== null}>
+                    <CheckCircle2 size={14} aria-hidden="true" />
+                    {busy === code ? 'Registrando…' : 'Registrar'}
+                  </Button>
+                </form>
               ) : agentId ? (
                 <Button
                   size="sm"

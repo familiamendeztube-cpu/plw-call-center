@@ -434,6 +434,104 @@ test('milestones are authorized, idempotent and admin-visible', async () =>
     await tx.query("SELECT add_tourism_milestone($1,'demo_realizada','phone')", [id(500)]);
   }));
 
+
+test('demo_agendada needs a confirmed slot, is idempotent and never completes the demo', async () =>
+  fixture(async (tx) => {
+    const campaignId = await tourismCampaign(tx);
+    await lead(tx, campaignId, 0, '22221100');
+    // The customer row the milestones hang on (as the conversion would create it).
+    await tx.exec('RESET ROLE');
+    await tx.query(
+      "INSERT INTO prospects(id,business_name,phone,owner_id,idempotency_key) VALUES($1,'Tour 0','22221100','agent-2',$2)",
+      [id(400), 'tourism:' + id(400)]
+    );
+    await as(tx, 1);
+    const slot = '2026-11-25T20:00:00Z'; // 2:00 pm Costa Rica
+    // The assigned agent records it; the slot is required.
+    await denied(tx, "SELECT add_tourism_milestone($1,'demo_agendada','phone',NULL)", [id(400)], /fecha y hora/);
+    await tx.query("SELECT add_tourism_milestone($1,'demo_agendada','phone',$2)", [id(400), slot]);
+    await tx.query("SELECT add_tourism_milestone($1,'demo_agendada','phone',$2)", [id(400), slot]); // replay
+    const rows = (await tx.query('SELECT milestone,due_at,slot_confirmed,source,agent_id FROM tourism_milestones')).rows;
+    assert.equal(rows.length, 1);
+    assert.equal(new Date(rows[0].due_at).getTime(), Date.parse(slot));
+    assert.equal(rows[0].slot_confirmed, true);
+    assert.equal(rows[0].source, 'manual');
+    assert.equal(rows[0].agent_id, 'agent-2');
+    // The auto path never touches a completed demo.
+    await tx.query("SELECT add_tourism_milestone($1,'demo_realizada','phone',NULL)", [id(400)]);
+    await tx.exec('RESET ROLE');
+    const demo = (await tx.query("SELECT record_tourism_demo_agreement($1,$2) AS id", [id(600), slot])).rows[0].id;
+    assert.equal(demo, null); // demo already done: closed
+    // A callback or email consent alone never creates the demo stage: only one
+    // demo_agendada row exists (the manual one), and it stays in place.
+    await as(tx, 1);
+    await tx.query("SELECT add_tourism_milestone($1,'devolucion_agendada','phone',NULL)", [id(400)]);
+    const stageRows = (
+      await tx.query("SELECT count(*)::int n FROM tourism_milestones WHERE prospect_id=$1 AND milestone='demo_agendada'", [id(400)])
+    ).rows;
+    assert.equal(stageRows[0].n, 1); // nothing re-agended; completed demo closed
+    const doneRows = (
+      await tx.query("SELECT count(*)::int n FROM tourism_milestones WHERE prospect_id=$1 AND milestone='demo_realizada'", [id(400)])
+    ).rows;
+    assert.equal(doneRows[0].n, 1); // untouched by the auto path
+  }));
+
+test('record_tourism_demo_agreement is service-role only, replays once and updates the slot in place', async () =>
+  fixture(async (tx) => {
+    const campaignId = await tourismCampaign(tx);
+    await lead(tx, campaignId, 0, '22221100');
+    await as(tx);
+    // A completed, interested, non-test call that already created the customer.
+    await tx.query(
+      `INSERT INTO tourism_calls(id,lead_id,campaign_id,staff_id,phone,provider_agent_id,conversation_id,state,finished_at,outcome,details,summary)
+       VALUES($1,$2,$3,'agent-2','22221100','tourism_agent','conv_demo_1','completed',now(),'DEMO_SCHEDULED','{}'::jsonb,'Demo acordada')`,
+      [id(600), id(400), campaignId]
+    );
+    await tx.query("SELECT tourism_call_to_customer($1) AS id", [id(600)]);
+    await tx.query("SELECT record_tourism_demo_agreement($1,$2)", [id(600), '2026-11-25T20:00:00Z']);
+    await tx.query("SELECT record_tourism_demo_agreement($1,$2)", [id(600), '2026-11-25T20:00:00Z']); // replay
+    // Authenticated agents cannot call the auto path directly.
+    await as(tx, 1);
+    await denied(tx, 'SELECT record_tourism_demo_agreement($1,$2)', [id(600), '2026-11-25T20:00:00Z'], /permission denied/);
+    await as(tx);
+    // A later call moves the agreed slot on the SAME row, with a new activity entry.
+    const call2 = id(601);
+    await tx.query(
+      `INSERT INTO tourism_calls(id,lead_id,campaign_id,staff_id,phone,provider_agent_id,conversation_id,state,finished_at,outcome,details,summary)
+       VALUES($1,$2,$3,'agent-2','22221100','tourism_agent','conv_demo_2','completed',now(),'DEMO_SCHEDULED','{}'::jsonb,'Reagendada')`,
+      [call2, id(400), campaignId]
+    );
+    await tx.query("SELECT record_tourism_demo_agreement($1,$2)", [call2, '2026-11-26T21:00:00Z']);
+    const rows = (await tx.query("SELECT due_at,source,agent_id,slot_confirmed FROM tourism_milestones WHERE milestone='demo_agendada'")).rows;
+    assert.equal(rows.length, 1); // one row, never duplicated
+    assert.equal(new Date(rows[0].due_at).getTime(), Date.parse('2026-11-26T21:00:00Z'));
+    assert.equal(rows[0].source, 'auto');
+    assert.equal(rows[0].slot_confirmed, true);
+    // Read as admin: the service role has no direct grant on activity events.
+    await as(tx, 0);
+    const events = (await tx.query("SELECT count(*)::int n FROM activity_events WHERE summary LIKE 'Demo agendada%'")).rows[0].n;
+    assert.equal(events, 2); // first agreement + the slot change; replay added none
+  }));
+
+test('the auto demo path skips test attempts and prospects that do not exist', async () =>
+  fixture(async (tx) => {
+    const campaignId = await tourismCampaign(tx);
+    await lead(tx, campaignId, 0, '22221100');
+    await as(tx);
+    // A test attempt with a confirmed demo: recorded nowhere (no lead, no campaign).
+    await tx.query(
+      `INSERT INTO tourism_calls(id,staff_id,phone,provider_agent_id,conversation_id,state,finished_at,outcome,is_test,details,summary)
+       VALUES($1,'agent-2','70040079','tourism_agent','conv_demo_t','completed',now(),'DEMO_SCHEDULED',true,'{}'::jsonb,'Prueba')`,
+      [id(602)]
+    );
+    const none = (await tx.query("SELECT record_tourism_demo_agreement($1,$2) AS id", [id(602), '2026-11-25T20:00:00Z'])).rows[0].id;
+    assert.equal(none, null); // is_test
+    const stillNone = (
+      await tx.query("SELECT count(*)::int n FROM tourism_milestones WHERE milestone='demo_agendada'")
+    ).rows[0].n;
+    assert.equal(stillNone, 0);
+  }));
+
 test('the admin restart clears the 403 alert and counter without touching paused', async () =>
   fixture(async (tx) => {
     await tx.query(

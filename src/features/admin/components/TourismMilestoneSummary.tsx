@@ -4,6 +4,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 const STAGES = [
   { code: 'material_entregado', label: 'Material entregado' },
   { code: 'devolucion_agendada', label: 'Devolución agendada' },
+  { code: 'demo_agendada', label: 'Demo agendada' },
   { code: 'demo_realizada', label: 'Demo realizada' },
 ] as const;
 
@@ -11,6 +12,8 @@ interface Row {
   milestone: string;
   prospect: { business_name: string } | null;
   created_at: string;
+  /** Agreed slot (Demo agendada) when present. */
+  due_at: string | null;
 }
 
 const crTime = (iso: string) =>
@@ -25,7 +28,7 @@ export function TourismMilestoneSummary() {
   useEffect(() => {
     getSupabaseClient()
       .from('tourism_milestones')
-      .select('milestone,created_at,prospect:prospects(business_name)')
+      .select('milestone,created_at,due_at,prospect:prospects(business_name)')
       .order('created_at', { ascending: false })
       .limit(500)
       .then(({ data, error: loadError }) => {
@@ -67,7 +70,11 @@ export function TourismMilestoneSummary() {
             .map((row, index) => (
               <li key={index} className="flex flex-wrap items-baseline gap-x-2 py-1.5">
                 <span className="font-medium text-plw-ink">{row.prospect?.business_name || 'Sin nombre'}</span>
-                <span className="text-xs text-neutral-500">{crTime(row.created_at)}</span>
+                <span className="text-xs text-neutral-500">
+                  {row.milestone === 'demo_agendada' && row.due_at
+                    ? `${crTime(row.due_at)} (hora de Costa Rica)`
+                    : crTime(row.created_at)}
+                </span>
               </li>
             ))}
         </ul>

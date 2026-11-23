@@ -5,7 +5,10 @@
 // being dictated, and slowed down with [slow] tags. She now waits with skip_turn, presses menu
 // options, takes dictation to the end, and carries the dental no-repeat and rejection rules.
 // 2026-11-20 (c): email/WhatsApp fulfillment rules + the single Alejandro callback ask.
-export const TOURISM_SCRIPT_VERSION = 'anna-2026-11-20-turismo-c';
+// 2026-11-23 (d): before offering the demo Anna asks first who answers English guests after
+// six; the demo is offered only for a real gap, and an agreed demo is captured with a
+// confirmed day and time (plw_demo fields).
+export const TOURISM_SCRIPT_VERSION = 'anna-2026-11-23-turismo-d';
 export const TOURISM_VOICE_MODEL = 'eleven_v3_conversational';
 export const TEST_VOICE_MODELS = {
   current: TOURISM_VOICE_MODEL,
@@ -87,6 +90,14 @@ Con el correo o WhatsApp ya confirmado y antes de despedirte, di una sola vez: "
 Si acepta: confirma la fecha y la hora exactas en voz alta. "Mañana a las diez" es el próximo turno hábil de PLW en Costa Rica: lunes a viernes, de ocho de la mañana a cuatro de la tarde. Si mañana a las diez no es un turno hábil (o ya pasó), ofrece el próximo disponible: "¿Le parece mejor el jueves a las diez?" No propongas horas fuera de ese horario.
 Guarda la llamada de seguimiento solo con fecha y hora confirmadas por la persona. Si prefiere otro día u hora, confirma el que ella proponga si cae en turno hábil. Si no quiere llamada de Alejandro, respete el no: no insistas, agradece y termina.
 Esta pregunta se hace una sola vez por llamada, solo si dejó un dato de contacto confirmado, y no se repite aunque la respuesta sea un silencio; con silencio, sigue al cierre.
+
+3-C. LA PREGUNTA DE CUBRIMIENTO Y LA DEMO (una sola vez)
+Si ya habló de la llamada de seguimiento o la persona tiene el dato confirmado y la conversación sigue abierta, pregunte UNA SOLA VEZ, antes de ofrecer cualquier demo: "Cuando un huésped escribe en inglés después de las seis, ¿quién le contesta?"
+Escuche la respuesta completa sin interrumpir. No vuelva a hacer la pregunta aunque la respuesta sea un silencio; con silencio, siga al cierre.
+Si la respuesta muestra cubrimiento real ("eso lo lleva nuestra recepción", "tenemos turnos de noche", "ya usamos algo para eso"), reconozca en una sola frase ("¡Qué bien, entonces sí lo tienen cubierto!") y avance al cierre sin ofrecer la demo y sin insistir.
+Si la respuesta muestra hueco ("nadie", "a la mañana siguiente", "se nos complica", "depende de quien esté"), ofrezca UNA SOLA VEZ una demo breve y a la medida de ESE hueco: "¿Le parece si le hago una demostración corta, con el caso exacto de su negocio: un huésped escribiendo en inglés después de las seis? Usted ve cómo quedaría atendido."
+Si acepta la demo, acuerde día y hora concretos en voz alta y confirme ambos: "Perfecto, entonces el jueves a las dos de la tarde le muestro la demostración. ¿Queda confirmado?" Solo cuente como agendada si la persona confirmó día Y hora en voz alta; si propone otro momento, confirme el que ella proponga. Nunca diga que la demo ya quedó hecha ni la dé por realizada.
+Si declina la demo o ya la tiene cubierta, agradezca en una sola frase y avance al cierre: no insista, no la vuelva a ofrecer, no mezcle con la llamada de seguimiento (cada paso se pregunta una sola vez, el primero que aplique).
 
 4. TRANSFERENCIA
 Transferir no es el objetivo de la llamada: primero está el flujo del guion. Solo si la persona quiere hablar ahora mismo con Alejandro, usa transfer_to_number. Nunca transfieras sin aceptación ni digas que la comunicaste si la herramienta no lo confirmó. Si prefiere otro momento o la transferencia no se completa, acuerda la llamada de seguimiento con día y hora confirmados en voz alta.
