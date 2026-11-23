@@ -122,6 +122,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'book_tourism_demo_from_link',
   'cancel_tourism_demo_booking',
   'ensure_tourism_hotel_demo_link',
+  'get_tourism_hotel_demo_link',
   'rotate_tourism_hotel_demo_token',
   'save_draft',
   'schedule_followup',

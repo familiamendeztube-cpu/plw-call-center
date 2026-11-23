@@ -33,6 +33,7 @@ interface ActivityRow {
   prospect_id: string | null;
   summary: string;
   occurred_at: string;
+  prospect: { business_name: string } | null;
 }
 
 const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -67,10 +68,13 @@ export function TourismWeeklyFunnel() {
         .gte('created_at', since)
         .order('created_at', { ascending: false })
         .limit(500),
+      // set_payment_status writes "Pago confirmado..." when a customer moves to paid; only
+      // tourism customers (created by the dialer with a 'tourism:' key) count here.
       db
         .from('activity_events')
-        .select('id,prospect_id,summary,occurred_at')
-        .ilike('summary', '%pago%')
+        .select('id,prospect_id,summary,occurred_at,prospect:prospects!inner(idempotency_key,business_name)')
+        .ilike('summary', 'Pago confirmado%')
+        .like('prospect.idempotency_key', 'tourism:%')
         .gte('occurred_at', since)
         .order('occurred_at', { ascending: false })
         .limit(200),
@@ -91,8 +95,7 @@ export function TourismWeeklyFunnel() {
       const milestoneRows = (ms.data ?? []) as unknown as Row[];
       setBooked(milestoneRows.filter((row) => row.milestone === 'demo_agendada'));
       setHeld(milestoneRows.filter((row) => row.milestone === 'demo_realizada'));
-      // Paid starts: only activity events that explicitly record a payment confirmation.
-      setPaid(((acts.data ?? []) as unknown as ActivityRow[]).filter((row) => /pago (confirmado|recibido|inicial)/i.test(row.summary)));
+      setPaid((acts.data ?? []) as unknown as ActivityRow[]);
     });
   }, []);
 
@@ -134,7 +137,7 @@ export function TourismWeeklyFunnel() {
             ))}
             {paid.map((row) => (
               <li key={row.id} className="py-1.5 text-neutral-700">
-                Pago confirmado — {row.summary}
+                Pago confirmado — {row.prospect?.business_name || 'Sin nombre'}
               </li>
             ))}
           </ul>

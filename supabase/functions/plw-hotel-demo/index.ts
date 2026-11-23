@@ -14,6 +14,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   allowedOrigin,
+  candidateSlots,
   corsPreflight,
   json,
   normalizeToken,
@@ -89,26 +90,6 @@ async function loadContext(db: Db, link: LinkRow) {
   return { draft: draft ?? null, booking: booking ?? null };
 }
 
-/** Next open slots: the next 14 days, Mon-Fri 08:00-16:00 CR on 5-minute steps, minus taken. */
-function candidateSlots(taken: Set<number>, now: Date): string[] {
-  const out: string[] = [];
-  const step = 5 * 60 * 1000;
-  // 08:00 CR == 14:00 UTC (no DST in Costa Rica).
-  for (let day = 0; day < 15 && out.length < 60; day += 1) {
-    const dayUtc = new Date(now.getTime() + day * 24 * 60 * 60 * 1000);
-    dayUtc.setUTCHours(14, 0, 0, 0);
-    const weekday = dayUtc.getUTCDay(); // 0 Sun ... 6 Sat
-    if (weekday === 0 || weekday === 6) continue;
-    for (let minutes = 0; minutes < 8 * 60 && out.length < 60; minutes += 5) {
-      const slot = new Date(dayUtc.getTime() + minutes * 60 * 1000);
-      if (slot.getTime() <= now.getTime() + 60 * 60 * 1000) continue;
-      if (taken.has(slot.getTime())) continue;
-      out.push(slot.toISOString());
-    }
-  }
-  return out;
-}
-
 async function slotsAction(db: Db, link: LinkRow, origin: string): Promise<Response> {
   const { data } = await db
     .from('tourism_demo_bookings')
@@ -121,7 +102,7 @@ async function slotsAction(db: Db, link: LinkRow, origin: string): Promise<Respo
   const taken = new Set(
     ((data ?? []) as { slot_start: string }[]).map((row) => Date.parse(row.slot_start))
   );
-  return json({ slots: candidateSlots(taken, new Date()).map((iso) => iso.replace(/\.\d{3}Z$/, 'Z')) }, 200, origin);
+  return json({ slots: candidateSlots(taken, new Date()) }, 200, origin);
 }
 
 /** Forwards the live conversation start to the proven plw-secretary-converse function,

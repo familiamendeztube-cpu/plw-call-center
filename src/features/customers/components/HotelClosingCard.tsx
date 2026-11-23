@@ -78,7 +78,7 @@ export function HotelClosingCard() {
           variant="primary"
           onClick={() => {
             setObjection(false);
-            // The close records itself through the existing milestone, not a new flow.
+            // The workspace opens the follow-up dialog; nothing is recorded until it is saved.
             window.dispatchEvent(new CustomEvent('plw:hotel-demo-close', { detail: 'instalacion' }));
           }}
         >

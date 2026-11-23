@@ -96,15 +96,21 @@ export function CustomerWorkspace({
     );
   }, [searchParams, setSearchParams]);
 
-  // Closing actions from the card become a scheduled follow-up, so nothing is lost.
+  // Closing actions from the card become a scheduled follow-up; an objection is also kept in
+  // the private notes, as the card promises (the follow-up title gets cut at 120 characters).
   useEffect(() => {
     const onClose = (event: Event) => {
       const detail = (event as CustomEvent<string>).detail ?? '';
-      setScheduling(detail.startsWith('objeción') ? detail : 'Cierre de instalación — recepcionista del hotel');
+      const objection = detail.startsWith('objeción');
+      if (objection && agentId) {
+        const body = `Objeción del hotel: ${detail.replace(/^objeción:\s*/, '')}`;
+        void leads.addNote({ prospectId: prospect.id, agentId, body }).catch(() => undefined);
+      }
+      setScheduling(objection ? detail : 'Cierre de instalación — recepcionista del hotel');
     };
     window.addEventListener('plw:hotel-demo-close', onClose);
     return () => window.removeEventListener('plw:hotel-demo-close', onClose);
-  }, []);
+  }, [agentId, leads, prospect.id]);
 
   const shareOnWhatsApp =
     chat || fromWhatsApp

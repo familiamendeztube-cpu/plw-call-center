@@ -11,6 +11,8 @@ import type { AgentId } from '@/features/auth/models/agent';
 interface Props {
   /** The signed-in agent (Alejandro). */
   agentId: AgentId;
+  /** A follow-up was created, so the page's own list can refresh. */
+  onScheduled?: () => void;
 }
 
 /**
@@ -87,7 +89,7 @@ function rowToProspect(row: ProspectRow): Prospect {
   };
 }
 
-export function TourismPriorityQueue({ agentId }: Props) {
+export function TourismPriorityQueue({ agentId, onScheduled }: Props) {
   const navigate = useNavigate();
   const [prospects, setProspects] = useState<ProspectRow[]>([]);
   const [callbacks, setCallbacks] = useState<CallbackRow[]>([]);
@@ -153,7 +155,10 @@ export function TourismPriorityQueue({ agentId }: Props) {
           )
         : ['Sin promesas incumplidas registradas hoy.'],
       prospect: villa ?? null,
-      taskTitle: villaFailures.length && villa ? `Recuperar promesa de devolución (${villa.business_name})` : null,
+      taskTitle:
+        villaFailures.length && villa && !openTask(villa.id, `Recuperar promesa de devolución (${villa.business_name})`)
+          ? `Recuperar promesa de devolución (${villa.business_name})`
+          : null,
     });
 
     // 2. Recovery of Terrazas / Skyline only with recorded history backing it.
@@ -264,7 +269,15 @@ export function TourismPriorityQueue({ agentId }: Props) {
           prospects={[rowToProspect(scheduling.prospect)]}
           initialTitle={scheduling.title}
           onClose={() => setScheduling(null)}
-          onScheduled={() => setScheduling(null)}
+          onScheduled={(followup) => {
+            // Known at once, so the same task cannot be offered (and created) twice.
+            setFollowups((rows) => [
+              ...rows,
+              { id: followup.id, prospect_id: followup.prospectId, title: followup.title, completed: false },
+            ]);
+            setScheduling(null);
+            onScheduled?.();
+          }}
         />
       ) : null}
     </section>

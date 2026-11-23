@@ -1,6 +1,7 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestDatabase } from './testDatabase.mjs';
+import { candidateSlots } from '../../supabase/functions/plw-hotel-demo/rules.ts';
 
 // The public hotel demo link: one per hotel, the receptionist context plus booking five
 // minutes with Alejandro. Collision safety, idempotency and the single demo_agendada row
@@ -45,14 +46,15 @@ async function denied(tx, sql, args, pattern) {
 }
 
 function nextSlot() {
-  // First Mon-Fri 08:00-16:00 CR instant at a 5-minute step, at least 2 hours out.
+  // First Mon-Fri 08:00-14:00 CR instant at a 5-minute step, at least 2 hours out. Ending at
+  // 14:00 leaves room for the tests' "+30 / +60 minutes" slots to stay inside the window.
   const now = new Date();
   for (let day = 0; day < 10; day += 1) {
     const dayUtc = new Date(now.getTime() + day * 86_400_000);
     dayUtc.setUTCHours(14, 0, 0, 0); // 08:00 CR
     const weekday = dayUtc.getUTCDay();
     if (weekday === 0 || weekday === 6) continue;
-    for (let minutes = 0; minutes < 8 * 60; minutes += 5) {
+    for (let minutes = 0; minutes <= 6 * 60; minutes += 5) {
       const slot = new Date(dayUtc.getTime() + minutes * 60_000);
       if (slot.getTime() > now.getTime() + 2 * 3_600_000) return slot.toISOString();
     }
@@ -204,7 +206,16 @@ test('a hotel reschedule keeps one active booking and the demo_agendada mileston
     ).rows[0].b;
     assert.equal(rebook.duplicate, false);
     assert.ok(rebook.booking_id);
+    // Exactly one demo_agendada row, pointing at the newest slot.
+    await asService(tx);
+    const milestones = (
+      await tx.query("SELECT due_at, slot_confirmed, source FROM tourism_milestones WHERE milestone='demo_agendada'")
+    ).rows;
+    assert.equal(milestones.length, 1);
+    assert.equal(new Date(milestones[0].due_at).getTime(), Date.parse(second));
+    assert.equal(milestones[0].slot_confirmed, true);
     // The owner cancels their own booking; cancelling twice fails cleanly.
+    await asAnon(tx);
     await tx.query('SELECT cancel_tourism_demo_booking($1,$2)', [link.token, rebook.booking_id]);
     await denied(
       tx,
@@ -219,13 +230,19 @@ test('a hotel reschedule keeps one active booking and the demo_agendada mileston
       { status: 'cancelled', guest_name: 'Ana' },
       { status: 'cancelled', guest_name: '' },
     ]);
-    // Exactly one demo_agendada row, pointing at the newest slot.
-    const milestones = (
-      await tx.query("SELECT due_at, slot_confirmed, source FROM tourism_milestones WHERE milestone='demo_agendada'")
+    // The cancelled time leaves Hitos, and Alejandro reads the cancellation in the activity
+    // (read as the owner: the service role has no grant on activity_events).
+    await tx.exec('RESET ROLE');
+    assert.equal(
+      (await tx.query("SELECT count(*)::int n FROM tourism_milestones WHERE milestone='demo_agendada'")).rows[0].n,
+      0
+    );
+    const notice = (
+      await tx.query("SELECT agent_id FROM activity_events WHERE prospect_id=$1 AND summary LIKE 'El hotel canceló%'", [
+        PROSPECT,
+      ])
     ).rows;
-    assert.equal(milestones.length, 1);
-    assert.equal(new Date(milestones[0].due_at).getTime(), Date.parse(second));
-    assert.equal(milestones[0].slot_confirmed, true);
+    assert.deepEqual(notice, [{ agent_id: 'agent-2' }]);
     // Replaying the first key never resurrects the cancelled slot (as anon: the
     // public function is exactly what the link holder uses).
     await asAnon(tx);
@@ -239,6 +256,10 @@ test('a hotel reschedule keeps one active booking and the demo_agendada mileston
 
 test('an agent booking blocks the same slot for the hotel link, and vice versa', async () =>
   fixture(async (tx) => {
+    await tx.query(
+      "INSERT INTO prospects(id,business_name,phone,owner_id,idempotency_key) VALUES($1,'Otro Hotel','26559999','agent-2','hotel:qa2')",
+      [id(702)]
+    );
     await asStaff(tx, 1);
     const link = await newLink(tx, PROSPECT);
     const slot = nextSlot();
@@ -251,26 +272,114 @@ test('an agent booking blocks the same slot for the hotel link, and vice versa',
       [link.token, slot, 'link:qa:x1'],
       /acaba de ocuparse/
     );
-    // And the other way around.
+    // And the other way around: another hotel's link holds slot2, so the agent cannot take it
+    // for this hotel.
     const slot2 = new Date(Date.parse(slot) + 60 * 60_000).toISOString();
-    await tx.query('SELECT book_tourism_demo_from_link($1,$2,$3)', [link.token, slot2, 'link:qa:x2']);
+    await asStaff(tx, 1);
+    const other = await newLink(tx, id(702));
+    await asAnon(tx);
+    await tx.query('SELECT book_tourism_demo_from_link($1,$2,$3)', [other.token, slot2, 'link:qa:x2']);
     await asStaff(tx, 1);
     await denied(tx, 'SELECT book_tourism_demo_as_staff($1,$2)', [PROSPECT, slot2], /ya está reservado/);
-    // Staff booking replay (same key) touches the same row without duplicating.
-    // One active booking per LINK: the hotel's newer booking replaced the agent's
-    // earlier one (both share the link), so exactly one stays booked.
-    await tx.query('SELECT book_tourism_demo_as_staff($1,$2)', [PROSPECT, slot]);
     await asService(tx);
-    const bookingRows = (
-      await tx.query('SELECT slot_start, status FROM tourism_demo_bookings ORDER BY slot_start')
-    ).rows;
-    assert.equal(bookingRows.filter((row) => row.status === 'booked').length, 1);
-    assert.equal(new Date(bookingRows.find((row) => row.status === 'booked').slot_start).getTime(), Date.parse(slot2));
     assert.equal(
-      (await tx.query("SELECT count(*)::int n FROM tourism_milestones WHERE milestone='demo_agendada'")).rows[0].n,
+      (await tx.query("SELECT count(*)::int n FROM tourism_demo_bookings WHERE status='booked'")).rows[0].n,
+      2
+    );
+  }));
+
+test('the agent changes a demo the hotel already booked: the newest time wins, once', async () =>
+  fixture(async (tx) => {
+    await asStaff(tx, 1);
+    const link = await newLink(tx, PROSPECT);
+    const first = nextSlot();
+    const second = new Date(Date.parse(first) + 30 * 60_000).toISOString();
+    await asAnon(tx);
+    await tx.query('SELECT book_tourism_demo_from_link($1,$2,$3,$4)', [link.token, first, 'link:qa:h1', 'Ana']);
+    await asStaff(tx, 1);
+    // The hotel's own time again is a no-op that keeps the name the hotel typed.
+    const same = (await tx.query('SELECT book_tourism_demo_as_staff($1,$2) AS b', [PROSPECT, first])).rows[0].b;
+    // A new time replaces the hotel's booking instead of failing on the one-per-link index.
+    await tx.query('SELECT book_tourism_demo_as_staff($1,$2)', [PROSPECT, second]);
+    // Back to the first time: a new agent row, and the milestone follows every move.
+    await tx.query('SELECT book_tourism_demo_as_staff($1,$2)', [PROSPECT, first]);
+    await asService(tx);
+    const rows = (
+      await tx.query('SELECT id, slot_start, status, booked_by, guest_name FROM tourism_demo_bookings ORDER BY created_at, slot_start')
+    ).rows;
+    assert.equal(rows.find((row) => row.id === same).guest_name, 'Ana');
+    const active = rows.filter((row) => row.status === 'booked');
+    assert.equal(active.length, 1);
+    assert.equal(new Date(active[0].slot_start).getTime(), Date.parse(first));
+    assert.equal(active[0].booked_by, 'agent');
+    const due = (
+      await tx.query("SELECT due_at FROM tourism_milestones WHERE prospect_id=$1 AND milestone='demo_agendada'", [PROSPECT])
+    ).rows;
+    assert.equal(due.length, 1);
+    assert.equal(new Date(due[0].due_at).getTime(), Date.parse(first));
+
+    // An agent booking the same time again after it was cancelled revives that row.
+    await tx.query("UPDATE tourism_demo_bookings SET status='cancelled' WHERE status='booked'");
+    await asStaff(tx, 1);
+    await tx.query('SELECT book_tourism_demo_as_staff($1,$2)', [PROSPECT, first]);
+    await asService(tx);
+    assert.equal(
+      (await tx.query("SELECT count(*)::int n FROM tourism_demo_bookings WHERE status='booked'")).rows[0].n,
       1
     );
   }));
+
+test('the agent card reads its hotel link through the RPC; other agents and anonymous get nothing', async () =>
+  fixture(async (tx) => {
+    await tx.query(
+      "INSERT INTO prospects(id,business_name,owner_id,idempotency_key) VALUES($1,'Ajeno','agent-1','hotel:ajeno')",
+      [id(701)]
+    );
+    await asStaff(tx, 1);
+    assert.deepEqual((await tx.query('SELECT * FROM get_tourism_hotel_demo_link($1)', [PROSPECT])).rows, []);
+    const link = await newLink(tx, PROSPECT);
+    const mine = (await tx.query('SELECT * FROM get_tourism_hotel_demo_link($1)', [PROSPECT])).rows;
+    assert.deepEqual(mine, [{ token: link.token, revoked_at: null }]);
+    await asStaff(tx, 0); // the administrator creates one for agent-1's hotel
+    await newLink(tx, id(701));
+    await asStaff(tx, 1);
+    assert.deepEqual((await tx.query('SELECT * FROM get_tourism_hotel_demo_link($1)', [id(701)])).rows, []);
+    await asAnon(tx);
+    await denied(tx, 'SELECT * FROM get_tourism_hotel_demo_link($1)', [PROSPECT], /permission denied/);
+  }));
+
+test('marking a tourism customer paid records one confirmation for the weekly funnel', async () =>
+  fixture(async (tx) => {
+    await asStaff(tx, 0);
+    await tx.query("SELECT set_payment_status($1, 'paid')", [PROSPECT]);
+    await tx.query("SELECT set_payment_status($1, 'paid')", [PROSPECT]); // no second event
+    await tx.exec('RESET ROLE');
+    const events = (
+      await tx.query("SELECT agent_id FROM activity_events WHERE prospect_id=$1 AND summary LIKE 'Pago confirmado%'", [
+        PROSPECT,
+      ])
+    ).rows;
+    assert.deepEqual(events, [{ agent_id: 'agent-2' }]);
+  }));
+
+test('the hotel page offers the next 5 weekdays, every 30 minutes, 08:00-15:30 Costa Rica', () => {
+  // Friday 2026-11-27 13:10 CR (19:10 UTC): Friday keeps 14:30 to 15:30 (an hour out), then
+  // Monday to Thursday in full; the weekend is skipped.
+  const now = new Date('2026-11-27T19:10:00Z');
+  const taken = new Set([Date.parse('2026-11-30T15:00:00Z')]); // Monday 09:00 CR is booked
+  const slots = candidateSlots(taken, now);
+  assert.equal(slots[0], '2026-11-27T20:30:00Z');
+  assert.ok(!slots.includes('2026-11-27T20:00:00Z'), 'within the hour is not offered');
+  assert.ok(!slots.includes('2026-11-30T15:00:00Z'), 'a taken time is not offered');
+  const days = new Set(slots.map((slot) => slot.slice(0, 10)));
+  assert.deepEqual([...days], ['2026-11-27', '2026-11-30', '2026-12-01', '2026-12-02', '2026-12-03']);
+  assert.equal(slots.filter((slot) => slot.startsWith('2026-12-01')).length, 16);
+  assert.equal(slots.at(-1), '2026-12-03T21:30:00Z'); // Thursday 15:30 CR
+  // After 15:30 the day no longer counts toward the five.
+  const late = candidateSlots(new Set(), new Date('2026-11-27T21:45:00Z'));
+  assert.equal(new Set(late.map((slot) => slot.slice(0, 10))).size, 5);
+  assert.ok(late[0].startsWith('2026-11-30T14:00'));
+});
 
 test('a bad or revoked token can never book', async () =>
   fixture(async (tx) => {

@@ -12,7 +12,6 @@ import {
   type TourismCall,
   type TourismRuntime,
 } from '@/features/ai-outbound/components/TourismDialerCard';
-import { TourismPriorityQueue } from '@/features/ai-outbound/components/TourismPriorityQueue';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import {
   listTourismAlerts,
@@ -97,8 +96,6 @@ export function AdminAiOutboundPage() {
         onReschedule={(id, slot, note) => rescheduleTourismPromise(id, slot, note)}
         onRestart={() => restartTourismAfterAlert()}
       />
-
-      <TourismPriorityQueue agentId="agent-2" />
 
       {state.status === 'loading' ? (
         <StatusMessage tone="loading" title="Cargando campañas..." />

@@ -5,15 +5,7 @@ import { TextField } from '@/components/ui/TextField';
 import { isRecord, postStaffFunction, readStaffFunctionError } from '@/integrations/supabase/callStaffFunction';
 import { parseCsvText, parseLeadRows } from '@/features/ai-outbound/models/outboundLead';
 import { readLeadFile } from '@/features/ai-outbound/models/leadFile';
-import {
-  listTourismAlerts,
-  listTourismPromises,
-  resolveTourismPromise,
-  rescheduleTourismPromise,
-  restartTourismAfterAlert,
-  type TourismPromise,
-  type TourismAlert,
-} from '@/features/ai-outbound/services/tourismPromises';
+import { type TourismPromise, type TourismAlert } from '@/features/ai-outbound/services/tourismPromises';
 import {
   createCampaign,
   importLeads,
@@ -25,7 +17,7 @@ import {
 import type { LeadImportPreview, OutboundLeadDraft } from '@/features/ai-outbound/models/outboundLead';
 
 const TOURISM_CAMPAIGN_NAME = 'Turismo PLW';
-const TOURISM_AGENT_ID = 'agent-2';
+export const TOURISM_AGENT_ID = 'agent-2';
 
 export interface TourismRuntime {
   scheduler_ready: boolean;

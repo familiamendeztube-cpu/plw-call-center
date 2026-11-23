@@ -4,7 +4,6 @@ import { CalendarCheck, CalendarClock, Globe, Mic, PhoneCall, ShieldCheck } from
 import { Button } from '@/components/ui/Button';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { buildPreviewUrl } from '@/features/site-draft/models/siteDraft';
-import { cx } from '@/components/ui/cx';
 
 interface HotelContext {
   businessName: string;
@@ -31,6 +30,28 @@ const TIME_FMT = new Intl.DateTimeFormat('es-CR', {
 
 const crLabel = (iso: string) => `${TIME_FMT.format(new Date(iso))} (hora de Costa Rica)`;
 
+const DAY_FMT = new Intl.DateTimeFormat('es-CR', {
+  timeZone: 'America/Costa_Rica',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+const HOUR_FMT = new Intl.DateTimeFormat('es-CR', {
+  timeZone: 'America/Costa_Rica',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
+/** The open times under their Costa Rica day, in the order the server sent them. */
+function byDay(slots: string[]): [string, string[]][] {
+  const days = new Map<string, string[]>();
+  for (const slot of slots) {
+    const day = DAY_FMT.format(new Date(slot));
+    days.set(day, [...(days.get(day) ?? []), slot]);
+  }
+  return [...days];
+}
+
 type Phase =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
@@ -56,7 +77,6 @@ async function post(action: string, payload: Record<string, unknown>): Promise<R
 export function HotelDemoPage() {
   const { token = '' } = useParams();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
-  const [language, setLanguage] = useState<'es' | 'en'>('es');
   const [slots, setSlots] = useState<string[] | null>(null);
   const [booking, setBooking] = useState<SlotInfo | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -110,10 +130,7 @@ export function HotelDemoPage() {
       conversation.current = (await Conversation.startSession({
         conversationToken: body['conversationToken'] as string,
         connectionType: 'webrtc',
-        dynamicVariables: {
-          ...((body['dynamicVariables'] ?? {}) as Record<string, string>),
-          demo_language: language,
-        },
+        dynamicVariables: (body['dynamicVariables'] ?? {}) as Record<string, string>,
         onDisconnect: () => {
           setPhase({ kind: 'closed', ctx });
           conversation.current = null;
@@ -210,28 +227,9 @@ export function HotelDemoPage() {
           </h2>
         </div>
         <p className="mt-1 text-xs text-neutral-500">
-          Atiende en español o inglés, a cualquier hora. Marque claramente demostración:{' '}
-          <strong>ninguna conversación es real ni se registra</strong>.
+          Atiende a cualquier hora. Háblele en español o en inglés: responde en el idioma que
+          usted use. Es una demostración: <strong>ninguna conversación es real ni se registra</strong>.
         </p>
-
-        <div role="group" aria-label="Idioma de la demostración" className="mt-3 grid grid-cols-2 gap-2">
-          {(['es', 'en'] as const).map((code) => (
-            <button
-              key={code}
-              type="button"
-              aria-pressed={language === code}
-              onClick={() => setLanguage(code)}
-              className={cx(
-                'rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
-                language === code
-                  ? 'border-plw-gold bg-plw-gold-soft/40 text-plw-navy'
-                  : 'border-neutral-200 bg-white text-neutral-600'
-              )}
-            >
-              {code === 'es' ? 'Español' : 'English'}
-            </button>
-          ))}
-        </div>
 
         <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
           Pregunta de ejemplo: <em>“{ctx.exampleQuestion}”</em>
@@ -302,7 +300,9 @@ export function HotelDemoPage() {
               <CalendarClock size={14} className="mr-1 inline" aria-hidden="true" />
               Su cita: {crLabel(booking.slotStart)}
             </p>
-            <p className="text-xs text-success-700">Alejandro lo llamará a ese número.</p>
+            <p className="text-xs text-success-700">
+              Alejandro lo llamará a esa hora al teléfono del hotel.
+            </p>
             <Button
               size="sm"
               variant="secondary"
@@ -336,19 +336,24 @@ export function HotelDemoPage() {
                 No hay horarios abiertos por ahora. Llame al 4010-6198.
               </p>
             ) : (
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {slots.slice(0, 20).map((slot) => (
-                  <Button
-                    key={slot}
-                    size="sm"
-                    variant="secondary"
-                    disabled={bookingBusy}
-                    onClick={() => void book(slot)}
-                  >
-                    {TIME_FMT.format(new Date(slot))}
-                  </Button>
-                ))}
-              </div>
+              byDay(slots).map(([day, times]) => (
+                <div key={day} className="mt-3">
+                  <h3 className="text-xs font-semibold capitalize text-plw-ink">{day}</h3>
+                  <div className="mt-1 grid grid-cols-3 gap-2">
+                    {times.map((slot) => (
+                      <Button
+                        key={slot}
+                        size="sm"
+                        variant="secondary"
+                        disabled={bookingBusy}
+                        onClick={() => void book(slot)}
+                      >
+                        {HOUR_FMT.format(new Date(slot))}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}

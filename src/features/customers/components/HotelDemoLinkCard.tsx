@@ -45,10 +45,9 @@ export function HotelDemoLinkCard({ prospectId, prospectName, phone, email, canB
   const [shared, setShared] = useState<string | null>(null);
 
   const load = useCallback(() => {
+    // Through the RPC: browsers have no grant on the links table itself.
     getSupabaseClient()
-      .from('tourism_hotel_demo_links')
-      .select('token,revoked_at')
-      .eq('prospect_id', prospectId)
+      .rpc('get_tourism_hotel_demo_link', { p_prospect_id: prospectId })
       .maybeSingle()
       .then(({ data, error: loadError }) => {
         if (loadError) setError('No se pudo cargar el enlace de demostración.');

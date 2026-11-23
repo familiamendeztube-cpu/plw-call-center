@@ -52,3 +52,31 @@ export function rateKey(scope: string, token: string): string {
 export function windowBucket(): string {
   return new Date().toISOString().slice(0, 16); // minute precision
 }
+
+const HOUR = 60 * 60 * 1000;
+
+/** Times the hotel can pick: the next 5 weekdays that still have time left, every 30 minutes
+ *  from 08:00 to 15:30 Costa Rica (UTC-6, no DST), at least an hour out (the database rule),
+ *  minus the ones Alejandro already has. */
+export function candidateSlots(taken: Set<number>, now: Date): string[] {
+  const out: string[] = [];
+  const earliest = now.getTime() + HOUR;
+  let days = 0;
+  for (let day = 0; days < 5 && day < 14; day += 1) {
+    const opening = new Date(now.getTime() + day * 24 * HOUR);
+    opening.setUTCHours(14, 0, 0, 0); // 08:00 CR
+    const weekday = opening.getUTCDay(); // 0 Sun ... 6 Sat
+    if (weekday === 0 || weekday === 6) continue;
+    const times: number[] = [];
+    for (let minutes = 0; minutes < 8 * 60; minutes += 30) {
+      const slot = opening.getTime() + minutes * 60 * 1000;
+      if (slot > earliest) times.push(slot);
+    }
+    if (times.length === 0) continue; // today, already past 15:30
+    days += 1;
+    for (const slot of times) {
+      if (!taken.has(slot)) out.push(new Date(slot).toISOString().replace('.000Z', 'Z'));
+    }
+  }
+  return out;
+}
