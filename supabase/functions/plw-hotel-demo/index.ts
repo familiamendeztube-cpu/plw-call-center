@@ -121,7 +121,7 @@ async function slotsAction(db: Db, link: LinkRow, origin: string): Promise<Respo
   const taken = new Set(
     ((data ?? []) as { slot_start: string }[]).map((row) => Date.parse(row.slot_start))
   );
-  return json({ slots: candidateSlots(taken, new Date()) }, 200, origin);
+  return json({ slots: candidateSlots(taken, new Date()).map((iso) => iso.replace(/\.\d{3}Z$/, 'Z')) }, 200, origin);
 }
 
 /** Forwards the live conversation start to the proven plw-secretary-converse function,
@@ -232,7 +232,9 @@ Deno.serve(async (req) => {
     if (action === 'book') {
       const slotStart = typeof body['slotStart'] === 'string' ? body['slotStart'] : '';
       const requestId = typeof body['requestId'] === 'string' ? body['requestId'] : '';
-      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?$/.test(slotStart)) {
+      // Accept the exact format our own slots action emits (toISOString, with fractional
+      // seconds) as well as second-precision and offset forms.
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})?$/.test(slotStart)) {
         return json({ error: 'Horario no válido.' }, 400, origin);
       }
       if (!/^[A-Za-z0-9._:-]{8,100}$/.test(requestId)) {

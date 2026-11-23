@@ -5,6 +5,7 @@ import { CopyButton } from '@/components/ui/CopyButton';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { costaRicaLocalInputToIso } from '@/app/dates';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { PUBLIC_APP_BASE } from '@/features/site-draft/models/siteDraft';
 
 /**
  * One public demo link per hotel. The page (mobile) lets the owner try the two-way
@@ -95,7 +96,7 @@ export function HotelDemoLinkCard({ prospectId, prospectName, phone, email, canB
     }
   };
 
-  const publicUrl = link ? `${window.location.origin}/demo-hotel/plw-${link.token}` : '';
+  const publicUrl = link ? `${PUBLIC_APP_BASE}/demo-hotel/plw-${link.token}` : '';
 
   const share = (channel: 'email' | 'whatsapp') => {
     const text =

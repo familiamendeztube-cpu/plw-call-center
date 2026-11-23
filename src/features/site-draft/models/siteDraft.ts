@@ -34,6 +34,9 @@ export interface ProspectSiteDraft {
 
 export const SITE_PREVIEW_BASE = 'https://familiamendeztube-cp-q9tc.bolt.host/preview';
 
+/** Published production app origin: where public hotel demo links point (previews stay on q9tc). */
+export const PUBLIC_APP_BASE = 'https://familiamendeztube-cp-zfid.bolt.host';
+
 /**
  * Business types an agent can build a sample for: the database category, the label agents
  * see, the Kike Sites template slug, and the matching Secretaria IA type. Same lists as
