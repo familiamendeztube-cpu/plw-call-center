@@ -1,7 +1,7 @@
 // Tourism dispatcher runner: same proven mechanics as the dental runner (dispatch, sync,
 // reconcile) against tourism tables, with tourism outcome mapping and exactly-once
 // callback scheduling. Never touches dental rows.
-import { providerReason, tourismCallResults, tourismConfigFailures } from './provider.js';
+import { providerReason, tourismCallResults, tourismConfigFailures, isSip403Error } from './provider.js';
 import {
   TOURISM_SCRIPT_VERSION,
   greetingFor,
@@ -108,6 +108,25 @@ export async function dispatchTourismCall(db, apiKey, claim, fetchImpl = fetch) 
       .eq('id', call.id)
       .eq('state', 'reserved')
   );
+  // A failed callback promise keeps its real failure reason instead of "done".
+  if (rejected && claim.callback?.id) {
+    const { error: cbError } = await db
+      .from('tourism_callbacks')
+      .update({
+        status: 'failed',
+        fail_reason: `El proveedor rechazó la llamada${reason}.`,
+        attempts: (claim.callback.attempts ?? 0) + 1,
+      })
+      .eq('id', claim.callback.id)
+      .eq('status', 'done');
+    if (cbError) console.error('tourism callback failure not saved', cbError.code);
+  }
+  if (rejected)
+    await recordTourismResult(
+      db,
+      { ...call, error: `El proveedor rechazó la llamada${reason}.` },
+      isSip403Error(reason)
+    );
 }
 
 /** Confirmed day+time captures become exactly-once callbacks. */
@@ -190,7 +209,27 @@ export async function syncTourismCalls(db, apiKey, fetchImpl = fetch) {
               )
           );
         if (update.state) {
+          if (update.state === 'failed' && isSip403Error(call.error)) await recordTourismResult(db, call);
+          else if (update.state === 'completed') await recordTourismResult(db, call, false);
           await scheduleCallback(db, call, results.details).catch(() => {});
+          // A confirmed day+time promise is a "Devolución agendada" milestone on the
+          // customer's prospect row, when the call already created one.
+          if (results.details.callback_date && results.details.callback_clock) {
+            const { data: prospectId } = await db
+              .from('prospects')
+              .select('id')
+              .eq('idempotency_key', `tourism:${call.lead_id ?? ''}`)
+              .maybeSingle();
+            if (prospectId) {
+              await db
+                .from('tourism_milestones')
+                .upsert(
+                  { prospect_id: prospectId.id, milestone: 'devolucion_agendada', channel: 'phone', source: 'auto', agent_id: call.staff_id ?? 'agent-2' },
+                  { onConflict: 'prospect_id,milestone', ignoreDuplicates: true }
+                )
+                .then(({ error }) => { if (error) console.error('tourism milestone not saved', error.code); }, () => {});
+            }
+          }
           // Interested calls land in Clientes for Alejandro; idempotent per conversation.
           const { error } = await db.rpc('tourism_call_to_customer', { p_call_id: call.id });
           if (error) console.error('tourism customer not created', error.code);
@@ -270,15 +309,72 @@ export async function reconcileTourismStuckCalls(db, apiKey, fetchImpl = fetch, 
 
 const setRuntime = (db, values) => checked(db.from('tourism_dialer_runtime').update(values).eq('id', 1));
 
+/** Called once per settled campaign call (synced completion, dispatch failure or 403).
+ *  Test attempts never count; replays are guarded by the unique alert and the
+ *  state-conditional updates. */
+async function recordTourismResult(db, call, dispatchError) {
+  if (call.is_test) return;
+  const hit = dispatchError !== undefined ? dispatchError : isSip403Error(call.error);
+  if (!hit) {
+    // Any intervening non-403 result resets the streak.
+    await setRuntime(db, { consecutive_403: 0 }).catch(() => {});
+    return;
+  }
+  const current = await checked(
+    db.from('tourism_dialer_runtime').select('consecutive_403,paused').eq('id', 1).maybeSingle()
+  );
+  const streak = (current?.consecutive_403 ?? 0) + 1;
+  if (streak >= 2 && current?.paused !== true) {
+    await setRuntime(db, { paused: true, consecutive_403: streak });
+    const { error } = await db.from('tourism_dialer_alerts').insert({
+      reason: 'Pausa automática: dos llamadas seguidas fueron rechazadas por el proveedor (SIP 403). La campaña quedó pausada; revise la línea con el proveedor antes de Iniciar.',
+      evidence: {
+        calls: [
+          { phone: call.phone, business: call.lead?.business_name ?? null, call_id: call.id, at: new Date().toISOString(), error: call.error ?? String(dispatchError) },
+        ],
+      },
+    });
+    if (error) console.error('tourism alert not saved', error.code);
+  } else {
+    await setRuntime(db, { consecutive_403: streak });
+  }
+}
+
+/** Failed promised callbacks rise to the assigned agent's follow-up queue, once each. */
+async function raiseFailedPromises(db) {
+  const failed = await checked(
+    db
+      .from('tourism_callbacks')
+      .select('id, fail_reason')
+      .eq('status', 'failed')
+      .is('resolved_at', null)
+      .limit(10)
+  );
+  for (const row of failed) {
+    try {
+      await db.rpc('tourism_raise_failed_promise', {
+        p_callback_id: row.id,
+        p_reason: row.fail_reason ?? '',
+      });
+    } catch (error) {
+      console.error('tourism failed-promise follow-up not raised', error?.code ?? 'unknown');
+    }
+  }
+}
+
 export async function runTourismTick(db, apiKey, fetchImpl = fetch) {
   // Heartbeat records while paused too, or Iniciar's 2-minute freshness check can never
   // pass. Only Pausar/Iniciar touch the `paused` flag.
   await setRuntime(db, { last_tick_at: new Date().toISOString() });
   await syncTourismCalls(db, apiKey, fetchImpl);
   await reconcileTourismStuckCalls(db, apiKey, fetchImpl).catch(() => {});
+  await raiseFailedPromises(db).catch(() => {});
   const runtime = await checked(db.from('tourism_dialer_runtime').select('*').eq('id', 1).maybeSingle());
   if (!runtime?.scheduler_ready || isPaused(runtime) || !runtime.provider_agent_id || !runtime.config_verified_at)
     return;
+  // Two consecutive SIP 403s mean the provider line is refusing us: pause before the next
+  // automatic dispatch and leave a persistent alert. Test attempts never count; any
+  // intervening non-403 result resets the counter; only an explicit admin restart clears it.
   // Verified-agent gate. A provider hiccup (network, 5xx, 429, unreadable body) only skips
   // this tick; real drift un-verifies the configuration but keeps the agent id, so
   // Reconfigurar patches the same ElevenLabs agent instead of creating a new one.
@@ -304,6 +400,7 @@ export async function runTourismTick(db, apiKey, fetchImpl = fetch) {
     return;
   }
   if (runtime.last_error) await setRuntime(db, { last_error: '' });
+  if ((runtime.consecutive_403 ?? 0) >= 2) return;
   // Shared line: at most one in-flight call across ALL dialers. Claim twice at most, then
   // dispatch in parallel; the claim function itself enforces the cap again under its lock.
   const claims = [];

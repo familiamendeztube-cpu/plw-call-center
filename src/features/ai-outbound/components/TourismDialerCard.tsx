@@ -6,6 +6,15 @@ import { isRecord, postStaffFunction, readStaffFunctionError } from '@/integrati
 import { parseCsvText, parseLeadRows } from '@/features/ai-outbound/models/outboundLead';
 import { readLeadFile } from '@/features/ai-outbound/models/leadFile';
 import {
+  listTourismAlerts,
+  listTourismPromises,
+  resolveTourismPromise,
+  rescheduleTourismPromise,
+  restartTourismAfterAlert,
+  type TourismPromise,
+  type TourismAlert,
+} from '@/features/ai-outbound/services/tourismPromises';
+import {
   createCampaign,
   importLeads,
   listCampaignAgentIds,
@@ -80,17 +89,23 @@ interface Props {
   runtimeError: string | null;
   calls: TourismCall[];
   onChanged: () => void;
+  promises?: TourismPromise[];
+  alerts?: TourismAlert[];
+  onResolve?: (id: string, note: string) => Promise<void>;
+  onReschedule?: (id: string, slot: string, note: string) => Promise<void>;
+  onRestart?: () => Promise<void>;
 }
 
 type Busy = 'configure' | 'start' | 'pause' | 'test' | null;
 
-export function TourismDialerCard({ runtime, runtimeError, calls, onChanged }: Props) {
+export function TourismDialerCard({ runtime, runtimeError, calls, onChanged, promises = [], alerts = [], onResolve, onReschedule, onRestart }: Props) {
   const [busy, setBusy] = useState<Busy>(null);
   const [testPhone, setTestPhone] = useState('');
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [importPreview, setImportPreview] = useState<LeadImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
   const [pastedCsv, setPastedCsv] = useState('');
+  const [acting, setActing] = useState<string | null>(null);
 
   const run = async (action: string, payload: Record<string, unknown> = {}) => {
     const response = await postStaffFunction('tourism-dialer', { ...payload, action });
@@ -209,6 +224,111 @@ export function TourismDialerCard({ runtime, runtimeError, calls, onChanged }: P
         <p className={`text-sm ${message.kind === 'ok' ? 'text-success-700' : 'text-danger-700'}`}>
           {message.text}
         </p>
+      )}
+
+      {alerts.filter((alert) => !alert.cleared_at).length > 0 && (
+        <div role="alert" className="rounded-xl border border-danger-200 bg-danger-50 p-4">
+          {alerts.filter((alert) => !alert.cleared_at).map((alert) => (
+            <div key={alert.id} className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-danger-700">{alert.reason}</p>
+              <ul className="list-disc pl-5 text-xs text-danger-700">
+                {(alert.evidence?.calls ?? []).map((entry, index) => (
+                  <li key={index}>
+                    {entry.business || 'Sin nombre'} · {entry.phone} · {crTime(entry.at ?? alert.created_at)}
+                    {entry.error ? ` — ${entry.error}` : ''}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-neutral-600">
+                La pausa persiste aunque recargue o pase el scheduler; solo un reinicio autorizado la
+                registra. Iniciar sigue siendo el único botón que marca.
+              </p>
+              {onRestart ? (
+                <Button
+                  variant="secondary"
+                  className="self-start"
+                  disabled={acting !== null}
+                  onClick={() => {
+                    setActing('restart');
+                    onRestart()
+                      .then(() => {
+                        setMessage({ kind: 'ok', text: 'Alerta registrada como revisada. Recuerde: Iniciar es el único botón que marca.' });
+                        onChanged();
+                      })
+                      .catch((error) => setMessage({ kind: 'error', text: error instanceof Error ? error.message : 'Error' }))
+                      .finally(() => setActing(null));
+                  }}
+                >
+                  {acting === 'restart' ? 'Registrando…' : 'Registrar reinicio autorizado'}
+                </Button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {promises.length > 0 && (
+        <div className="rounded-xl border border-warning-200 bg-warning-50 p-4">
+          <h3 className="text-sm font-semibold text-warning-700">Devoluciones prometidas</h3>
+          <p className="mt-0.5 text-xs text-warning-700">
+            Arriba: promesas incumplidas que Alejandro debe atender; abajo: las pendientes.
+          </p>
+          <ul className="mt-2 divide-y divide-warning-200 text-sm">
+            {promises.map((promise) => (
+              <li key={promise.id} className="flex flex-col gap-1 py-2">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-medium text-plw-ink">{promise.business || 'Sin nombre'}</span>
+                  <span className="text-neutral-500">{promise.phone}</span>
+                  <span className="ml-auto">
+                    {promise.status === 'failed' ? (
+                      <Badge tone="danger">Incumplida</Badge>
+                    ) : (
+                      <Badge tone="warning">Pendiente</Badge>
+                    )}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-600">
+                  Prometido: {crTime(promise.scheduled_for)} (hora de Costa Rica)
+                  {promise.resolved_at ? ' · resuelto' : ''}
+                </p>
+                {promise.fail_reason && <p className="text-xs text-danger-700">{promise.fail_reason}</p>}
+                {promise.status === 'failed' && onResolve && onReschedule && !promise.resolved_at && (
+                  <form
+                    className="flex flex-wrap items-center gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const data = new FormData(event.currentTarget);
+                      const note = String(data.get('note') ?? '');
+                      const slot = String(data.get('slot') ?? '');
+                      setActing(promise.id);
+                      (slot ? onReschedule(promise.id, slot, note) : onResolve(promise.id, note))
+                        .then(() => {
+                          setMessage({ kind: 'ok', text: slot ? 'Promesa reagendada.' : 'Promesa resuelta.' });
+                          onChanged();
+                        })
+                        .catch((error) => setMessage({ kind: 'error', text: error instanceof Error ? error.message : 'Error' }))
+                        .finally(() => setActing(null));
+                    }}
+                  >
+                    <input
+                      name="note"
+                      placeholder="Nota de resolución (opcional)"
+                      className="w-52 rounded-lg border border-neutral-300 px-2 py-1 text-xs text-plw-ink"
+                    />
+                    <input
+                      name="slot"
+                      type="datetime-local"
+                      className="w-52 rounded-lg border border-neutral-300 px-2 py-1 text-xs text-plw-ink"
+                    />
+                    <Button type="submit" size="sm" variant="secondary" disabled={acting !== null}>
+                      {acting === promise.id ? 'Guardando…' : 'Resolver'}
+                    </Button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-3">

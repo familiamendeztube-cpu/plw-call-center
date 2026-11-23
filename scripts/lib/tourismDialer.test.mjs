@@ -314,3 +314,144 @@ test('reserve_tourism_test works for a signed-in admin and denies agents and ser
       /Solicitud ya utilizada/
     );
   }));
+
+// --- Promised callbacks, 403 auto-pause and milestones (2026-11-23) ---
+
+test('a failed callback promise keeps its reason and only the agent or admin resolves it', async () =>
+  fixture(async (tx) => {
+    await tx.exec(READY);
+    await tx.query('INSERT INTO auth.users(id) VALUES($1)', [id(102)]);
+    await tx.query('INSERT INTO auth.sessions(id,user_id) VALUES($1,$2)', [id(202), id(102)]);
+    await tx.query("UPDATE staff_profiles SET auth_user_id=$1,is_enabled=true WHERE id='agent-1'", [id(102)]);
+    const campaignId = await tourismCampaign(tx);
+    await lead(tx, campaignId, 0, '22221100');
+    await as(tx);
+    const first = (await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data;
+    await tx.query(
+      "INSERT INTO tourism_callbacks(call_id,lead_id,phone,scheduled_for) VALUES($1,$2,'22221100',$3::timestamptz + interval '1 hour')",
+      [first.call.id, first.lead.id, at]
+    );
+    // The assigned agent (agent-2 = owner of the lead) resolves it idempotently.
+    await as(tx, 1);
+    const cbRows = (await tx.query("SELECT id FROM tourism_callbacks WHERE status='pending'")).rows;
+    await tx.query("SELECT resolve_tourism_callback($1,'Llamó Alejandro, cliente confirmó')", [cbRows[0].id]);
+    const [resolved] = (await tx.query('SELECT status,resolved_by FROM tourism_callbacks')).rows;
+    assert.equal(resolved.status, 'resolved');
+    assert.equal(resolved.resolved_by, 'agent-2');
+    // Non-assigned agent is denied; admin is allowed (idempotent no-op on status).
+    await as(tx, 2);
+    await denied(tx, "SELECT resolve_tourism_callback($1,'x')", [cbRows[0].id], /No autorizado/);
+  }));
+
+test('reschedule closes the failed row, creates one new pending promise and is idempotent', async () =>
+  fixture(async (tx) => {
+    await tx.exec(READY);
+    const campaignId = await tourismCampaign(tx);
+    await lead(tx, campaignId, 0, '22221100');
+    await as(tx);
+    const first = (await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data;
+    await tx.query(
+      "INSERT INTO tourism_callbacks(call_id,lead_id,phone,scheduled_for,status,fail_reason) VALUES($1,$2,'22221100',$3,'failed','SIP 403')",
+      [first.call.id, first.lead.id, at]
+    );
+    const failedId = (await tx.query("SELECT id FROM tourism_callbacks WHERE status='failed'")).rows[0].id;
+    await as(tx, 1);
+    const newSlot = '2026-11-24T15:00:00Z';
+    await tx.query("SELECT reschedule_tourism_callback($1,$2,$3)", [failedId, newSlot, "ayer no pudo el proveedor"]);
+    await tx.query("SELECT reschedule_tourism_callback($1,$2,$3)", [failedId, newSlot, "ayer no pudo el proveedor"]);
+    const rows = (await tx.query('SELECT status,scheduled_for FROM tourism_callbacks ORDER BY scheduled_for')).rows;
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].status, 'resolved'); // closed history row
+    assert.equal(rows[1].status, 'pending'); // exactly one new promise
+    assert.equal(new Date(rows[1].scheduled_for).toISOString(), new Date(newSlot).toISOString());
+  }));
+
+test('a failed promise raises one follow-up for the assigned agent with business and reason', async () =>
+  fixture(async (tx) => {
+    await tx.exec(READY);
+    const campaignId = await tourismCampaign(tx);
+    await lead(tx, campaignId, 0, '22221100');
+    await as(tx);
+    const first = (await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data;
+    await tx.query(
+      "INSERT INTO tourism_callbacks(call_id,lead_id,phone,scheduled_for,status,fail_reason) VALUES($1,$2,'22221100',$3,'failed','El proveedor rechazó la llamada (SIP 403)')",
+      [first.call.id, first.lead.id, at]
+    );
+    // The original interested call already became a customer in production;
+    // seed that prospect by the same idempotency key the conversion uses.
+    await tx.exec('RESET ROLE');
+    await tx.query(
+      "INSERT INTO prospects(id,business_name,phone,owner_id,idempotency_key) VALUES($1,'Tour 0','22221100','agent-2',$2)",
+      [id(500), 'tourism:' + first.lead.id]
+    );
+    const cbId = (await tx.query("SELECT id FROM tourism_callbacks WHERE status='failed'")).rows[0].id;
+    await tx.query("SELECT tourism_raise_failed_promise($1,'SIP 403')", [cbId]);
+    await tx.query("SELECT tourism_raise_failed_promise($1,'SIP 403')", [cbId]); // replay: no duplicate
+    const { rows: followups } = await tx.query(
+      "SELECT agent_id,title FROM followups WHERE title LIKE 'Promesa incumplida%'"
+    );
+    assert.equal(followups.length, 1);
+    assert.equal(followups[0].agent_id, 'agent-2');
+    assert.match(followups[0].title, /Tour 0/);
+    // Service role only: an authenticated agent cannot raise it directly.
+    await as(tx, 1);
+    await denied(tx, "SELECT tourism_raise_failed_promise($1,'x')", [cbId], /permission denied/);
+  }));
+
+test('milestones are authorized, idempotent and admin-visible', async () =>
+  fixture(async (tx) => {
+    await tx.query('INSERT INTO auth.users(id) VALUES($1)', [id(102)]);
+    await tx.query('INSERT INTO auth.sessions(id,user_id) VALUES($1,$2)', [id(202), id(102)]);
+    await tx.query("UPDATE staff_profiles SET auth_user_id=$1,is_enabled=true WHERE id='agent-1'", [id(102)]);
+    await tx.query(
+      "INSERT INTO prospects(id,business_name,owner_id,idempotency_key) VALUES($1,'Tour Milestone','agent-2',$2::uuid)",
+      [id(500), id(500)]
+    );
+    // Not the assigned agent: denied.
+    await as(tx, 2);
+    await denied(
+      tx,
+      "SELECT add_tourism_milestone($1,'material_entregado','whatsapp')",
+      [id(500)],
+      /No autorizado/
+    );
+    // Assigned agent records it; replay keeps the first row.
+    await as(tx, 1);
+    await tx.query("SELECT add_tourism_milestone($1,'material_entregado','whatsapp')", [id(500)]);
+    await tx.query("SELECT add_tourism_milestone($1,'material_entregado','whatsapp')", [id(500)]);
+    const rows = (await tx.query('SELECT milestone,channel,source,agent_id FROM tourism_milestones')).rows;
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0], {
+      milestone: 'material_entregado',
+      channel: 'whatsapp',
+      source: 'manual',
+      agent_id: 'agent-2',
+    });
+    // Admin sees it; admin can also record on any prospect.
+    await as(tx, 0);
+    const seen = (await tx.query('SELECT count(*)::int n FROM tourism_milestones')).rows[0].n;
+    assert.equal(seen, 1);
+    await tx.query("SELECT add_tourism_milestone($1,'demo_realizada','phone')", [id(500)]);
+  }));
+
+test('the admin restart clears the 403 alert and counter without touching paused', async () =>
+  fixture(async (tx) => {
+    await tx.query(
+      "UPDATE tourism_dialer_runtime SET consecutive_403=2, paused=true WHERE id=1"
+    );
+    await tx.query(
+      "INSERT INTO tourism_dialer_alerts(reason,evidence) VALUES('dos 403','{}'::jsonb)"
+    );
+    // An agent cannot restart.
+    await as(tx, 1);
+    await denied(tx, 'SELECT restart_tourism_after_alert()', [], /Solo administración/);
+    // Admin restart: alert cleared, counter zeroed, `paused` untouched.
+    await as(tx, 0);
+    await tx.query('SELECT restart_tourism_after_alert()');
+    const [runtime] = (await tx.query('SELECT consecutive_403,paused FROM tourism_dialer_runtime')).rows;
+    assert.equal(runtime.consecutive_403, 0);
+    assert.equal(runtime.paused, true);
+    const [alert] = (await tx.query('SELECT cleared_at,cleared_by FROM tourism_dialer_alerts')).rows;
+    assert.ok(alert.cleared_at);
+    assert.equal(alert.cleared_by, 'admin-1');
+  }));

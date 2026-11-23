@@ -13,6 +13,15 @@ import {
   type TourismRuntime,
 } from '@/features/ai-outbound/components/TourismDialerCard';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import {
+  listTourismAlerts,
+  listTourismPromises,
+  resolveTourismPromise,
+  rescheduleTourismPromise,
+  restartTourismAfterAlert,
+  type TourismPromise,
+  type TourismAlert,
+} from '@/features/ai-outbound/services/tourismPromises';
 import { cx } from '@/components/ui/cx';
 
 export function AdminAiOutboundPage() {
@@ -22,6 +31,8 @@ export function AdminAiOutboundPage() {
   const [tourism, setTourism] = useState<TourismRuntime | null>(null);
   const [tourismError, setTourismError] = useState<string | null>(null);
   const [tourismCalls, setTourismCalls] = useState<TourismCall[]>([]);
+  const [promises, setPromises] = useState<TourismPromise[]>([]);
+  const [alerts, setAlerts] = useState<TourismAlert[]>([]);
   const { state, reload } = useOutboundCampaigns();
 
   const reloadTourism = () => {
@@ -41,6 +52,8 @@ export function AdminAiOutboundPage() {
       setTourismError(runtime.error ? 'No se pudo leer el estado del marcador de turismo.' : null);
       setTourism((runtime.data as TourismRuntime | null) ?? null);
       setTourismCalls(calls.error ? [] : ((calls.data ?? []) as unknown as TourismCall[]));
+      listTourismPromises().then(setPromises).catch(() => setPromises([]));
+      listTourismAlerts().then(setAlerts).catch(() => setAlerts([]));
     });
   };
 
@@ -76,7 +89,12 @@ export function AdminAiOutboundPage() {
         runtime={tourism}
         runtimeError={tourismError}
         calls={tourismCalls}
+        promises={promises}
+        alerts={alerts}
         onChanged={reloadTourism}
+        onResolve={(id, note) => resolveTourismPromise(id, note)}
+        onReschedule={(id, slot, note) => rescheduleTourismPromise(id, slot, note)}
+        onRestart={() => restartTourismAfterAlert()}
       />
 
       {state.status === 'loading' ? (

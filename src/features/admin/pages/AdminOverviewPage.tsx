@@ -16,6 +16,7 @@ import { DemoDataNote } from '@/components/ui/DemoDataNote';
 import { ActivityList } from '@/features/presence/components/ActivityList';
 import { AdminSnapshotBoundary } from '@/features/admin/components/AdminSnapshotBoundary';
 import { AgentWorkloadCard } from '@/features/admin/components/AgentWorkloadCard';
+import { TourismMilestoneSummary } from '@/features/admin/components/TourismMilestoneSummary';
 import { MetricCard } from '@/features/admin/components/MetricCard';
 import { useAdminSnapshot } from '@/features/admin/hooks/useAdminSnapshot';
 import {
@@ -115,6 +116,7 @@ function OverviewContent({
         />
       ) : null}
       <PhoneCallReport agentNames={agentNames} />
+      <TourismMilestoneSummary />
       <section aria-labelledby="workload-heading" className="flex flex-col gap-4">
         <h2 id="workload-heading" className="text-lg font-semibold text-plw-ink">
           Carga de trabajo por agente

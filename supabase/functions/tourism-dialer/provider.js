@@ -67,6 +67,11 @@ export function normalizeTourismPhone(input) {
   return /^[2-8]\d{7}$/.test(local) ? local : null;
 }
 
+/** True when a stored call error is the provider refusing the dial with SIP 403. */
+export function isSip403Error(message) {
+  return typeof message === 'string' && /SIP 403|403 Forbidden/i.test(message);
+}
+
 /** Short, safe explanation of a provider answer, stored with the call so failures can be read. */
 export function providerReason(result, timeoutSeconds) {
   if (!result?.status) return ` (sin respuesta del proveedor en ${timeoutSeconds} s)`;

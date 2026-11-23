@@ -26,6 +26,7 @@ import { cx } from '@/components/ui/cx';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { AiCallPanel } from '@/features/ai-calls/components/AiCallSections';
+import { TourismMilestones } from '@/features/customers/components/TourismMilestones';
 import { WhatsAppConversation } from '@/features/whatsapp/components/WhatsAppConversation';
 import { useWhatsAppChat } from '@/features/whatsapp/hooks/useWhatsApp';
 
@@ -270,6 +271,9 @@ export function CustomerWorkspace({
         {tab === 'material' ? (
           <div className="p-5 sm:p-6">
             <CustomerMaterialsPanel onShare={shareOnWhatsApp} />
+            <div className="mt-5">
+              <TourismMilestones prospectId={prospect.id} agentId={agentId} />
+            </div>
           </div>
         ) : null}
       </div>
