@@ -37,6 +37,16 @@ Deno.serve(async (req) => {
     if (!auth.ok) return json(auth.body, auth.status);
     const input = await req.json();
     if (!apiKey) return json({ error: 'Falta configurar ElevenLabs.' }, 503);
+    // Admin-gated RPCs (control, test reservation) verify is_admin() from the caller's JWT.
+    // They must run as the administrator, not with the service-role key, which has no user context.
+    const userDb = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${jwt}` } },
+      }
+    );
 
     if (input.action === 'sync') {
       await syncTourismCalls(db, apiKey);
@@ -127,16 +137,6 @@ Deno.serve(async (req) => {
     if (input.action === 'control') {
       if (!['start', 'pause'].includes(input.state))
         return json({ error: 'Acción no válida.' }, 400);
-      // control_tourism_dialer checks is_admin() from the caller's JWT. It must run as the
-      // administrator, not with the service-role key, which has no user context.
-      const userDb = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        {
-          auth: { persistSession: false, autoRefreshToken: false },
-          global: { headers: { Authorization: `Bearer ${jwt}` } },
-        }
-      );
       const { error } = await userDb.rpc('control_tourism_dialer', { p_action: input.state });
       if (error)
         return json({ error: error.message || 'No se pudo cambiar el estado. Revise el latido del servidor.' }, 409);
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       const runtime = await db.from('tourism_dialer_runtime').select('*').eq('id', 1).maybeSingle();
       if (!runtime.data?.provider_agent_id || !runtime.data?.config_verified_at)
         return json({ error: 'Primero configure y verifique la voz.' }, 409);
-      const { data: claim, error } = await db.rpc('reserve_tourism_test', {
+      const { data: claim, error } = await userDb.rpc('reserve_tourism_test', {
         p_id: input.requestId,
         p_phone: phone,
       });

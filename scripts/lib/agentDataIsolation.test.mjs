@@ -107,6 +107,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'record_heartbeat',
   'request_reply_send',
   'reschedule_followup',
+  'reserve_tourism_test',
   'save_draft',
   'schedule_followup',
   'set_ai_call_status',

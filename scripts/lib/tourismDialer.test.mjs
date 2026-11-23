@@ -275,3 +275,42 @@ test('an interested tourism call becomes one customer for Alejandro with a pendi
     await as(tx, 1);
     await denied(tx, 'SELECT tourism_call_to_customer($1)', [interested], /permission denied/);
   }));
+
+// Regression for the live "Solo administración." test-call failure: the reservation RPC
+// verifies is_admin() from the caller's JWT, so it must execute as the signed-in admin
+// (authenticated), not as service_role, which carries no user.
+test('reserve_tourism_test works for a signed-in admin and denies agents and service role', async () =>
+  fixture(async (tx) => {
+    await tx.exec(READY);
+    const requestId = id(900);
+    // Admin (index 0 of the fixture) reserves through the authenticated role + JWT.
+    await as(tx, 0);
+    const claim = (
+      await tx.query('SELECT reserve_tourism_test($1,$2) AS data', [requestId, '70040079'])
+    ).rows[0].data;
+    assert.equal(claim.claimed, true);
+    assert.equal(claim.call.phone, '70040079');
+    assert.equal(claim.call.is_test, true);
+    // Idempotent by request id: the same reservation returns the call without re-claiming.
+    const again = (
+      await tx.query('SELECT reserve_tourism_test($1,$2) AS data', [requestId, '70040079'])
+    ).rows[0].data;
+    assert.equal(again.claimed, false);
+    assert.equal(again.call.id, claim.call.id);
+    // A non-admin authenticated session is denied by the function's own admin check.
+    await as(tx, 1);
+    await denied(
+      tx,
+      'SELECT reserve_tourism_test($1,$2)',
+      [id(901), '70040080'],
+      /Solo administración/
+    );
+    // Reusing a request id with a different phone is rejected.
+    await as(tx, 0);
+    await denied(
+      tx,
+      'SELECT reserve_tourism_test($1,$2)',
+      [requestId, '70040080'],
+      /Solicitud ya utilizada/
+    );
+  }));
