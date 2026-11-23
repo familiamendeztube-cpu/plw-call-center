@@ -257,7 +257,7 @@ export function HotelDemoPage() {
         ) : null}
       </section>
 
-      <section aria-label="Ejemplo de notificación" className="rounded-2xl border border-dashed border-neutral-300 bg-white/70 p-4">
+      <section aria-label="Ejemplo de notificación" className="rounded-2xl border border-dashed border-neutral-300 bg-white/5 p-4">
         <div className="flex items-center gap-2">
           <ShieldCheck size={16} className="text-neutral-500" aria-hidden="true" />
           <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
