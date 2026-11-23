@@ -14,6 +14,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
   },
   "dependencies": {
+    "@elevenlabs/client": "^1.37.1",
     "@supabase/supabase-js": "^2.57.4",
     "@vitejs/plugin-react": "^5.1.1",
     "jssip": "3.13.9",

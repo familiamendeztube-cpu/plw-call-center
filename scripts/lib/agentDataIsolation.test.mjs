@@ -118,6 +118,11 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'reschedule_tourism_callback',
   'restart_tourism_after_alert',
   'add_tourism_milestone',
+  'book_tourism_demo_as_staff',
+  'book_tourism_demo_from_link',
+  'cancel_tourism_demo_booking',
+  'ensure_tourism_hotel_demo_link',
+  'rotate_tourism_hotel_demo_token',
   'save_draft',
   'schedule_followup',
   'set_ai_call_status',
@@ -535,7 +540,8 @@ test('browsers can call only the reviewed functions', async () => {
     [...BROWSER_CALLABLE_FUNCTIONS].sort()
   );
   assert.deepEqual(
-    rows.filter((row) => row.anonymous).map((row) => row.proname),
-    ['public_agent_directory']
+    rows.filter((row) => row.anonymous).map((row) => row.proname).sort(),
+    // The two token-scoped public booking functions are the hotel link's only surface.
+    ['book_tourism_demo_from_link', 'cancel_tourism_demo_booking', 'public_agent_directory']
   );
 });

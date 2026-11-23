@@ -22,6 +22,7 @@ import { AdminAuditPage } from '@/features/admin/pages/AdminAuditPage';
 import { AdminAiCallsPage } from '@/features/ai-calls/pages/AdminAiCallsPage';
 import { AdminAiOutboundPage } from '@/features/ai-outbound/pages/AdminAiOutboundPage';
 import { DentalLeadsPage } from '@/features/dental-leads/pages/DentalLeadsPage';
+import { HotelDemoPage } from '@/features/hotel-demo/pages/HotelDemoPage';
 
 export function AppRoutes() {
   return (
@@ -29,6 +30,8 @@ export function AppRoutes() {
       <Route path="/login" element={<AgentLoginPage />} />
       <Route path="/acceso-administrador" element={<AdminLoginPage />} />
       <Route path="/configuracion-inicial" element={<OwnerSetupPage />} />
+      {/* Public hotel demo: the opaque token is the only key; no session, no private data. */}
+      <Route path="/demo-hotel/:token" element={<HotelDemoPage />} />
       <Route
         element={
           <RequireRole role="agent">

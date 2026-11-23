@@ -27,6 +27,8 @@ import { StatusMessage } from '@/components/ui/StatusMessage';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { AiCallPanel } from '@/features/ai-calls/components/AiCallSections';
 import { TourismMilestones } from '@/features/customers/components/TourismMilestones';
+import { HotelDemoLinkCard } from '@/features/customers/components/HotelDemoLinkCard';
+import { HotelClosingCard } from '@/features/customers/components/HotelClosingCard';
 import { WhatsAppConversation } from '@/features/whatsapp/components/WhatsAppConversation';
 import { useWhatsAppChat } from '@/features/whatsapp/hooks/useWhatsApp';
 
@@ -93,6 +95,16 @@ export function CustomerWorkspace({
       { replace: true }
     );
   }, [searchParams, setSearchParams]);
+
+  // Closing actions from the card become a scheduled follow-up, so nothing is lost.
+  useEffect(() => {
+    const onClose = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail ?? '';
+      setScheduling(detail.startsWith('objeción') ? detail : 'Cierre de instalación — recepcionista del hotel');
+    };
+    window.addEventListener('plw:hotel-demo-close', onClose);
+    return () => window.removeEventListener('plw:hotel-demo-close', onClose);
+  }, []);
 
   const shareOnWhatsApp =
     chat || fromWhatsApp
@@ -270,8 +282,16 @@ export function CustomerWorkspace({
         ) : null}
         {tab === 'material' ? (
           <div className="p-5 sm:p-6">
-            <CustomerMaterialsPanel onShare={shareOnWhatsApp} />
-            <div className="mt-5">
+            <div className="flex flex-col gap-5">
+              <HotelDemoLinkCard
+                prospectId={prospect.id}
+                prospectName={prospect.businessName}
+                phone={prospect.phone}
+                email={prospect.email}
+                canBook={Boolean(agentId)}
+              />
+              <CustomerMaterialsPanel onShare={shareOnWhatsApp} />
+              <HotelClosingCard />
               <TourismMilestones prospectId={prospect.id} agentId={agentId} />
             </div>
           </div>

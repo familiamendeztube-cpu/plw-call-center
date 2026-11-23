@@ -81,23 +81,23 @@ export function TourismMilestones({ prospectId, agentId }: Props) {
     reload();
   }, [reload]);
 
-  const add = (code: TourismMilestoneCode, dueAt?: string) => {
+  const add = async (code: TourismMilestoneCode, dueAt?: string) => {
     setBusy(code);
-    getSupabaseClient()
-      .rpc('add_tourism_milestone', {
+    try {
+      const { error: rpcError } = await getSupabaseClient().rpc('add_tourism_milestone', {
         p_prospect_id: prospectId,
         p_milestone: code,
         p_channel: '',
         ...(code === 'demo_agendada' ? { p_due_at: dueAt } : {}),
-      })
-      .then(({ error: rpcError }) => {
-        if (rpcError) setError(rpcError.message || 'No se pudo registrar el hito.');
-        else {
-          setError(null);
-          reload();
-        }
-      })
-      .finally(() => setBusy(null));
+      });
+      if (rpcError) setError(rpcError.message || 'No se pudo registrar el hito.');
+      else {
+        setError(null);
+        reload();
+      }
+    } finally {
+      setBusy(null);
+    }
   };
 
   const done = new Map((milestones ?? []).map((row) => [row.milestone, row]));
@@ -127,7 +127,7 @@ export function TourismMilestones({ prospectId, agentId }: Props) {
                   onSubmit={(event) => {
                     event.preventDefault();
                     const value = new FormData(event.currentTarget).get('demo_slot');
-                    if (typeof value === 'string' && value) add(code, slotToIso(value));
+                    if (typeof value === 'string' && value) void add(code, slotToIso(value));
                   }}
                 >
                   <input
@@ -148,7 +148,7 @@ export function TourismMilestones({ prospectId, agentId }: Props) {
                   variant="ghost"
                   className="ml-auto"
                   disabled={busy !== null}
-                  onClick={() => add(code)}
+                  onClick={() => void add(code)}
                 >
                   <CheckCircle2 size={14} aria-hidden="true" />
                   {busy === code ? 'Registrando…' : 'Registrar'}

@@ -60,3 +60,7 @@ verify_jwt = true
 [functions.plw-secretary-converse]
 # Public conversational turn for the secretary demo, keyed by the preview token only.
 verify_jwt = false
+
+[functions.plw-hotel-demo]
+# Public hotel demo page: opaque link token only; context/book/cancel, no private reads.
+verify_jwt = false

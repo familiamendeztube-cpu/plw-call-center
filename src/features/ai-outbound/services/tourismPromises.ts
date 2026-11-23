@@ -16,7 +16,7 @@ export interface TourismPromise {
 export interface TourismAlert {
   id: string;
   reason: string;
-  evidence: { calls?: { phone?: string; business?: string | null; error?: string }[] } | null;
+  evidence: { calls?: { phone?: string; business?: string | null; error?: string; at?: string }[] } | null;
   created_at: string;
   cleared_at: string | null;
 }
