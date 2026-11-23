@@ -37,6 +37,10 @@
       "hasChanged": false,
       "hash": "465042a9e96717ba6d33d4c9a5c5f50eb8d7dd7b74736cd285225758910d871f"
     },
+    "plw-hotel-demo": {
+      "hasChanged": false,
+      "hash": "bd8d949371c40418c4e48564dbc5f411da0fa94f15f35775aebc8d7918b1304d"
+    },
     "plw-secretary-converse": {
       "hasChanged": false,
       "hash": "04b1ac3a7638a345662fc8517bd45213b9f98887883ff70484c0bab7a27a5e65"
@@ -63,7 +67,7 @@
     },
     "tourism-dialer": {
       "hasChanged": false,
-      "hash": "3a0311c0939eccf117d2caea136ddd609e1bc1e19378fde19c2b35fe6454916e"
+      "hash": "18fe7a5cdf15718298c6042bb347b127b6495644dcc88425051fe015b36e128e"
     },
     "whatsapp": {
       "hasChanged": false,
