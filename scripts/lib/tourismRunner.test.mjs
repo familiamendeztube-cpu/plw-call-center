@@ -4,6 +4,7 @@ import {
   dispatchTourismCall,
   isPaused,
   runTourismTick,
+  syncTourismCalls,
 } from '../../supabase/functions/tourism-dialer/runner.js';
 import { tourismAgentConfig, tourismConfigFailures, normalizeTourismPhone } from '../../supabase/functions/tourism-dialer/provider.js';
 import { TOURISM_SCRIPT_VERSION, tourismPrompt } from '../../supabase/functions/tourism-dialer/tourismScript.js';
@@ -45,6 +46,38 @@ function fakeDb(rows) {
 }
 
 const agentJson = (config) => ({ ok: true, status: 200, json: async () => config });
+
+test('a finished call creates the customer before its milestones look for it', async () => {
+  const db = fakeDb({
+    tourism_calls: [{ id: 'call-1', conversation_id: 'conv_1', provider_agent_id: 'tourism_agent', lead_id: 'lead-1', staff_id: 'agent-2', phone: '22221100' }],
+    prospects: { id: 'prospect-1' },
+    tourism_dialer_runtime: RUNTIME,
+  });
+  const order = [];
+  const { from, rpc } = db;
+  db.from = (table) => (order.push(table), from(table));
+  db.rpc = (name, args) => (order.push(name), rpc(name, args));
+  const value = (v) => ({ value: v });
+  const conversation = {
+    agent_id: 'tourism_agent',
+    status: 'done',
+    conversation_initiation_client_data: { dynamic_variables: { plw_tourism_call_id: 'call-1' } },
+    analysis: {
+      data_collection_results: {
+        plw_outcome: value('DEMO_SCHEDULED'),
+        plw_callback_date: value('2026-11-25'),
+        plw_callback_clock: value('10:00'),
+        plw_demo_date: value('2026-11-26'),
+        plw_demo_clock: value('14:00'),
+      },
+    },
+  };
+  await syncTourismCalls(db, 'key', async () => agentJson(conversation));
+  const customer = order.indexOf('tourism_call_to_customer');
+  assert.ok(customer >= 0, 'customer conversion ran');
+  assert.ok(customer < order.indexOf('tourism_milestones'), 'callback milestone after the customer');
+  assert.ok(customer < order.indexOf('record_tourism_demo_agreement'), 'demo milestone after the customer');
+});
 
 test('an admin test call has no lead and still dials while the dialer is paused', async () => {
   const db = fakeDb({

@@ -212,6 +212,11 @@ export async function syncTourismCalls(db, apiKey, fetchImpl = fetch) {
           if (update.state === 'failed' && isSip403Error(call.error)) await recordTourismResult(db, call);
           else if (update.state === 'completed') await recordTourismResult(db, call, false);
           await scheduleCallback(db, call, results.details).catch(() => {});
+          // Interested calls land in Clientes for Alejandro; idempotent per conversation.
+          // Runs before the milestones: they attach to the customer row this creates, and on
+          // the call that first creates it they used to find nothing and were lost.
+          const { error } = await db.rpc('tourism_call_to_customer', { p_call_id: call.id });
+          if (error) console.error('tourism customer not created', error.code);
           // A confirmed day+time promise is a "Devolución agendada" milestone on the
           // customer's prospect row, when the call already created one.
           if (results.details.callback_date && results.details.callback_clock) {
@@ -250,9 +255,6 @@ export async function syncTourismCalls(db, apiKey, fetchImpl = fetch) {
                 );
             }
           }
-          // Interested calls land in Clientes for Alejandro; idempotent per conversation.
-          const { error } = await db.rpc('tourism_call_to_customer', { p_call_id: call.id });
-          if (error) console.error('tourism customer not created', error.code);
         }
       } catch {
         /* Retain reservations until the provider can be reconciled. */

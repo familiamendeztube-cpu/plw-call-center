@@ -1,3 +1,4 @@
+import { costaRicaLocalInputToIso } from '@/app/dates';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
 export interface TourismPromise {
@@ -44,7 +45,8 @@ export async function listTourismPromises(): Promise<TourismPromise[]> {
     .from('tourism_callbacks')
     .select(PROMISE_COLUMNS)
     .in('status', ['failed', 'pending'])
-    .order('status', { ascending: false })
+    // Alphabetical: 'failed' < 'pending', so ascending puts the missed promises on top.
+    .order('status', { ascending: true })
     .order('scheduled_for', { ascending: true })
     .limit(50);
   if (error) throw new Error('No se pudieron cargar las promesas de devolución de llamada.');
@@ -72,10 +74,12 @@ export async function resolveTourismPromise(id: string, note: string): Promise<v
   if (error) throw new Error(error.message || 'No se pudo resolver la promesa.');
 }
 
+/** `slot` is a datetime-local value ("2026-11-24T10:00") meant as Costa Rica time. Sent raw,
+ *  the database would read it as UTC and dial six hours early. */
 export async function rescheduleTourismPromise(id: string, slot: string, note: string): Promise<void> {
   const { error } = await getSupabaseClient().rpc('reschedule_tourism_callback', {
     p_callback_id: id,
-    p_new_slot: slot,
+    p_new_slot: costaRicaLocalInputToIso(slot),
     p_note: note,
   });
   if (error) throw new Error(error.message || 'No se pudo reagendar la promesa.');

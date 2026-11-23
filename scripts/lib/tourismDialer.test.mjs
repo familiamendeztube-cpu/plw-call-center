@@ -434,6 +434,27 @@ test('milestones are authorized, idempotent and admin-visible', async () =>
     await tx.query("SELECT add_tourism_milestone($1,'demo_realizada','phone')", [id(500)]);
   }));
 
+test('the dialer can write the automatic callback milestone, once', async () =>
+  fixture(async (tx) => {
+    await tx.query(
+      "INSERT INTO prospects(id,business_name,owner_id,idempotency_key) VALUES($1,'Tour Auto','agent-2','tourism:auto')",
+      [id(510)]
+    );
+    // Same statement shape as runner.js: upsert with ignoreDuplicates, as the service role.
+    await as(tx);
+    const write = () =>
+      tx.query(
+        `INSERT INTO tourism_milestones(prospect_id,milestone,channel,source,agent_id)
+         VALUES($1,'devolucion_agendada','phone','auto','agent-2')
+         ON CONFLICT (prospect_id,milestone) DO NOTHING`,
+        [id(510)]
+      );
+    await write();
+    await write(); // replayed sync
+    const n = (await tx.query("SELECT count(*)::int n FROM tourism_milestones WHERE milestone='devolucion_agendada'")).rows[0].n;
+    assert.equal(n, 1);
+  }));
+
 
 test('demo_agendada needs a confirmed slot, is idempotent and never completes the demo', async () =>
   fixture(async (tx) => {
