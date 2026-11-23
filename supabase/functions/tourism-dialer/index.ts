@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
 import { runTourismTick, dispatchTourismCall, syncTourismCalls, reconcileTourismStuckCalls } from './runner.js';
-import { providerRequest, sanitizeProviderError, tourismAgentConfig, tourismConfigFailures } from './provider.js';
+import { normalizeTourismPhone, providerRequest, sanitizeProviderError, tourismAgentConfig, tourismConfigFailures } from './provider.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -144,9 +144,13 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === 'test') {
-      const phone = String(input.phone ?? '').replace(/\D/g, '').replace(/^506(?=\d{8}$)/, '');
-      if (!/^[2-8]\d{7}$/.test(phone) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.requestId ?? ''))
-        return json({ error: 'Revise el teléfono y la solicitud.' }, 400);
+      // Separate, specific messages: the old combined one ("Revise el teléfono y la
+      // solicitud") hid which of the two was wrong.
+      const phone = normalizeTourismPhone(input.phone);
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.requestId ?? ''))
+        return json({ error: 'Solicitud de prueba no válida: vuelva a abrir la tarjeta e inténtelo de nuevo.' }, 400);
+      if (!phone)
+        return json({ error: 'Revise el teléfono: use un número de Costa Rica de 8 dígitos (móvil o fijo), con o sin el 506 inicial.' }, 400);
       const runtime = await db.from('tourism_dialer_runtime').select('*').eq('id', 1).maybeSingle();
       if (!runtime.data?.provider_agent_id || !runtime.data?.config_verified_at)
         return json({ error: 'Primero configure y verifique la voz.' }, 409);
@@ -154,7 +158,10 @@ Deno.serve(async (req) => {
         p_id: input.requestId,
         p_phone: phone,
       });
-      if (error) return json({ error: 'No se pudo reservar la prueba.' }, 409);
+      // Surface the database's own reason (duplicate request, number blocked…) instead of
+      // discarding it behind a generic message.
+      if (error || !claim)
+        return json({ error: `No se pudo reservar la prueba${error?.message ? `: ${error.message.slice(0, 200)}` : '.'}` }, 409);
       if (claim.claimed) await dispatchTourismCall(db, apiKey, claim);
       return json({ ok: true, id: claim.call.id });
     }

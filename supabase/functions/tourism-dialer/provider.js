@@ -59,6 +59,14 @@ export function sanitizeProviderError(data) {
   }));
 }
 
+/** Tolerant CR phone normalization: optional 506 country code, optional leading zeros typed
+ *  by hand, then exactly 8 valid digits — "(506) 7004-0079", "0 7004 0079" and
+ *  "50670040079" all resolve; anything longer or malformed is null. */
+export function normalizeTourismPhone(input) {
+  const local = String(input ?? '').replace(/\D/g, '').replace(/^506/, '').replace(/^0+/, '');
+  return /^[2-8]\d{7}$/.test(local) ? local : null;
+}
+
 /** Short, safe explanation of a provider answer, stored with the call so failures can be read. */
 export function providerReason(result, timeoutSeconds) {
   if (!result?.status) return ` (sin respuesta del proveedor en ${timeoutSeconds} s)`;

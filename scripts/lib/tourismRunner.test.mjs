@@ -5,7 +5,8 @@ import {
   isPaused,
   runTourismTick,
 } from '../../supabase/functions/tourism-dialer/runner.js';
-import { tourismAgentConfig, tourismConfigFailures } from '../../supabase/functions/tourism-dialer/provider.js';
+import { tourismAgentConfig, tourismConfigFailures, normalizeTourismPhone } from '../../supabase/functions/tourism-dialer/provider.js';
+import { TOURISM_SCRIPT_VERSION, tourismPrompt } from '../../supabase/functions/tourism-dialer/tourismScript.js';
 
 const ROUTE = { provider_agent_id: 'tourism_agent', transfer_uri: 'sip:agent-2@phone.example.com' };
 const RUNTIME = {
@@ -128,4 +129,38 @@ test('a verified voice claims, and the pre-migration pause marker still counts a
   await runTourismTick(legacy, 'key', async () => agentJson(healthy));
   assert.equal(legacy.rpcs.length, 0);
   assert.ok(legacy.updates.every((u) => u.values.last_error === undefined)); // marker never wiped
+});
+
+// The 2026-11-20 test-call rejection ("Revise el teléfono y la solicitud") merged two different
+// failures; the normalization now accepts every valid CR typing and stays test-side pinable.
+test('tourism phone normalization takes the last valid 8-digit CR group', () => {
+  assert.equal(normalizeTourismPhone('70040079'), '70040079');
+  assert.equal(normalizeTourismPhone('+506 7004 0079'), '70040079');
+  assert.equal(normalizeTourismPhone('(506) 7004-0079'), '70040079');
+  assert.equal(normalizeTourismPhone('070040079'), '70040079'); // leading zero typed by hand
+  assert.equal(normalizeTourismPhone('50670040079'), '70040079'); // doubled country code
+  assert.equal(normalizeTourismPhone('22221100'), '22221100'); // landline range stays valid
+  assert.equal(normalizeTourismPhone('12345'), null);
+  assert.equal(normalizeTourismPhone('12345678901234'), null);
+  assert.equal(normalizeTourismPhone(''), null);
+  assert.equal(normalizeTourismPhone(null), null);
+});
+
+// Ana Turismo only: material fulfillment + the single Alejandro ask, shared by the campaign
+// and the admin test call because both use tourismAgentConfig.
+test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactly once', () => {
+  const prompt = tourismPrompt();
+  const ask = 'Claro, se lo mando. ¿Le parece si Alejandro le llama mañana a las diez? En cinco minutos le enseña cómo respondería la recepcionista si un huésped llama en inglés después de que ustedes cierran.';
+  assert.ok(prompt.includes(ask), 'the exact quoted ask must be in the prompt');
+  assert.equal(prompt.split('Claro, se lo mando').length - 1, 1, 'the ask appears once, never repeated');
+  assert.match(prompt, /Nunca digas que ya se envió nada/);
+  assert.match(prompt, /lunes a viernes, de ocho de la mañana a cuatro de la tarde/);
+  assert.match(prompt, /fecha y hora confirmadas/);
+  assert.match(prompt, /no insistas, agradece y termina/);
+  assert.match(prompt, /una sola vez por llamada/);
+  // Version bumped with the prompt so the live verifier's prompt_base check passes.
+  const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
+  config.agent_id = 'tourism_agent';
+  assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-c'));
 });
