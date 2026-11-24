@@ -74,6 +74,7 @@ export async function dispatchTourismCall(db, apiKey, claim, fetchImpl = fetch) 
           dynamic_variables: {
             business_name: lead.business_name || 'el negocio de turismo',
             contact_name: lead.contact_name || 'la persona encargada de reservas o administración',
+            business_type: lead.business_type || 'unknown',
             saludo: greetingFor(),
             plw_tourism_call_id: call.id,
             plw_transfer_uri: runtime.transfer_uri,

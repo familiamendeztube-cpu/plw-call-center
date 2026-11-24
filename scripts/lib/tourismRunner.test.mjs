@@ -7,7 +7,14 @@ import {
   syncTourismCalls,
 } from '../../supabase/functions/tourism-dialer/runner.js';
 import { tourismAgentConfig, tourismAsrKeywords, tourismConfigFailures, normalizeTourismPhone } from '../../supabase/functions/tourism-dialer/provider.js';
-import { TOURISM_SCRIPT_VERSION, tourismPrompt } from '../../supabase/functions/tourism-dialer/tourismScript.js';
+import {
+  TOURISM_SCRIPT_VERSION,
+  TOURISM_TOUR_QUESTION,
+  TOURISM_HOTEL_QUESTION,
+  TOURISM_GENERIC_QUESTION,
+  afterHoursQuestionFor,
+  tourismPrompt,
+} from '../../supabase/functions/tourism-dialer/tourismScript.js';
 
 const ROUTE = { provider_agent_id: 'tourism_agent', transfer_uri: 'sip:agent-2@phone.example.com' };
 const RUNTIME = {
@@ -207,7 +214,7 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
   config.agent_id = 'tourism_agent';
   assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
-  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-f'));
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-g'));
   // The 2026-11-23 failures, one rule each: hold phrasing, menu vs wrong number, the
   // email that starts with plain words, and no second Alejandro invitation.
   assert.match(prompt, /"le quedo un minuto"/);
@@ -215,9 +222,65 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   assert.match(prompt, /Conserva ambas palabras/);
   assert.match(prompt, /nunca vuelvas a hacer la invitación/);
   assert.match(prompt, /Nunca pidas el mismo dato una tercera vez/);
-  // The coverage question comes before any demo offer, exactly once.
+  // The verbatim opening questions appear once each, before any demo offer, and never assume
+  // a destination like Arenal.
   const promptText = tourismPrompt();
-  const coverage = 'Cuando un huésped escribe en inglés después de las seis, ¿quién le contesta?';
-  assert.equal(promptText.split(coverage).length - 1, 1, 'the coverage question appears once');
-  assert.ok(promptText.indexOf(coverage) < promptText.indexOf('demostración corta'), 'listen before offering');
+  for (const question of [TOURISM_TOUR_QUESTION, TOURISM_HOTEL_QUESTION, TOURISM_GENERIC_QUESTION])
+    assert.equal(promptText.split(question).length - 1, 1, 'the opening question appears once');
+  assert.ok(
+    promptText.indexOf(TOURISM_TOUR_QUESTION) < promptText.indexOf('demostración corta'),
+    'open with the question before offering anything'
+  );
+  assert.match(promptText, /Nunca asumas que ofrecen un destino o actividad específica como Arenal/);
+});
+
+// The pitch opens with ONE real-world question picked by reliable business type; mixed or
+// unknown types get the generic after-hours question, never a tour by default.
+test('the opening question follows the lead business type, generic when unclear', () => {
+  assert.equal(afterHoursQuestionFor('Operador de tours y aventura'), TOURISM_TOUR_QUESTION);
+  assert.equal(afterHoursQuestionFor('TOURS'), TOURISM_TOUR_QUESTION);
+  assert.equal(afterHoursQuestionFor('Rafting y canopy'), TOURISM_TOUR_QUESTION);
+  assert.equal(afterHoursQuestionFor('Hotel boutique'), TOURISM_HOTEL_QUESTION);
+  assert.equal(afterHoursQuestionFor('Cabinas y hospedaje'), TOURISM_HOTEL_QUESTION);
+  assert.equal(afterHoursQuestionFor('Hostal céntrico'), TOURISM_HOTEL_QUESTION);
+  assert.equal(afterHoursQuestionFor('Tour y hotel'), TOURISM_GENERIC_QUESTION, 'mixed type stays generic');
+  assert.equal(afterHoursQuestionFor('Turismo'), TOURISM_GENERIC_QUESTION, 'plain turismo is not a pick');
+  assert.equal(afterHoursQuestionFor(''), TOURISM_GENERIC_QUESTION);
+  assert.equal(afterHoursQuestionFor(null), TOURISM_GENERIC_QUESTION);
+  // Context beats the label: a business mixing both kinds stays generic.
+  assert.equal(afterHoursQuestionFor('Agencia de tours con cabins'), TOURISM_GENERIC_QUESTION, 'both kinds stay generic');
+  // Every question is one real after-hours scenario, never a management ask.
+  for (const q of [TOURISM_TOUR_QUESTION, TOURISM_HOTEL_QUESTION, TOURISM_GENERIC_QUESTION])
+    assert.ok(q.includes('¿cómo lo atienden ustedes?'));
+});
+
+// The verbatim questions reach ElevenLabs: campaign leads pass business_type into the init,
+// and the test/default init falls back to 'unknown'.
+test('dispatch passes the lead business type as a dynamic variable, unknown by default', async () => {
+  const db = fakeDb({
+    tourism_dialer_runtime: { ...RUNTIME, paused: true },
+    ai_outbound_settings: { caller_phone_number_id: 'line' },
+  });
+  const sent = [];
+  const fetchImpl = async (_url, init) => {
+    sent.push(JSON.parse(init.body));
+    return { ok: true, status: 200, json: async () => ({ success: true, conversation_id: 'conv_1' }) };
+  };
+  await dispatchTourismCall(
+    db, 'key',
+    { call: { id: 'call-1', is_test: true, phone: '22221100', provider_agent_id: 'tourism_agent' }, lead: { business_name: 'Hotel Vela', business_type: 'Hotel y hospedaje' } },
+    fetchImpl
+  );
+  await dispatchTourismCall(
+    db, 'key',
+    { call: { id: 'call-2', is_test: true, phone: '22221100', provider_agent_id: 'tourism_agent' }, lead: { business_name: 'Hotel Vela' } },
+    fetchImpl
+  );
+  const variables = sent.map((body) => body.conversation_initiation_client_data.dynamic_variables);
+  assert.equal(variables[0].business_type, 'Hotel y hospedaje');
+  assert.equal(variables[1].business_type, 'unknown', 'missing type falls back to unknown');
+  // The prompt tells Anna to pick by that variable and context, not by the label alone.
+  const prompt = tourismPrompt();
+  assert.ok(prompt.includes('{{business_type}}'));
+  assert.match(prompt, /el contexto manda sobre la etiqueta/);
 });
