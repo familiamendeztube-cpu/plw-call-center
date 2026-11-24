@@ -6,7 +6,7 @@ import {
   runTourismTick,
   syncTourismCalls,
 } from '../../supabase/functions/tourism-dialer/runner.js';
-import { tourismAgentConfig, tourismConfigFailures, normalizeTourismPhone } from '../../supabase/functions/tourism-dialer/provider.js';
+import { tourismAgentConfig, tourismAsrKeywords, tourismConfigFailures, normalizeTourismPhone } from '../../supabase/functions/tourism-dialer/provider.js';
 import { TOURISM_SCRIPT_VERSION, tourismPrompt } from '../../supabase/functions/tourism-dialer/tourismScript.js';
 
 const ROUTE = { provider_agent_id: 'tourism_agent', transfer_uri: 'sip:agent-2@phone.example.com' };
@@ -94,6 +94,18 @@ test('an admin test call has no lead and still dials while the dialer is paused'
   assert.equal(sent.to_number, '+50622221100');
   assert.equal(sent.conversation_initiation_client_data.dynamic_variables.business_name, 'el negocio de turismo');
   assert.deepEqual(db.updates.at(-1).values, { state: 'started', conversation_id: 'conv_1' });
+  assert.ok(sent.conversation_initiation_client_data.conversation_config_override.asr.keywords.includes('arroba'));
+});
+
+test('each call boosts speech-to-text with the business name and email words, at most 50', () => {
+  const keywords = tourismAsrKeywords('Le Cameleon  Boutique Hotel');
+  for (const word of ['Le Cameleon Boutique Hotel', 'Cameleon', 'Boutique', 'arroba', 'punto com', 'dirección comercial'])
+    assert.ok(keywords.includes(word), word);
+  assert.ok(!keywords.includes('Le'), 'short words add noise');
+  assert.ok(tourismAsrKeywords('x '.repeat(200)).length <= 50);
+  // The agent must allow the per-call override, or ElevenLabs silently drops the keywords.
+  const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
+  assert.equal(config.platform_settings.overrides.conversation_config_override.asr.keywords, true);
 });
 
 test('a paused dialer cancels a real reservation before anything is dialed', async () => {
@@ -203,6 +215,7 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   assert.match(prompt, /Un menú nunca es un número equivocado/);
   assert.match(prompt, /se escribe direccioncomercial/);
   assert.match(prompt, /nunca vuelvas a hacer la invitación/);
+  assert.match(prompt, /Nunca pidas el mismo dato una tercera vez/);
   // The coverage question comes before any demo offer, exactly once.
   const promptText = tourismPrompt();
   const coverage = 'Cuando un huésped escribe en inglés después de las seis, ¿quién le contesta?';

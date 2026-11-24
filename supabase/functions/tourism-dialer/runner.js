@@ -1,7 +1,7 @@
 // Tourism dispatcher runner: same proven mechanics as the dental runner (dispatch, sync,
 // reconcile) against tourism tables, with tourism outcome mapping and exactly-once
 // callback scheduling. Never touches dental rows.
-import { providerReason, tourismCallResults, tourismConfigFailures, isSip403Error } from './provider.js';
+import { providerReason, tourismAsrKeywords, tourismCallResults, tourismConfigFailures, isSip403Error } from './provider.js';
 import {
   TOURISM_SCRIPT_VERSION,
   greetingFor,
@@ -79,6 +79,7 @@ export async function dispatchTourismCall(db, apiKey, claim, fetchImpl = fetch) 
             plw_transfer_uri: runtime.transfer_uri,
             plw_script_version: TOURISM_SCRIPT_VERSION,
           },
+          conversation_config_override: { asr: { keywords: tourismAsrKeywords(lead.business_name) } },
         },
       }),
     });

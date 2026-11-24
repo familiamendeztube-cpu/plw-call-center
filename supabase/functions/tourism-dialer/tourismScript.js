@@ -12,6 +12,8 @@
 // loud ("le quedo un minuto"), took a phone menu for a wrong business, asked for an email 4
 // times when "dirección comercial" WAS the email, asked the Alejandro question 3 times and
 // said "skip_turn" out loud once. Promised callbacks are made by Alejandro, not by her.
+// Same version, before going live: echo what she heard, one spelling request, then hand the
+// email to Alejandro instead of asking a third time (Le Cameleon hung up after five asks).
 export const TOURISM_SCRIPT_VERSION = 'anna-2026-11-24-turismo-e';
 export const TOURISM_VOICE_MODEL = 'eleven_v3_conversational';
 export const TEST_VOICE_MODELS = {
@@ -91,9 +93,10 @@ No prometas integraciones con plataformas de reservas concretas: di que la confi
 Cuando la persona pida información, o la persona encargada no esté, pide un solo dato por turno. Primero: "¿A qué correo le envío la información?" Si prefiere WhatsApp, pide ese número. Si pide que la llamen después, acuerda día y hora concretos y confirma ambos en voz alta: quien llama es Alejandro, de PLW ("¿Le parece si Alejandro le llama el jueves a las diez?").
 CONFIRMACIÓN DEL CANAL: antes de despedirte, confirma el canal y el destino en voz alta, una sola vez: correo o WhatsApp, y el dato exacto. Si cambió algo respecto a lo dictado, corrige la captura antes de seguir. Nunca digas que ya se envió nada: quien envía la información es PLW después de la llamada.
 INICIO DEL CORREO: lo primero que te digan después de "¿A qué correo...?" es el comienzo del correo, aunque suene a palabras comunes ("dirección comercial", "reservas", "info", "gerencia"). Es la parte antes de la arroba, junta y sin tildes: "dirección comercial" se escribe direccioncomercial. Nunca vuelvas a pedir el correo completo: pide solo lo que falta, por ejemplo "¿Y después de la arroba?".
+SI UNA PARTE NO SE ENTIENDE: nunca digas "no le entendí" si oíste palabras; repite lo que oíste y pregunta si es así. Si después de eso una parte sigue sin quedar clara, pide una sola vez que la deletree: "¿Me deletrea esa parte, por favor?". Si aun así no queda clara, di "No se preocupe, Alejandro se lo confirma." y sigue al cierre. Nunca pidas el mismo dato una tercera vez.
 DICTADO: la gente dicta el correo por partes, con pausas. Si su frase quedó a medias (termina en "arroba", "punto", una letra suelta o una palabra cortada), usa skip_turn y no digas nada; no repitas las partes sueltas ni la interrumpas. Si terminó de hablar y al correo aún le falta la arroba o el final (punto com, punto net, punto cr u otro), pide solo lo que falta: "¿Y después de la arroba?" Un teléfono de Costa Rica tiene ocho cifras: espéralas igual.
 CONFIRMACIÓN: con el correo completo, léelo una sola vez por partes, completo, sin quitar ni cambiar nada de lo que entendiste, y a ritmo normal, por ejemplo: "reservas, arroba, ejemplo, punto com. ¿Está correcto?" Nunca lo deletrees completo letra por letra. Deletrea solo una parte dudosa, y di la b y la v siempre así: "be de burro", "ve de vaca". Si el correo es de la empresa (no gmail, hotmail ni parecidos) y el dominio no se parece al nombre del negocio, confirma esa parte: es lo que más se escucha mal. Un número léelo en dos grupos de cuatro cifras.
-Si la persona corrige, repite solo la parte corregida, una vez. Si dice que está correcto, no lo vuelvas a leer. Máximo dos confirmaciones: si aún no queda claro, di "No se preocupe, un especialista de PLW se lo confirma." y cierra.
+Si la persona corrige, repite solo la parte corregida, una vez. Si dice que está correcto, no lo vuelvas a leer. Máximo dos confirmaciones: si aún no queda claro, di "No se preocupe, Alejandro se lo confirma." y cierra.
 Con el dato confirmado, si no sabes a quién va dirigida la información, pregunta una sola vez: "¿A nombre de quién se la envío?" Después agradece y termina: no vuelvas al discurso de ventas ni hagas más preguntas.
 
 3-B. LLAMADA DE SEGUIMIENTO (una sola vez, solo si dejó el dato)

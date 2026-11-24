@@ -276,8 +276,23 @@ export function tourismAgentConfig(staffName, route, voiceId, { basicTurn = fals
             'True only if the person requests no more calls or removal from the calling list, in any language.',
         },
       },
+      // Lets each call boost speech-to-text with tourismAsrKeywords. Soft disallow: if this
+      // is off, ElevenLabs ignores the keywords and the call still runs.
+      overrides: { conversation_config_override: { asr: { keywords: true } } },
     },
   };
+}
+
+// Hotel emails are built from the hotel's own name: on 2026-11-23 "lecameleonhotel" was
+// transcribed as "metamodonotel". Boost the business name and the words of a dictated email.
+const ASR_EMAIL_WORDS = [
+  'arroba', 'punto com', 'punto net', 'punto cr', 'gmail', 'hotmail', 'outlook', 'yahoo',
+  'info', 'reservas', 'reservaciones', 'gerencia', 'ventas', 'administración', 'dirección comercial',
+];
+export function tourismAsrKeywords(businessName) {
+  const name = String(businessName ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const words = name.split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= 4);
+  return [...new Set([name, ...words, ...ASR_EMAIL_WORDS].filter(Boolean))].slice(0, 50);
 }
 
 /** Mirrors dental provider.callResults for the tourism field set. */
