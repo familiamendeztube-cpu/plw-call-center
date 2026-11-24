@@ -215,7 +215,7 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
   config.agent_id = 'tourism_agent';
   assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
-  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-i'));
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-j'));
   // The 2026-11-23 failures, one rule each: hold phrasing, menu vs wrong number, the
   // email that starts with plain words, and no second Alejandro invitation.
   assert.match(prompt, /"le quedo un minuto"/);
@@ -229,7 +229,7 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   for (const question of [TOURISM_TOUR_QUESTION, TOURISM_HOTEL_QUESTION, TOURISM_GENERIC_QUESTION])
     assert.equal(promptText.split(question).length - 1, 1, 'the opening question appears once');
   assert.ok(
-    promptText.indexOf(TOURISM_TOUR_QUESTION) < promptText.indexOf('3. UN EJEMPLO'),
+    promptText.indexOf(TOURISM_TOUR_QUESTION) < promptText.indexOf('3. UNA HISTORIA'),
     'open with the question before offering anything'
   );
   assert.match(promptText, /Nunca asumas que ofrecen un destino o actividad específica como Arenal/);
@@ -304,7 +304,7 @@ test('the greeting verifies a real business name and stays neutral without one',
 
 // The h prompt rules: WhatsApp follow-up when they answer calls themselves, the role-play
 // demo with a true question, one missing field per turn, and the single Alejandro flow.
-test('recipient speaks first, Ana narrates the demo and offers Alejandro once', () => {
+test('recipient speaks first, Ana narrates the story and offers Alejandro once', () => {
   assert.equal(tourismAgentConfig('Alejandro', ROUTE, 'voice').conversation_config.agent.first_message, '');
   const prompt = tourismPrompt();
   assert.match(prompt, /¿Y los mensajes de WhatsApp también los responden a esa hora\?/);
@@ -313,7 +313,24 @@ test('recipient speaks first, Ana narrates the demo and offers Alejandro once', 
   assert.match(prompt, /espera en silencio a que una persona termine de saludar/);
   assert.match(prompt, /una familia les escribe por cuatro espacios/);
   assert.match(prompt, /Una pareja acaba de llegar/);
-  assert.match(prompt, /supuesto explícito/);
+  // Owner-supplied analysis: quoted verbatim, scoped to PLW's own reservations, never the
+  // prospect's records; the 6-of-10 line is gone.
+  assert.match(
+    prompt,
+    /En las reservas que analizamos, la mitad empezó con una consulta fuera de horario o cuando el equipo estaba ocupado y nadie pudo contestar/
+  );
+  assert.doesNotMatch(prompt, /de diez consultas, seis/);
+  assert.match(prompt, /nunca digas ni sugieras que revisamos los registros o reservas de su negocio/);
+  // Labeled assumptions: 10/week, half at night, one 50k group booking a week, four weeks;
+  // spoken in words, no lost-sales or profit promises.
+  assert.match(prompt, /diez consultas por semana/);
+  assert.match(prompt, /cinco oportunidades/);
+  assert.match(prompt, /cincuenta mil colones/);
+  assert.match(prompt, /cuatro reservas y doscientos mil colones brutos/);
+  assert.match(prompt, /Di las cifras en palabras/);
+  assert.match(prompt, /Nunca presentes esos números como ventas perdidas/);
+  assert.match(prompt, /veinticinco minutos menos por semana/);
+  assert.match(prompt, /nunca una muralla de números/);
   assert.match(prompt, /Alejandro es quien configura la asistente para cada hotel/);
   assert.match(prompt, /usa el beneficio que la persona misma nombró/);
   assert.match(prompt, /Es el especialista de PLW que configura la asistente para su negocio/);
