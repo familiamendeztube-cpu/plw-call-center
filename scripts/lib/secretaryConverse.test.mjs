@@ -13,6 +13,7 @@ import {
   cacheKey,
   windowBucket,
 } from '../../supabase/functions/plw-secretary-converse/rules.ts';
+import { draftFromKikeSite } from '../../supabase/functions/plw-secretary-converse/kikeDraft.ts';
 
 // Pins the secretary converse contract: short transcripts classify to fixed opaque ids,
 // replies are approved lines containing only public business data, and the typed/text
@@ -83,6 +84,7 @@ test('the voice and converse functions ship the same grounding and the same allo
   const read = (path) => readFileSync(new URL(`../../supabase/functions/${path}`, import.meta.url), 'utf8');
   // Each function deploys only its own folder, so the registry is copied; it must not drift.
   assert.equal(read('plw-tourism-voice/grounding.ts'), read('plw-secretary-converse/grounding.ts'));
+  assert.equal(read('plw-tourism-voice/kikeDraft.ts'), read('plw-secretary-converse/kikeDraft.ts'));
   const origins = (source) => [...source.matchAll(/'(https?:\/\/[^']+)'/g)].map((m) => m[1]).filter((url) => !url.includes('api.'));
   const lists = [
     'plw-tourism-preview/index.ts',
@@ -91,6 +93,32 @@ test('the voice and converse functions ship the same grounding and the same allo
     'plw-site-images/rules.ts',
   ].map((path) => origins(read(path)).sort());
   for (const list of lists) assert.deepEqual(list, lists[0]);
+});
+
+test('a Kike Code draft reads as a sample: its name, type, services, FAQ, place and hours', () => {
+  const draft = draftFromKikeSite({
+    slug: 'nicaraguan-restaurant',
+    brand: { name: 'Soda La Esquina', city: 'Escazú', phone: '+506 8888-1234', address: 'Frente al parque', email: 'a@b.cr' },
+    content: {
+      es: {
+        hero: { title1: 'Comida casera,', title2: 'como en casa', subtitle: 'Desayunos y almuerzos todos los días.' },
+        services: { items: [{ title: 'Desayunos' }, { title: 'Almuerzos' }, { title: '' }] },
+        faq: { items: [{ q: '¿Tienen parqueo?', a: 'Sí, frente al local.' }, { q: 'Sin respuesta', a: '' }] },
+        footer: { hours: 'Lun–Sáb 7:00 a. m. – 4:00 p. m.' },
+      },
+    },
+  });
+  assert.equal(draft.business_name, 'Soda La Esquina');
+  assert.equal(draft.secretary_name, 'Soda La Esquina');
+  assert.equal(draft.secretary_type, 'restaurant');
+  assert.equal(draft.locale, 'Escazú');
+  assert.deepEqual(draft.services, ['Desayunos', 'Almuerzos']);
+  assert.deepEqual(draft.faqs, [{ question: '¿Tienen parqueo?', answer: 'Sí, frente al local.' }]);
+  assert.deepEqual(draft.facts.map((f) => f.label), ['Dirección', 'Horario']);
+  assert.ok(!JSON.stringify(draft).includes('8888'), 'never carries the phone number');
+  assert.equal(draftFromKikeSite({ slug: 'chales-garage', brand: {} }).secretary_type, 'auto');
+  assert.equal(draftFromKikeSite({ slug: 'garage-doors' }).secretary_type, 'services');
+  assert.equal(draftFromKikeSite(null).business_name, '');
 });
 
 test('converse ids are opaque and replies use only public fields in the matched language', () => {
@@ -115,6 +143,12 @@ test('request parsing stays strict: token shape, size ceilings, language whiteli
   const token = 'a'.repeat(48);
   assert.equal(normalizeToken(`plw-${token}`), token);
   assert.equal(normalizeToken('nope'), null);
+  // A Kike Code preview keeps its prefix (it decides where the draft is read and counted).
+  const kike = `kike-${'b'.repeat(64)}`;
+  assert.equal(normalizeToken(kike), kike);
+  assert.equal(normalizeToken(`kike-${'b'.repeat(63)}`), null);
+  assert.equal(normalizeToken(`kike-${'B'.repeat(64)}`), null);
+  assert.equal(normalizeToken('b'.repeat(64)), null);
 
   const form = new FormData();
   form.append('token', `plw-${token}`);

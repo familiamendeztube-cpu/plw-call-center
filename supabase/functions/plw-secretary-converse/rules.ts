@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { KIKE_TOKEN } from './kikeDraft.ts';
 
 // Trusted origins that may embed the public preview. Requests from any other origin get
 // the first entry echoed back (a fixed allowlist value, never an untrusted origin).
@@ -57,8 +58,10 @@ export function allowedOrigin(request: Request): string {
 
 const TOKEN = /^[0-9a-f]{48}$/;
 
+/** A Call Center sample's token (with or without "plw-"), or a Kike Code preview's "kike-<token>" as is. */
 export function normalizeToken(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
+  if (KIKE_TOKEN.test(raw)) return raw;
   const token = raw.startsWith('plw-') ? raw.slice(4) : raw;
   return TOKEN.test(token) ? token : null;
 }

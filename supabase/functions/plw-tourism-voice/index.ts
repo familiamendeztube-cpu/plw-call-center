@@ -15,6 +15,7 @@ import {
   windowBucket,
 } from './rules.ts';
 import { buildAnswer, buildMandarinLine, type AnswerContext } from './grounding.ts';
+import { KIKE_TOKEN, fetchKikeDraft } from './kikeDraft.ts';
 
 // Verified against the account's synchronous /v1/models endpoint plus a real synthesis
 // (see scripts/lib/verifyElevenModel.mjs); falls back to the previous model if unset.
@@ -71,12 +72,14 @@ Deno.serve(async (req) => {
       { onConflict: 'rate_key,window_bucket' }
     );
 
-  // Resolve the active preview draft by token.
-  const { data: row, error: lookupError } = await db
-    .from('prospect_site_drafts')
-    .select('business_name, locale, category, services, highlight, description, faqs, secretary_name, secretary_type')
-    .eq('preview_token', parsed.token)
-    .maybeSingle();
+  // Resolve the active preview draft by token: a Call Center sample, or a Kike Code preview.
+  const { data: row, error: lookupError } = KIKE_TOKEN.test(parsed.token)
+    ? await fetchKikeDraft(parsed.token)
+    : await db
+        .from('prospect_site_drafts')
+        .select('business_name, locale, category, services, highlight, description, faqs, secretary_name, secretary_type')
+        .eq('preview_token', parsed.token)
+        .maybeSingle();
   if (lookupError) return json({ error: 'Voz no disponible.' }, 502, origin);
   if (!row) return json({ error: 'Vista previa no encontrada.' }, 404, origin);
 

@@ -21,6 +21,7 @@ import {
   rateKey,
   windowBucket,
 } from './rules.ts';
+import { KIKE_TOKEN, fetchKikeDraft } from './kikeDraft.ts';
 import {
   DEMO_AGENT_VERSION,
   DEMO_CLOSING,
@@ -226,6 +227,37 @@ async function ensureDemoAgent(db: Db, apiKey: string, voiceId: string): Promise
 }
 
 /**
+ * The draft behind a preview token, and how its demo sessions are counted and claimed: a Call
+ * Center sample (prospect_site_drafts, counted per draft) or a Kike Code preview ("kike-<token>",
+ * read from Kike's public preview, counted per token).
+ */
+async function loadDraft(db: Db, token: string) {
+  if (KIKE_TOKEN.test(token)) {
+    const { data, error } = await fetchKikeDraft(token);
+    if (error) console.error('plw-secretary-converse kike draft', error);
+    return {
+      draft: data as DraftRow | null,
+      error,
+      sessions: { column: 'kike_token', value: token },
+      claim: (limit: number) => db.rpc('claim_secretary_kike_demo_session', { p_token: token, p_limit: limit }),
+    };
+  }
+  const { data, error } = await db
+    .from('prospect_site_drafts')
+    .select('id, business_name, locale, category, services, highlight, description, faqs, facts, secretary_name, secretary_type')
+    .eq('preview_token', token)
+    .maybeSingle();
+  const draft = data as (DraftRow & { id: string }) | null;
+  const id = draft?.id ?? ''; // only used once a draft was found
+  return {
+    draft: draft as DraftRow | null,
+    error,
+    sessions: { column: 'draft_id', value: id },
+    claim: (limit: number) => db.rpc('claim_secretary_demo_session', { p_draft_id: id, p_limit: limit }),
+  };
+}
+
+/**
  * Live demo, JSON {action: 'status' | 'start', token}. status: the notice and how many
  * conversations are left. start: claims one of the DEMO_LIMITS.conversations and returns a
  * one-conversation ElevenLabs token plus the business variables for Conversation.startSession.
@@ -237,18 +269,14 @@ async function liveDemo(action: 'status' | 'start', rawToken: unknown, origin: s
   if (await rateLimited(db, rateKey(`demo:${token}`), 10)) {
     return json({ error: 'Demasiadas solicitudes. Intente en un momento.' }, 429, origin);
   }
-  const { data: draft, error } = await db
-    .from('prospect_site_drafts')
-    .select('id, business_name, locale, category, services, highlight, description, faqs, facts, secretary_name, secretary_type')
-    .eq('preview_token', token)
-    .maybeSingle();
+  const { draft, error, sessions, claim: claimSession } = await loadDraft(db, token);
   if (error) return json({ error: 'Secretaria no disponible.' }, 502, origin);
   if (!draft) return json({ error: 'Vista previa no encontrada.' }, 404, origin);
 
   const { count } = await db
     .from('plw_secretary_demo_sessions')
     .select('id', { count: 'exact', head: true })
-    .eq('draft_id', draft.id);
+    .eq(sessions.column, sessions.value);
   const remaining = Math.max(0, DEMO_LIMITS.conversations - (count ?? 0));
   const shared = { notice: DEMO_NOTICE, closing: DEMO_CLOSING, limits: DEMO_LIMITS };
   if (action === 'status') return json({ ...shared, remaining }, 200, origin);
@@ -260,10 +288,7 @@ async function liveDemo(action: 'status' | 'start', rawToken: unknown, origin: s
   if (!apiKey || !agentId) {
     return json({ error: 'La demostración no está disponible en este momento.' }, 503, origin);
   }
-  const { data: claim, error: claimError } = await db.rpc('claim_secretary_demo_session', {
-    p_draft_id: draft.id,
-    p_limit: DEMO_LIMITS.conversations,
-  });
+  const { data: claim, error: claimError } = await claimSession(DEMO_LIMITS.conversations);
   if (claimError) return json({ error: 'Secretaria no disponible.' }, 502, origin);
   if (!claim?.allowed) return usedUp;
 
@@ -317,13 +342,7 @@ Deno.serve(async (req) => {
   }
 
   // Public unlisted preview: resolve the active draft by token only. No staff data.
-  const { data: row, error: lookupError } = await db
-    .from('prospect_site_drafts')
-    .select(
-      'business_name, locale, category, services, highlight, description, faqs, facts, secretary_name, secretary_type'
-    )
-    .eq('preview_token', parsed.token)
-    .maybeSingle();
+  const { draft: row, error: lookupError } = await loadDraft(db, parsed.token);
   if (lookupError) return json({ error: 'Secretaria no disponible.' }, 502, origin);
   if (!row) return json({ error: 'Vista previa no encontrada.' }, 404, origin);
 

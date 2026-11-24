@@ -105,3 +105,27 @@ test('each customer gets 3 demo conversations, counted per draft, server only', 
     await tx.rollback();
   });
 });
+
+test('a Kike Code preview gets its own 3 conversations, counted per token, server only', async () => {
+  await db.transaction(async (tx) => {
+    const [first, second] = [`kike-${'a'.repeat(64)}`, `kike-${'b'.repeat(64)}`];
+    await tx.exec('SET LOCAL ROLE service_role');
+    const claim = async (token) =>
+      (await tx.query('SELECT claim_secretary_kike_demo_session($1, 3) AS c', [token])).rows[0].c;
+
+    assert.deepEqual([(await claim(first)).used, (await claim(first)).used, (await claim(first)).used], [1, 2, 3]);
+    assert.deepEqual(await claim(first), { allowed: false, used: 3 });
+    assert.equal((await claim(second)).allowed, true, 'another preview link has its own 3');
+    // A row belongs to exactly one demo: a sample's draft or a Kike token, and only a well-formed token.
+    await tx.exec('SAVEPOINT shape');
+    await assert.rejects(tx.query('INSERT INTO plw_secretary_demo_sessions (kike_token) VALUES ($1)', ['kike-nope']), /check/i);
+    await tx.exec('ROLLBACK TO SAVEPOINT shape');
+    await assert.rejects(tx.query('INSERT INTO plw_secretary_demo_sessions DEFAULT VALUES'), /one_source/);
+    await tx.exec('ROLLBACK TO SAVEPOINT shape');
+
+    await tx.exec('RESET ROLE');
+    await tx.exec('SET LOCAL ROLE authenticated');
+    await assert.rejects(tx.query('SELECT claim_secretary_kike_demo_session($1, 99)', [first]), /permission denied/);
+    await tx.rollback();
+  });
+});
