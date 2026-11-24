@@ -75,7 +75,8 @@ test('a finished call creates the customer before its milestones look for it', a
   await syncTourismCalls(db, 'key', async () => agentJson(conversation));
   const customer = order.indexOf('tourism_call_to_customer');
   assert.ok(customer >= 0, 'customer conversion ran');
-  assert.ok(customer < order.indexOf('tourism_milestones'), 'callback milestone after the customer');
+  assert.ok(customer < order.indexOf('tourism_hand_promise_to_agent'), 'promise hand-off after the customer');
+  assert.ok(!order.includes('prospects'), 'no direct prospects read: the service role has no grant');
   assert.ok(customer < order.indexOf('record_tourism_demo_agreement'), 'demo milestone after the customer');
 });
 
@@ -195,7 +196,13 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
   config.agent_id = 'tourism_agent';
   assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
-  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-d'));
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-e'));
+  // The 2026-11-23 failures, one rule each: hold phrasing, menu vs wrong number, the
+  // email that starts with plain words, and no second Alejandro invitation.
+  assert.match(prompt, /"le quedo un minuto"/);
+  assert.match(prompt, /Un menú nunca es un número equivocado/);
+  assert.match(prompt, /se escribe direccioncomercial/);
+  assert.match(prompt, /nunca vuelvas a hacer la invitación/);
   // The coverage question comes before any demo offer, exactly once.
   const promptText = tourismPrompt();
   const coverage = 'Cuando un huésped escribe en inglés después de las seis, ¿quién le contesta?';

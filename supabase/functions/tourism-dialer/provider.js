@@ -134,7 +134,11 @@ const DETAIL_FIELDS = {
   plw_contact_role: detail('Their role, e.g. encargado, dueño, administrador.'),
   plw_contact_email: {
     type: 'string',
-    description: 'Email the person asked PLW to send information to, lowercase, with @ and dots. If Anna read it back and the person corrected it, use the corrected version. Empty if not given or unsure; never guess.',
+    description:
+      'Email the person asked PLW to send information to, lowercase, with @ and dots, no spaces or accents. ' +
+      'Use the LAST version: the one Anna read back and the person confirmed, or their correction after it, ' +
+      'never the first one heard. If nobody confirmed it, leave this empty and write "correo sin confirmar: ..." ' +
+      'with what was heard in plw_notes. Never guess.',
   },
   plw_whatsapp_number: {
     type: 'string',
@@ -190,7 +194,12 @@ const OUTCOME_FIELD = {
       'WHATSAPP_INFO_REQUESTED, EMAIL_INFO_REQUESTED, CALLBACK_REQUESTED, DEMO_SCHEDULED, ' +
       'RECEPTIONIST_CONTACT, DECISION_MAKER_UNAVAILABLE, NOT_INTERESTED, DO_NOT_CALL, WRONG_NUMBER, ' +
       'NO_ANSWER, VOICEMAIL, TECHNICAL_FAILURE. Use DEMO_SCHEDULED only when the person confirmed both ' +
-      'day and time for the demo. Use DO_NOT_CALL whenever the person asked not to be called again.',
+      'day and time for the demo. Use DO_NOT_CALL whenever the person asked not to be called again. ' +
+      'NOT_INTERESTED only when a person said no; a recording is never NOT_INTERESTED. ' +
+      'WRONG_NUMBER only when a person said it is not that business, or a recording said the number changed ' +
+      '(put the new number in plw_notes); a phone menu is never WRONG_NUMBER. ' +
+      'TECHNICAL_FAILURE only for a broken line or no audio; if the person put Anna on hold and nobody came ' +
+      'back, use RECEPTIONIST_CONTACT or DECISION_MAKER_UNAVAILABLE.',
   },
 };
 // Every code the plw_outcome field offers. The interested ones become customers through

@@ -108,19 +108,6 @@ export async function dispatchTourismCall(db, apiKey, claim, fetchImpl = fetch) 
       .eq('id', call.id)
       .eq('state', 'reserved')
   );
-  // A failed callback promise keeps its real failure reason instead of "done".
-  if (rejected && claim.callback?.id) {
-    const { error: cbError } = await db
-      .from('tourism_callbacks')
-      .update({
-        status: 'failed',
-        fail_reason: `El proveedor rechazó la llamada${reason}.`,
-        attempts: (claim.callback.attempts ?? 0) + 1,
-      })
-      .eq('id', claim.callback.id)
-      .eq('status', 'done');
-    if (cbError) console.error('tourism callback failure not saved', cbError.code);
-  }
   if (rejected)
     await recordTourismResult(
       db,
@@ -217,23 +204,11 @@ export async function syncTourismCalls(db, apiKey, fetchImpl = fetch) {
           // the call that first creates it they used to find nothing and were lost.
           const { error } = await db.rpc('tourism_call_to_customer', { p_call_id: call.id });
           if (error) console.error('tourism customer not created', error.code);
-          // A confirmed day+time promise is a "Devolución agendada" milestone on the
-          // customer's prospect row, when the call already created one.
+          // A confirmed day+time promise becomes Alejandro's follow-up at that time plus the
+          // "Devolución agendada" milestone. In SQL: the service role cannot read prospects.
           if (results.details.callback_date && results.details.callback_clock) {
-            const { data: prospectId } = await db
-              .from('prospects')
-              .select('id')
-              .eq('idempotency_key', `tourism:${call.lead_id ?? ''}`)
-              .maybeSingle();
-            if (prospectId) {
-              await db
-                .from('tourism_milestones')
-                .upsert(
-                  { prospect_id: prospectId.id, milestone: 'devolucion_agendada', channel: 'phone', source: 'auto', agent_id: call.staff_id ?? 'agent-2' },
-                  { onConflict: 'prospect_id,milestone', ignoreDuplicates: true }
-                )
-                .then(({ error }) => { if (error) console.error('tourism milestone not saved', error.code); }, () => {});
-            }
+            const { error: promiseError } = await db.rpc('tourism_hand_promise_to_agent', { p_call_id: call.id });
+            if (promiseError) console.error('tourism promise not handed to the agent', promiseError.code);
           }
           // A confirmed demo day+time is "Demo agendada"; the RPC guards duplicates,
           // slot changes and never completes the demo by itself.

@@ -180,50 +180,43 @@ test('the dialer starts paused, and clearing an error never resumes it; only Ini
     await denied(tx, 'SELECT claim_tourism_call($1)', [at], /permission denied/);
   }));
 
-test('a confirmed callback is dialed once when due; an opted-out number is never called back', async () =>
+test('the dialer never dials a promised callback, even when due; Alejandro gets it instead', async () =>
   fixture(async (tx) => {
     const campaignId = await tourismCampaign(tx);
     await lead(tx, campaignId, 0, '22221100');
-    await lead(tx, campaignId, 1, '22221101');
-    await lead(tx, campaignId, 2, '22221102');
     await tx.exec(READY);
     await as(tx);
     const first = (await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data;
-    await tx.query("UPDATE tourism_calls SET state='completed' WHERE id=$1", [first.call.id]);
-    // Lead 0 agreed to a callback in one hour; lead 1 answered and later opted out.
+    await tx.query(
+      "UPDATE tourism_calls SET state='completed', conversation_id='conv_p', finished_at=$2, outcome='DECISION_MAKER_UNAVAILABLE', details=$3 WHERE id=$1",
+      [first.call.id, at, { callback_date: '2026-11-10', callback_clock: '10:00' }]
+    );
+    // "The manager is out, call tomorrow at 10": promised, due in one hour.
     await tx.query(
       "INSERT INTO tourism_callbacks(call_id,lead_id,phone,scheduled_for) VALUES($1,$2,'22221100',$3::timestamptz + interval '1 hour')",
       [first.call.id, first.lead.id, at]
     );
-    const second = (await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data;
-    assert.equal(second.lead.phone, '22221101');
-    await tx.query("UPDATE tourism_calls SET state='completed' WHERE id=$1", [second.call.id]);
-    await tx.query(
-      "INSERT INTO tourism_callbacks(call_id,lead_id,phone,scheduled_for) VALUES($1,$2,'22221101',$3)",
-      [second.call.id, second.lead.id, at]
-    );
-    await tx.query("INSERT INTO ai_outbound_do_not_call(phone) VALUES('22221101')");
-    // Not due yet for lead 0, opted out for lead 1: the fresh lead 2 is next.
-    const third = (await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data;
-    assert.equal(third.lead.phone, '22221102');
-    assert.equal(third.callback, undefined);
-    await tx.query("UPDATE tourism_calls SET state='completed' WHERE id=$1", [third.call.id]);
     const later = new Date(Date.parse(at) + 61 * 60_000).toISOString();
     await tx.query("UPDATE staff_presence SET last_heartbeat_at=$1 WHERE staff_id='agent-2'", [later]);
-    const callback = (await tx.query('SELECT claim_tourism_call($1) AS data', [later])).rows[0].data;
-    assert.equal(callback.lead.phone, '22221100');
-    assert.equal(callback.call.phone, '22221100');
-    assert.ok(callback.callback);
-    await tx.query("UPDATE tourism_calls SET state='completed' WHERE id=$1", [callback.call.id]);
-    // Exactly once: nothing left to dial.
     assert.equal((await tx.query('SELECT claim_tourism_call($1) AS data', [later])).rows[0].data, null);
-    assert.deepEqual(
-      (await tx.query('SELECT phone,status FROM tourism_callbacks ORDER BY phone')).rows,
-      [
-        { phone: '22221100', status: 'done' },
-        { phone: '22221101', status: 'cancelled' },
-      ]
-    );
+
+    // Same order as runner.js: customer first (a promise is enough), then the hand-off.
+    assert.ok((await tx.query('SELECT tourism_call_to_customer($1) AS r', [first.call.id])).rows[0].r);
+    await tx.query('SELECT tourism_hand_promise_to_agent($1)', [first.call.id]);
+    await tx.query('SELECT tourism_hand_promise_to_agent($1)', [first.call.id]); // replayed sync
+    await tx.exec('RESET ROLE');
+    const followups = (await tx.query("SELECT agent_id,kind,title,due_at FROM followups")).rows;
+    assert.equal(followups.length, 1);
+    assert.equal(followups[0].agent_id, 'agent-2');
+    assert.equal(followups[0].kind, 'callback');
+    assert.match(followups[0].title, /^Llamar a Tour 0 \(22221100\): Anna prometió que Alejandro llama el 10\/11 a las 10:00 AM$/);
+    assert.equal(new Date(followups[0].due_at).toISOString(), new Date(Date.parse(at) + 3600_000).toISOString());
+    const milestones = (await tx.query("SELECT milestone,slot_confirmed FROM tourism_milestones")).rows;
+    assert.deepEqual(milestones, [{ milestone: 'devolucion_agendada', slot_confirmed: true }]);
+    assert.deepEqual((await tx.query('SELECT status FROM tourism_callbacks')).rows, [{ status: 'done' }]);
+    // Service role only.
+    await as(tx, 1);
+    await denied(tx, 'SELECT tourism_hand_promise_to_agent($1)', [first.call.id], /permission denied/);
   }));
 
 test('an interested tourism call becomes one customer for Alejandro with a pending request', async () =>
