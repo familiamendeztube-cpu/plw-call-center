@@ -17,7 +17,8 @@ const KIKE_TYPES: [RegExp, string][] = [
   [/shop|suplidora/, 'retail'],
   [/gym/, 'gym'],
   [/real-estate/, 'real_estate'],
-  [/tourism/, 'tourism'],
+  // A slug naming tours is a tour operator (Kike's tamarindo-tours-discovery).
+  [/tourism|tours/, 'tourism'],
 ];
 
 type Json = Record<string, unknown>;

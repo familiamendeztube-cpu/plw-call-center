@@ -118,6 +118,8 @@ test('a Kike Code draft reads as a sample: its name, type, services, FAQ, place 
   assert.ok(!JSON.stringify(draft).includes('8888'), 'never carries the phone number');
   assert.equal(draftFromKikeSite({ slug: 'chales-garage', brand: {} }).secretary_type, 'auto');
   assert.equal(draftFromKikeSite({ slug: 'garage-doors' }).secretary_type, 'services');
+  assert.equal(draftFromKikeSite({ slug: 'tamarindo-tours-discovery' }).secretary_type, 'tourism');
+  assert.equal(draftFromKikeSite({ slug: 'plw-tourism-tours' }).secretary_type, 'tourism');
   assert.equal(draftFromKikeSite(null).business_name, '');
 });
 
