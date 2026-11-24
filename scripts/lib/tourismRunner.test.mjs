@@ -215,7 +215,7 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
   config.agent_id = 'tourism_agent';
   assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
-  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-j'));
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-k'));
   // The 2026-11-23 failures, one rule each: hold phrasing, menu vs wrong number, the
   // email that starts with plain words, and no second Alejandro invitation.
   assert.match(prompt, /"le quedo un minuto"/);
@@ -302,13 +302,13 @@ test('the greeting verifies a real business name and stays neutral without one',
   assert.match(tourismPrompt(), /nunca digas frases como "el negocio de turismo"/);
 });
 
-// The h prompt rules: WhatsApp follow-up when they answer calls themselves, the role-play
-// demo with a true question, one missing field per turn, and the single Alejandro flow.
+// The k prompt rules: coverage is workflow, never a refusal; Ana plays the English sample
+// herself and closes only on an explicit no, opt-out or email-only request.
 test('recipient speaks first, Ana narrates the story and offers Alejandro once', () => {
   assert.equal(tourismAgentConfig('Alejandro', ROUTE, 'voice').conversation_config.agent.first_message, '');
   const prompt = tourismPrompt();
-  assert.match(prompt, /¿Y los mensajes de WhatsApp también los responden a esa hora\?/);
-  assert.match(prompt, /Nunca des por hecho que están cerrados un sábado/);
+  // The WhatsApp follow-up only fires when they did not already mention WhatsApp.
+  assert.match(prompt, /Si ya dijeron que atienden también WhatsApp, no preguntes por WhatsApp otra vez/);
   assert.doesNotMatch(prompt, /¿Quiere hacer de|invítala a preguntar/i);
   assert.match(prompt, /espera en silencio a que una persona termine de saludar/);
   assert.match(prompt, /una familia les escribe por cuatro espacios/);
@@ -344,4 +344,58 @@ test('recipient speaks first, Ana narrates the story and offers Alejandro once',
   const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
   config.agent_id = 'tourism_agent';
   assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
+});
+
+// The k prompt rules: coverage describes workflow and never closes the call by itself; Ana
+// gives the English sample herself and only an explicit no, opt-out or email-only request
+// ends it.
+test('coverage is a workflow description, never a refusal: acknowledge once, benefit, English sample, close only on explicit no', () => {
+  const prompt = tourismPrompt();
+  // No rule may treat coverage alone as a reason to thank and close.
+  assert.doesNotMatch(prompt, /Si lo tienen todo cubierto, reconócelo, agradece y cierra/);
+  assert.match(
+    prompt,
+    /Lo que describen sobre cómo atienden \(ellos mismos, WhatsApp, un sistema, horarios\) describe su flujo de trabajo: NUNCA es un no/
+  );
+  assert.match(
+    prompt,
+    /solo un no expreso, un pedido de no llamar o un «solo por correo» la cierran/
+  );
+  // "Yo atiendo ambas": acknowledge once, no channel interrogation, straight to the benefit.
+  assert.match(prompt, /reconócelo UNA vez y pasa enseguida a un beneficio concreto, sin interrogar más canales/);
+  assert.match(prompt, /Entonces usted lleva los dos\. Imagine que está registrando a una familia y justo entra un mensaje en inglés/);
+  // Ana gives the audible English sample herself, announced as an example, never role-play.
+  assert.match(prompt, /anunciándolo como ejemplo y sin pedirle a la persona que actúe ni responda como huésped/);
+  assert.match(prompt, /Good evening! I can check availability for tomorrow\. How many guests will be staying\?/);
+  assert.match(prompt, /Of course! How many people would like to join tomorrow's tour\?/);
+  // Back in Spanish with the concrete outcome and the check question.
+  assert.match(
+    prompt,
+    /Usted sigue atendiendo a la familia y le queda la consulta con la fecha y el número de personas, lista para confirmar\. ¿Le serviría en esos momentos\?/
+  );
+  // Adapts to what they already cover, never repeating their answer.
+  assert.match(prompt, /atender dos consultas a la vez, el desborde cuando están ocupados, un segundo idioma/);
+  // Still covered after the example: respect it, no endless objections.
+  assert.match(prompt, /Si después del ejemplo siguen diciendo que lo tienen todo cubierto, respeta su respuesta: agradece y cierra, sin más objeciones/);
+  // Section 7 keeps the same spirit: the "ya lo hago" objection no longer re-interrogates.
+  assert.doesNotMatch(prompt, /Cuando está con un huésped y entra otra llamada, ¿cómo la atienden\?/);
+  assert.match(prompt, /Usted lo lleva muy bien\. Imagine que está con un huésped y entra un mensaje en inglés/);
+  // Firm no, opt-out and email-only still end the call immediately.
+  assert.match(prompt, /Un no firme termina la llamada/);
+  assert.match(prompt, /Si piden que nunca más llames, reconoce la solicitud y termina/);
+  assert.match(prompt, /Si piden solo correo, respétalo y cierra después del dato/);
+  // Open/neutral reception: one demonstrated benefit, one question, single Alejandro invite.
+  assert.match(prompt, /demuestra UN beneficio antes de cerrar y haz UNA pregunta relevante/);
+  assert.match(prompt, /¿Le sirve esa frase para pasársela a la persona encargada\?/);
+  // The j value lines survive: the owner analysis and the four-bookings example.
+  assert.match(
+    prompt,
+    /En las reservas que analizamos, la mitad empezó con una consulta fuera de horario o cuando el equipo estaba ocupado y nadie pudo contestar/
+  );
+  assert.match(prompt, /cuatro reservas y doscientos mil colones brutos/);
+  // The prompt still verifies clean at the exact version.
+  const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
+  config.agent_id = 'tourism_agent';
+  assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-k'));
 });
