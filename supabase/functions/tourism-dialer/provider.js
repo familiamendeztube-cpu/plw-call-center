@@ -334,7 +334,7 @@ export function tourismConfigFailures(config, route) {
   const failures = [];
   const agent = config.conversation_config?.agent;
   const p = agent?.prompt;
-  if (text(agent?.first_message) !== text(TOURISM_FIRST_MESSAGE)) failures.push('first_message');
+  if (agent?.first_message !== TOURISM_FIRST_MESSAGE) failures.push('first_message');
   if (agent?.language !== 'es') failures.push('language');
   if (p?.timezone !== TIMEZONE) failures.push('timezone');
   if (config.conversation_config?.tts?.model_id !== TOURISM_VOICE_MODEL) failures.push('voice_model');

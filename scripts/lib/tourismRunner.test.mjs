@@ -215,7 +215,7 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
   config.agent_id = 'tourism_agent';
   assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
-  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-h'));
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-i'));
   // The 2026-11-23 failures, one rule each: hold phrasing, menu vs wrong number, the
   // email that starts with plain words, and no second Alejandro invitation.
   assert.match(prompt, /"le quedo un minuto"/);
@@ -229,7 +229,7 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   for (const question of [TOURISM_TOUR_QUESTION, TOURISM_HOTEL_QUESTION, TOURISM_GENERIC_QUESTION])
     assert.equal(promptText.split(question).length - 1, 1, 'the opening question appears once');
   assert.ok(
-    promptText.indexOf(TOURISM_TOUR_QUESTION) < promptText.indexOf('¿Quiere hacer de huésped un momento?'),
+    promptText.indexOf(TOURISM_TOUR_QUESTION) < promptText.indexOf('3. UN EJEMPLO'),
     'open with the question before offering anything'
   );
   assert.match(promptText, /Nunca asumas que ofrecen un destino o actividad específica como Arenal/);
@@ -304,17 +304,16 @@ test('the greeting verifies a real business name and stays neutral without one',
 
 // The h prompt rules: WhatsApp follow-up when they answer calls themselves, the role-play
 // demo with a true question, one missing field per turn, and the single Alejandro flow.
-test('the h prompt adds the WhatsApp check, role-play demo and single Alejandro invitation', () => {
+test('recipient speaks first, Ana narrates the demo and offers Alejandro once', () => {
+  assert.equal(tourismAgentConfig('Alejandro', ROUTE, 'voice').conversation_config.agent.first_message, '');
   const prompt = tourismPrompt();
   assert.match(prompt, /¿Y los mensajes de WhatsApp también los responden a esa hora\?/);
   assert.match(prompt, /Nunca des por hecho que están cerrados un sábado/);
-  assert.match(prompt, /¿Quiere hacer de huésped un momento\? Yo le contesto como si fuera la recepción de su hotel/);
-  assert.match(prompt, /¿Quiere hacer de turista un momento\? Yo le contesto como si fuera el operador de su empresa/);
-  assert.match(prompt, /pide solo UN dato faltante por turno/);
-  assert.match(prompt, /nunca respondas por la persona ni le vuelvas a pedir un dato que ya dio/);
-  assert.match(prompt, /usando SOLO lo dicho/);
-  assert.match(prompt, /¿Eso le serviría a su equipo cuando abre\?/);
-  assert.match(prompt, /El ejemplo interactivo no agenda una demo/);
+  assert.doesNotMatch(prompt, /¿Quiere hacer de|invítala a preguntar/i);
+  assert.match(prompt, /espera en silencio a que una persona termine de saludar/);
+  assert.match(prompt, /una familia les escribe por cuatro espacios/);
+  assert.match(prompt, /Una pareja acaba de llegar/);
+  assert.match(prompt, /supuesto explícito/);
   assert.match(prompt, /Alejandro es quien configura la asistente para cada hotel/);
   assert.match(prompt, /usa el beneficio que la persona misma nombró/);
   assert.match(prompt, /Es el especialista de PLW que configura la asistente para su negocio/);
