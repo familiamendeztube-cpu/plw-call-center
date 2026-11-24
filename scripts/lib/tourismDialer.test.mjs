@@ -567,3 +567,28 @@ test('the admin restart clears the 403 alert and counter without touching paused
     assert.ok(alert.cleared_at);
     assert.equal(alert.cleared_by, 'admin-1');
   }));
+
+test('an unclear tourism email stays pending until the assigned agent reviews it', async () =>
+  fixture(async (tx) => {
+    const campaign = await tourismCampaign(tx);
+    await lead(tx, campaign, 0, '22221100');
+    const { rows: [call] } = await tx.query(
+      `INSERT INTO tourism_calls(lead_id,campaign_id,staff_id,phone,provider_agent_id,conversation_id,state,finished_at,outcome,transcript)
+       VALUES($1,$2,'agent-2','22221100','tourism_agent','conv_review','completed',now(),'EMAIL_INFO_REQUESTED',$3) RETURNING id`,
+      [id(400), campaign, JSON.stringify([{message:'¿A qué correo?', time_in_call_secs:100}])]
+    );
+    await as(tx);
+    const {rows:[request]} = await tx.query('SELECT tourism_call_to_customer($1) AS id', [call.id]);
+    await as(tx, 0);
+    assert.equal((await tx.query('SELECT * FROM pending_tourism_emails()')).rows.length, 0);
+    await denied(tx, 'SELECT verify_tourism_email($1,$2)', [request.id,'a@b.cr'], /asignada/);
+    await as(tx, 1);
+    const {rows:[pending]} = await tx.query('SELECT * FROM pending_tourism_emails()');
+    assert.equal(pending.request_id, request.id);
+    assert.equal(pending.start_seconds, 97);
+    await denied(tx, 'SELECT verify_tourism_email($1,$2)', [request.id,'direccion'], /dirección/);
+    await tx.query('SELECT verify_tourism_email($1,$2)', [request.id,'reservas@tour.cr']);
+    assert.equal((await tx.query('SELECT * FROM pending_tourism_emails()')).rows.length, 0);
+    await tx.exec('RESET ROLE');
+    assert.equal((await tx.query("SELECT email FROM prospects WHERE phone='22221100'")).rows[0].email,'reservas@tour.cr');
+  }));

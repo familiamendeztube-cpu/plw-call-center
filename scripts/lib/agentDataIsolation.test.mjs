@@ -108,6 +108,8 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'mark_notifications_read',
   'mark_prospect_site_shared',
   'mark_whatsapp_read',
+  'pending_tourism_emails',
+  'verify_tourism_email',
   'public_agent_directory',
   'reassign_prospect',
   'record_heartbeat',

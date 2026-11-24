@@ -196,9 +196,8 @@ test('tourism phone normalization takes the last valid 8-digit CR group', () => 
 // and the admin test call because both use tourismAgentConfig.
 test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactly once', () => {
   const prompt = tourismPrompt();
-  const ask = 'Claro, se lo mando. ¿Le parece si Alejandro le llama mañana a las diez? En cinco minutos le enseña cómo respondería la recepcionista si un huésped llama en inglés después de que ustedes cierran.';
-  assert.ok(prompt.includes(ask), 'the exact quoted ask must be in the prompt');
-  assert.equal(prompt.split('Claro, se lo mando').length - 1, 1, 'the ask appears once, never repeated');
+  assert.ok(prompt.includes('Alejandro se lo explique directamente'));
+  assert.ok(prompt.includes('Máximo dos intentos en total por correo'));
   assert.match(prompt, /Nunca digas que ya se envió nada/);
   assert.match(prompt, /lunes a viernes, de ocho de la mañana a cuatro de la tarde/);
   assert.match(prompt, /fecha y hora confirmadas/);
@@ -208,12 +207,12 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
   config.agent_id = 'tourism_agent';
   assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
-  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-e'));
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-f'));
   // The 2026-11-23 failures, one rule each: hold phrasing, menu vs wrong number, the
   // email that starts with plain words, and no second Alejandro invitation.
   assert.match(prompt, /"le quedo un minuto"/);
   assert.match(prompt, /Un menú nunca es un número equivocado/);
-  assert.match(prompt, /se escribe direccioncomercial/);
+  assert.match(prompt, /Conserva ambas palabras/);
   assert.match(prompt, /nunca vuelvas a hacer la invitación/);
   assert.match(prompt, /Nunca pidas el mismo dato una tercera vez/);
   // The coverage question comes before any demo offer, exactly once.

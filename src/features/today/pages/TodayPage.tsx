@@ -12,6 +12,7 @@ import { useAuth } from '@/features/auth/context/useAuth';
 import { useAgentSession } from '@/features/auth/hooks/useAgentSession';
 import { useAiCalls } from '@/features/ai-calls/hooks/useAiCalls';
 import { TOURISM_AGENT_ID } from '@/features/ai-outbound/components/TourismDialerCard';
+import { TourismEmailReview } from '@/features/ai-outbound/components/TourismEmailReview';
 import { TourismPriorityQueue } from '@/features/ai-outbound/components/TourismPriorityQueue';
 import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
 import { useDentalDialer } from '@/features/dental-leads/hooks/useDentalDialer';
@@ -110,7 +111,10 @@ export function TodayPage() {
 
       {/* Alejandro's queue: only he can open those customers and schedule their follow-ups. */}
       {production && agentId === TOURISM_AGENT_ID ? (
-        <TourismPriorityQueue agentId={agentId} onScheduled={() => followups.reload()} />
+        <>
+          <TourismEmailReview />
+          <TourismPriorityQueue agentId={agentId} onScheduled={() => followups.reload()} />
+        </>
       ) : null}
 
       {failure && failure.status === 'error' ? (

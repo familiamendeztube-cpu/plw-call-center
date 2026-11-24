@@ -132,6 +132,7 @@ const detail = (description) => ({
 const DETAIL_FIELDS = {
   plw_contact_name: detail('Name of the person Anna spoke with.'),
   plw_contact_role: detail('Their role, e.g. encargado, dueño, administrador.'),
+  plw_email_requested: detail("Return the string true only when the person explicitly asked for material by email, including if the address remained unclear. Otherwise leave empty."),
   plw_contact_email: {
     type: 'string',
     description:
@@ -152,7 +153,7 @@ const DETAIL_FIELDS = {
   plw_notes: detail('Other important notes for the PLW specialist, briefly.'),
   plw_callback_date: {
     type: 'string',
-    description: 'Callback day as YYYY-MM-DD, only if the person confirmed that exact day in this call. Empty if only suggested or unknown.',
+    description: 'Callback day as YYYY-MM-DD, only if the person confirmed that exact day for an authorized business callback. A guess about when management is usually available is not agreement. Empty if only suggested or unknown.',
   },
   plw_callback_clock: {
     type: 'string',

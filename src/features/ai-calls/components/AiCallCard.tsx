@@ -51,7 +51,7 @@ type Recording =
   | { status: 'error'; message: string };
 
 /** Loads the recording only when asked: it is a few MB and most cards are never played. */
-export function CallRecording({ target }: { target: CallAudioTarget }) {
+export function CallRecording({ target, startSeconds }: { target: CallAudioTarget; startSeconds?: number }) {
   const [recording, setRecording] = useState<Recording>({ status: 'idle' });
   useEffect(
     () => () => {
@@ -76,6 +76,9 @@ export function CallRecording({ target }: { target: CallAudioTarget }) {
         controls
         autoPlay
         src={recording.url}
+        onLoadedMetadata={(event) => {
+          if (startSeconds && startSeconds < event.currentTarget.duration) event.currentTarget.currentTime = startSeconds;
+        }}
         className="w-full"
         aria-label="Grabación de la llamada"
       />
@@ -90,7 +93,7 @@ export function CallRecording({ target }: { target: CallAudioTarget }) {
         onClick={() => void load()}
       >
         <Play size={14} aria-hidden="true" />
-        {recording.status === 'loading' ? 'Cargando grabación...' : 'Escuchar la llamada'}
+        {recording.status === 'loading' ? 'Cargando grabación...' : startSeconds ? 'Escuchar desde el dictado' : 'Escuchar la llamada'}
       </Button>
       {recording.status === 'error' ? (
         <p role="alert" className="w-full text-sm text-danger-700">
