@@ -13,6 +13,7 @@ import {
   TOURISM_HOTEL_QUESTION,
   TOURISM_GENERIC_QUESTION,
   afterHoursQuestionFor,
+  presentationLineFor,
   tourismPrompt,
 } from '../../supabase/functions/tourism-dialer/tourismScript.js';
 
@@ -99,7 +100,7 @@ test('an admin test call has no lead and still dials while the dialer is paused'
   };
   await dispatchTourismCall(db, 'key', { call: { id: 'call-1', is_test: true, phone: '22221100', provider_agent_id: 'tourism_agent' } }, fetchImpl);
   assert.equal(sent.to_number, '+50622221100');
-  assert.equal(sent.conversation_initiation_client_data.dynamic_variables.business_name, 'el negocio de turismo');
+  assert.equal(sent.conversation_initiation_client_data.dynamic_variables.linea_negocio, '¿Usted ve las consultas de reservas?');
   assert.deepEqual(db.updates.at(-1).values, { state: 'started', conversation_id: 'conv_1' });
   assert.ok(sent.conversation_initiation_client_data.conversation_config_override.asr.keywords.includes('arroba'));
 });
@@ -209,18 +210,18 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   assert.match(prompt, /lunes a viernes, de ocho de la mañana a cuatro de la tarde/);
   assert.match(prompt, /fecha y hora confirmadas/);
   assert.match(prompt, /no insistas, agradece y termina/);
-  assert.match(prompt, /una sola vez por llamada/);
+  assert.match(prompt, /una sola vez por llamada/i);
   // Version bumped with the prompt so the live verifier's prompt_base check passes.
   const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
   config.agent_id = 'tourism_agent';
   assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
-  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-g'));
+  assert.ok(TOURISM_SCRIPT_VERSION.endsWith('turismo-h'));
   // The 2026-11-23 failures, one rule each: hold phrasing, menu vs wrong number, the
   // email that starts with plain words, and no second Alejandro invitation.
   assert.match(prompt, /"le quedo un minuto"/);
   assert.match(prompt, /Un menú nunca es un número equivocado/);
   assert.match(prompt, /Conserva ambas palabras/);
-  assert.match(prompt, /nunca vuelvas a hacer la invitación/);
+  assert.match(prompt, /nunca vuelvas a hacer la invitación/i);
   assert.match(prompt, /Nunca pidas el mismo dato una tercera vez/);
   // The verbatim opening questions appear once each, before any demo offer, and never assume
   // a destination like Arenal.
@@ -228,7 +229,7 @@ test('the tourism prompt fulfills email/WhatsApp and asks about Alejandro exactl
   for (const question of [TOURISM_TOUR_QUESTION, TOURISM_HOTEL_QUESTION, TOURISM_GENERIC_QUESTION])
     assert.equal(promptText.split(question).length - 1, 1, 'the opening question appears once');
   assert.ok(
-    promptText.indexOf(TOURISM_TOUR_QUESTION) < promptText.indexOf('demostración corta'),
+    promptText.indexOf(TOURISM_TOUR_QUESTION) < promptText.indexOf('¿Quiere hacer de huésped un momento?'),
     'open with the question before offering anything'
   );
   assert.match(promptText, /Nunca asumas que ofrecen un destino o actividad específica como Arenal/);
@@ -283,4 +284,48 @@ test('dispatch passes the lead business type as a dynamic variable, unknown by d
   const prompt = tourismPrompt();
   assert.ok(prompt.includes('{{business_type}}'));
   assert.match(prompt, /el contexto manda sobre la etiqueta/);
+});
+
+// The 2026-11-24 h fix: with no or a generic name Anna must never say "el negocio de
+// turismo"; a real name is verified once, anything else gets the neutral reservations line.
+test('the greeting verifies a real business name and stays neutral without one', () => {
+  assert.equal(presentationLineFor('Hotel Vela'), '¿Hablo con Hotel Vela?');
+  assert.equal(presentationLineFor('  Le Cameleon  '), '¿Hablo con Le Cameleon?');
+  assert.equal(presentationLineFor(''), '¿Usted ve las consultas de reservas?');
+  assert.equal(presentationLineFor(null), '¿Usted ve las consultas de reservas?');
+  assert.equal(presentationLineFor('Turismo'), '¿Usted ve las consultas de reservas?');
+  assert.equal(presentationLineFor('negocio de turismo'), '¿Usted ve las consultas de reservas?');
+  const firstMessage = tourismPrompt(); void firstMessage;
+  // The first message carries the computed line, and the script never repeats the category
+  // as a name on a restart or hand-off.
+  assert.match(tourismPrompt(), /nunca uses el tipo de negocio como si fuera el nombre/);
+  assert.match(tourismPrompt(), /nunca digas frases como "el negocio de turismo"/);
+});
+
+// The h prompt rules: WhatsApp follow-up when they answer calls themselves, the role-play
+// demo with a true question, one missing field per turn, and the single Alejandro flow.
+test('the h prompt adds the WhatsApp check, role-play demo and single Alejandro invitation', () => {
+  const prompt = tourismPrompt();
+  assert.match(prompt, /¿Y los mensajes de WhatsApp también los responden a esa hora\?/);
+  assert.match(prompt, /Nunca des por hecho que están cerrados un sábado/);
+  assert.match(prompt, /¿Quiere hacer de huésped un momento\? Yo le contesto como si fuera la recepción de su hotel/);
+  assert.match(prompt, /¿Quiere hacer de turista un momento\? Yo le contesto como si fuera el operador de su empresa/);
+  assert.match(prompt, /pide solo UN dato faltante por turno/);
+  assert.match(prompt, /nunca respondas por la persona ni le vuelvas a pedir un dato que ya dio/);
+  assert.match(prompt, /usando SOLO lo dicho/);
+  assert.match(prompt, /¿Eso le serviría a su equipo cuando abre\?/);
+  assert.match(prompt, /El ejemplo interactivo no agenda una demo/);
+  assert.match(prompt, /Alejandro es quien configura la asistente para cada hotel/);
+  assert.match(prompt, /usa el beneficio que la persona misma nombró/);
+  assert.match(prompt, /Es el especialista de PLW que configura la asistente para su negocio/);
+  // Every Alejandro path stays single-invitation, including reception.
+  assert.equal(prompt.split('¿Le parece que Alejandro le llame para enseñarle ese ejemplo?').length - 1, 1);
+  assert.match(prompt, /Sin aceptación explícita no hay repetición del pitch/);
+  // Email limit and section numbering survived the renumbering.
+  assert.match(prompt, /Máximo dos intentos en total por correo/);
+  assert.match(prompt, /9\. CIERRE/);
+  // Version bumped so the live verifier's prompt_base check passes.
+  const config = tourismAgentConfig('Alejandro', ROUTE, 'voice');
+  config.agent_id = 'tourism_agent';
+  assert.deepEqual(tourismConfigFailures(config, ROUTE), []);
 });

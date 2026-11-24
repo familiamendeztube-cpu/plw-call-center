@@ -5,6 +5,7 @@ import { providerReason, tourismAsrKeywords, tourismCallResults, tourismConfigFa
 import {
   TOURISM_SCRIPT_VERSION,
   greetingFor,
+  presentationLineFor,
 } from './tourismScript.js';
 
 const OUTBOUND_TIMEOUT_S = 45;
@@ -72,10 +73,11 @@ export async function dispatchTourismCall(db, apiKey, claim, fetchImpl = fetch) 
         to_number: `+506${call.phone}`,
         conversation_initiation_client_data: {
           dynamic_variables: {
-            business_name: lead.business_name || 'el negocio de turismo',
-            contact_name: lead.contact_name || 'la persona encargada de reservas o administración',
+            business_name: lead.business_name || '',
+            contact_name: lead.contact_name || '',
             business_type: lead.business_type || 'unknown',
             saludo: greetingFor(),
+            linea_negocio: presentationLineFor(lead.business_name),
             plw_tourism_call_id: call.id,
             plw_transfer_uri: runtime.transfer_uri,
             plw_script_version: TOURISM_SCRIPT_VERSION,
