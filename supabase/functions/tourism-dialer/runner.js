@@ -5,7 +5,7 @@ import { providerReason, tourismAsrKeywords, tourismCallResults, tourismConfigFa
 import {
   TOURISM_SCRIPT_VERSION,
   greetingFor,
-  presentationLineFor,
+  storyFor,
 } from './tourismScript.js';
 
 const OUTBOUND_TIMEOUT_S = 45;
@@ -77,7 +77,7 @@ export async function dispatchTourismCall(db, apiKey, claim, fetchImpl = fetch) 
             contact_name: lead.contact_name || '',
             business_type: lead.business_type || 'unknown',
             saludo: greetingFor(),
-            linea_negocio: presentationLineFor(lead.business_name),
+            historia: storyFor(lead.business_type),
             plw_tourism_call_id: call.id,
             plw_transfer_uri: runtime.transfer_uri,
             plw_script_version: TOURISM_SCRIPT_VERSION,

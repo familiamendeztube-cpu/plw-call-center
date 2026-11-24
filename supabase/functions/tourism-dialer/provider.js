@@ -166,9 +166,10 @@ const DETAIL_FIELDS = {
   plw_demo_coverage_gap: {
     type: 'string',
     description:
-      "'true' only if the person said or implied nobody attends after-hours customer messages " +
-      '(evenings, nights or weekends, in any language, Spanish included; e.g. nadie, hasta mañana, ' +
-      'se nos complica, quedan para el lunes); \'false\' if they said those messages are covered; ' +
+      "'true' only if the person said or implied after-hours customer messages stay unseen until " +
+      'someone returns (evenings, nights or weekends, in any language, Spanish included; e.g. nadie, ' +
+      "los ve uno hasta el día siguiente, quedan para el lunes); 'false' if they said those messages " +
+      "are covered at all times (including 'we answer in English' or 'atendemos 24/7'); " +
       'empty if the question was not asked or the answer was unclear. Never guess.',
   },
   plw_demo_date: {
