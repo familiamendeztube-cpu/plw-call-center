@@ -149,7 +149,7 @@ const DETAIL_FIELDS = {
   plw_language: detail("Language the conversation settled on: 'es' for Spanish, 'en' for English, empty if unclear."),
   plw_callback_date: {
     type: 'string',
-    description: 'Callback day as YYYY-MM-DD, only if the person confirmed that exact day for an authorized business callback. Empty if only suggested or unknown.',
+    description: 'Callback day as YYYY-MM-DD, only if the person confirmed that exact day for an authorized business callback. Anna repeats the weekday, day and month when confirming: use that day and month. Empty if only suggested or unknown.',
   },
   plw_callback_clock: {
     type: 'string',
@@ -262,7 +262,20 @@ export function usAsrKeywords(businessName) {
   return [...new Set([name, ...words, ...ASR_EMAIL_WORDS].filter(Boolean))].slice(0, 50);
 }
 
-export function usCallResults(analysis) {
+// The business's own date and time for Anna's prompt: its US zone, never UTC or the office clock.
+export function businessNow(timezone, at = new Date()) {
+  const format = (tz, options) => new Intl.DateTimeFormat('es-US', { timeZone: tz, ...options });
+  let tz = timezone || 'America/Los_Angeles';
+  try {
+    format(tz, {});
+  } catch {
+    tz = 'America/Los_Angeles';
+  }
+  const zone = format(tz, { timeZoneName: 'long' }).formatToParts(at).find((p) => p.type === 'timeZoneName')?.value;
+  return `${format(tz, { dateStyle: 'full', timeStyle: 'short' }).format(at)} (${zone})`;
+}
+
+export function usCallResults(analysis, callDay) {
   const values = new Map();
   const map = analysis?.data_collection_results;
   const entries = [
@@ -285,6 +298,11 @@ export function usCallResults(analysis) {
     if (clean && !/^(null|none|n\/a)$/i.test(clean)) details[id.slice(4)] = clean;
   }
   if (details.contact_email && !EMAIL_PATTERN.test(details.contact_email)) delete details.contact_email;
+  // The extraction doesn't know the call's date and may guess the year: keep the month and day,
+  // and take the first such date on or after the day of the call (YYYY-MM-DD).
+  const monthDay = /^\d{4}-(\d{2}-\d{2})$/.exec(details.callback_date ?? '')?.[1];
+  if (monthDay && /^\d{4}-\d{2}-\d{2}$/.test(callDay ?? ''))
+    details.callback_date = `${Number(callDay.slice(0, 4)) + (monthDay < callDay.slice(5) ? 1 : 0)}-${monthDay}`;
   const optOut = isTrue(values.get('plw_opt_out')) || outcome === 'DO_NOT_CALL';
   // us_call_to_customer and us_prepare_sample only act on calls that reached a person.
   const endedReason = outcome ? (ENDED_REASONS[outcome] ?? 'human') : null;

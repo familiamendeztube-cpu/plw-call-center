@@ -6,7 +6,7 @@ import {
   runUsTick,
   syncUsCalls,
 } from '../../supabase/functions/us-dialer/runner.js';
-import { usAgentConfig, usAsrKeywords, usConfigFailures, normalizeUsPhone, looksLikeUsWithCountryCode, findPhoneNumberId } from '../../supabase/functions/us-dialer/provider.js';
+import { businessNow, usAgentConfig, usAsrKeywords, usCallResults, usConfigFailures, normalizeUsPhone, looksLikeUsWithCountryCode, findPhoneNumberId } from '../../supabase/functions/us-dialer/provider.js';
 import {
   US_SCRIPT_VERSION,
   US_FIRST_MESSAGE,
@@ -150,15 +150,33 @@ test('a US call dials the full E.164 number, passes the LA office and skips bloc
   assert.equal(noLine.updates.at(-1).values.state, 'cancelled');
   assert.equal(sent[0].conversation_initiation_client_data.dynamic_variables.plw_office, PLW_US_ADDRESS);
   assert.equal(sent[0].conversation_initiation_client_data.dynamic_variables.plw_script_version, US_SCRIPT_VERSION);
+  assert.match(sent[0].conversation_initiation_client_data.dynamic_variables.business_now, /de 20\d\d/, 'Anna gets the business date');
   const source = await (await import('node:fs/promises')).readFile(
     new URL('../../supabase/functions/us-dialer/runner.js', import.meta.url), 'utf8'
   );
   assert.ok(!source.includes('slice(-8)'), 'no last-8 slicing in the US flow');
 });
 
+test('Anna hears the business clock, never UTC or the office clock', () => {
+  const at = new Date('2026-11-26T21:30:00Z');
+  assert.match(businessNow('America/New_York', at), /^jueves, 26 de noviembre de 2026, 4:30\sp\.\s?m\..*\(hora .*oriental\)$/);
+  assert.match(businessNow('America/Los_Angeles', at), /1:30\sp\.\s?m\..*Pacífico/);
+  assert.equal(businessNow('', at), businessNow('America/Los_Angeles', at), 'unknown zone: Pacific, like the callbacks');
+  assert.equal(businessNow('Not/AZone', at), businessNow('America/Los_Angeles', at));
+});
+
+test('a guessed callback year is corrected from the call day', () => {
+  const at = (date) =>
+    usCallResults({ data_collection_results: { plw_callback_date: { value: date } } }, '2026-12-28').details.callback_date;
+  assert.equal(at('2025-12-30'), '2026-12-30');
+  assert.equal(at('2026-01-04'), '2027-01-04', 'early January after a late-December call is next year');
+  assert.equal(at('2026-12-28'), '2026-12-28', 'today stays today');
+  assert.equal(usCallResults({ data_collection_results: { plw_callback_date: { value: 'el martes' } } }, '2026-12-28').details.callback_date, 'el martes');
+});
+
 test('a finished US call syncs results and hands the agreed callback to Alejandro, never to Anna', async () => {
   const db = fakeDb({
-    us_calls: [{ id: 'call-1', lead_id: 'lead-1', conversation_id: 'conv_1', provider_agent_id: 'us_agent', phone: '+13055551234', is_test: false, error: '' }],
+    us_calls: [{ id: 'call-1', lead_id: 'lead-1', conversation_id: 'conv_1', provider_agent_id: 'us_agent', phone: '+13055551234', is_test: false, error: '', created_at: '2026-11-26T21:00:00Z' }],
     us_leads: [{ id: 'lead-1', timezone: 'America/Chicago' }],
     us_dialer_runtime: RUNTIME,
   });
@@ -175,7 +193,7 @@ test('a finished US call syncs results and hands the agreed callback to Alejandr
       data_collection_results: {
         plw_outcome: value('INTERESTED_FOLLOW_UP'),
         plw_language: value('en'),
-        plw_callback_date: value('2026-12-01'),
+        plw_callback_date: value('2025-12-01'), // the extraction guessed last year
         plw_callback_clock: value('14:30'),
         plw_callback_confirmed: value('true'),
       },

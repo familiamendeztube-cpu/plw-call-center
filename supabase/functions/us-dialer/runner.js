@@ -1,7 +1,7 @@
 // US dispatcher runner: same proven mechanics as the tourism runner (dispatch, sync,
 // reconcile) against us_* tables, with E.164 destination numbers, IANA/DST-aware callback
 // scheduling and the US outcome mapping. Never touches tourism or dental rows.
-import { providerReason, usAsrKeywords, usCallResults, usConfigFailures, isSip403Error } from './provider.js';
+import { businessNow, providerReason, usAsrKeywords, usCallResults, usConfigFailures, isSip403Error } from './provider.js';
 import { US_SCRIPT_VERSION, PLW_US_ADDRESS } from './usScript.js';
 
 const OUTBOUND_TIMEOUT_S = 45;
@@ -69,6 +69,7 @@ export async function dispatchUsCall(db, apiKey, claim, fetchImpl = fetch) {
             business_name: lead.business_name || 'su negocio',
             contact_name: lead.contact_name || '',
             business_type: lead.business_type || 'servicios',
+            business_now: businessNow(lead.timezone),
             plw_office: PLW_US_ADDRESS,
             plw_us_call_id: call.id,
             plw_transfer_uri: runtime.transfer_uri,
@@ -155,7 +156,11 @@ export async function syncUsCalls(db, apiKey, fetchImpl = fetch) {
           update.finished_at = call.finished_at || now;
         }
         await checked(db.from('us_calls').update(update).eq('id', call.id));
-        const results = usCallResults(data.analysis);
+        // Calls run 08:00-16:00 business time, so the Pacific date is the same day on every US coast.
+        const callDay = call.created_at
+          ? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date(call.created_at))
+          : null;
+        const results = usCallResults(data.analysis, callDay);
         if (results.outcome || Object.keys(results.details).length) {
           const { error } = await db
             .from('us_calls')
