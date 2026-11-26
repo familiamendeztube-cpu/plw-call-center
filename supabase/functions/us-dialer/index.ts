@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
       const body = await req.json().catch(() => null);
       // Creates or updates PLW USA — Recepción. Only the server holds the runner key (in Vault).
       if (body?.action === 'reception') return json(await ensureUsReception(db, apiKey));
+      if (body?.action === 'configure') return await configureUs(db, apiKey, body.callerNumber);
       await runUsTick(db, apiKey);
       return json({ ok: true });
     }
@@ -66,99 +67,7 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
-    if (input.action === 'configure') {
-      // The US number gates Iniciar and test calls (it means the US trunk exists).
-      const caller = input.callerNumber ? normalizeUsPhone(input.callerNumber) : null;
-      if (input.callerNumber && !caller)
-        return json({ error: 'Revise el número de EE. UU.: 10 dígitos con área, con o sin el 1 inicial.' }, 400);
-      const runtime = await db.from('us_dialer_runtime').select('*').eq('id', 1).maybeSingle();
-      if (!runtime.data) return json({ error: 'Falta la tabla del marcador de EE. UU.' }, 409);
-      const keepPause = (message: string) =>
-        runtime.data.last_error === 'scheduler_paused' ? 'scheduler_paused' : message;
-      // US calls go out on the Telnyx number imported in ElevenLabs (plw-telnyx prints how), never
-      // on the Costa Rica line. Without a number the voice is still verified, but Iniciar and
-      // test calls stay blocked.
-      const usNumber: string | null = caller ?? runtime.data.caller_e164;
-      let phoneNumberId: string | null = null;
-      if (usNumber) {
-        const numbers = await providerRequest(apiKey, '/phone-numbers');
-        phoneNumberId = numbers.ok ? findPhoneNumberId(numbers.data, usNumber) : null;
-        if (!phoneNumberId)
-          return json({
-            error: `El número ${usNumber} no aparece en ElevenLabs. Impórtelo en Phone Numbers como SIP trunk (lo indica plw-telnyx al instalar) y presione Configurar de nuevo.`,
-          }, 409);
-      }
-      const { data: settings, error } = await db
-        .from('ai_outbound_settings')
-        .select('voice_id')
-        .eq('id', 1)
-        .single();
-      if (error || !settings?.voice_id) return json({ error: 'Falta configurar la voz.' }, 409);
-      const { data: sip, error: sipError } = await db
-        .from('agent_sip_accounts')
-        .select('sip_username,sip_domain')
-        .eq('staff_id', 'agent-2')
-        .maybeSingle();
-      if (sipError || !sip) return json({ error: 'Falta el teléfono del agente receptor.' }, 409);
-      const route = {
-        transfer_uri: `sip:${sip.sip_username}@${sip.sip_domain}`,
-        provider_agent_id: runtime.data.provider_agent_id,
-      };
-      const voiceId = settings.voice_id;
-      let providerId = runtime.data.provider_agent_id;
-      if (!providerId) {
-        const created = await providerRequest(
-          apiKey,
-          '/agents/create',
-          usAgentConfig('Alejandro', route, voiceId)
-        );
-        providerId = created.data?.agent_id;
-        if (!created.ok || typeof providerId !== 'string')
-          return json({ error: 'No se confirmó la creación de la voz. Revise ElevenLabs antes de repetir.' }, 502);
-        await db.from('us_dialer_runtime').update({ provider_agent_id: providerId }).eq('id', 1);
-      }
-      route.provider_agent_id = providerId;
-      let failures = usConfigFailures(
-        (await providerRequest(apiKey, `/agents/${encodeURIComponent(providerId)}`)).data ?? {},
-        route
-      );
-      if (failures.length && !failures.includes('provider_read')) {
-        const patched = await providerRequest(
-          apiKey,
-          `/agents/${encodeURIComponent(providerId)}`,
-          usAgentConfig('Alejandro', route, voiceId),
-          fetch,
-          'PATCH'
-        );
-        if (!patched.ok) {
-          const detail = JSON.stringify(sanitizeProviderError(patched.data)).slice(0, 300);
-          await db
-            .from('us_dialer_runtime')
-            .update({ last_error: keepPause(`Verificación pendiente: ${failures.join(', ')}. ${detail}`) })
-            .eq('id', 1);
-          return json({ error: `La configuración no pasó la verificación. Motivo técnico: ${failures.join(', ')}. ${detail}` }, 409);
-        }
-        const reread = await providerRequest(apiKey, `/agents/${encodeURIComponent(providerId)}`);
-        failures = usConfigFailures(reread.data ?? {}, route);
-      }
-      if (failures.length)
-        return json({ error: `La configuración no pasó la verificación. Motivo técnico: ${failures.join(', ')}.` }, 409);
-      const { error: verifyError } = await db
-        .from('us_dialer_runtime')
-        .update({
-          config_verified_at: new Date().toISOString(),
-          transfer_uri: route.transfer_uri,
-          last_error: keepPause(''),
-          ...(usNumber ? { caller_e164: usNumber, phone_number_id: phoneNumberId } : {}),
-        })
-        .eq('id', 1);
-      if (verifyError) throw verifyError;
-      // Creates the US tick (cron) and marks the scheduler ready; calling stays paused until
-      // the admin presses Iniciar.
-      const { error: cronError } = await db.rpc('enable_us_scheduler');
-      if (cronError) throw cronError;
-      return json({ ok: true });
-    }
+    if (input.action === 'configure') return await configureUs(db, apiKey, input.callerNumber);
 
     if (input.action === 'control') {
       if (!['start', 'pause'].includes(input.state))
@@ -193,3 +102,105 @@ Deno.serve(async (req) => {
     return json({ error: 'No se pudo confirmar la operación. Revise el registro antes de repetir llamadas.' }, 500);
   }
 });
+
+/**
+ * Configurar Anna EE. UU.: creates or re-checks Anna's US agent in ElevenLabs, saves the US number,
+ * its ElevenLabs id and Alejandro's transfer address, and turns the US tick on. Calling stays
+ * paused until an admin presses Iniciar. Used by the admin card and by the server (runner key).
+ */
+async function configureUs(
+  db: ReturnType<typeof createClient>,
+  apiKey: string,
+  callerNumber: unknown
+): Promise<Response> {
+  // The US number gates Iniciar and test calls (it means the US trunk exists).
+  const caller = callerNumber ? normalizeUsPhone(callerNumber) : null;
+  if (callerNumber && !caller)
+    return json({ error: 'Revise el número de EE. UU.: 10 dígitos con área, con o sin el 1 inicial.' }, 400);
+  const runtime = await db.from('us_dialer_runtime').select('*').eq('id', 1).maybeSingle();
+  if (!runtime.data) return json({ error: 'Falta la tabla del marcador de EE. UU.' }, 409);
+  const keepPause = (message: string) =>
+    runtime.data.last_error === 'scheduler_paused' ? 'scheduler_paused' : message;
+  // US calls go out on the Telnyx number imported in ElevenLabs, never on the Costa Rica line. Without a number the voice is still verified, but Iniciar and
+  // test calls stay blocked.
+  const usNumber: string | null = caller ?? runtime.data.caller_e164;
+  let phoneNumberId: string | null = null;
+  if (usNumber) {
+    const numbers = await providerRequest(apiKey, '/phone-numbers');
+    phoneNumberId = numbers.ok ? findPhoneNumberId(numbers.data, usNumber) : null;
+    if (!phoneNumberId)
+      return json({
+        error: `El número ${usNumber} no aparece en ElevenLabs. Impórtelo en ElevenLabs (Phone Numbers) y presione Configurar de nuevo.`,
+      }, 409);
+  }
+  const { data: settings, error } = await db
+    .from('ai_outbound_settings')
+    .select('voice_id')
+    .eq('id', 1)
+    .single();
+  if (error || !settings?.voice_id) return json({ error: 'Falta configurar la voz.' }, 409);
+  const { data: sip, error: sipError } = await db
+    .from('agent_sip_accounts')
+    .select('sip_username,sip_domain')
+    .eq('staff_id', 'agent-2')
+    .maybeSingle();
+  if (sipError || !sip) return json({ error: 'Falta el teléfono del agente receptor.' }, 409);
+  const route = {
+    transfer_uri: `sip:${sip.sip_username}@${sip.sip_domain}`,
+    provider_agent_id: runtime.data.provider_agent_id,
+  };
+  const voiceId = settings.voice_id;
+  let providerId = runtime.data.provider_agent_id;
+  if (!providerId) {
+    const created = await providerRequest(
+      apiKey,
+      '/agents/create',
+      usAgentConfig('Alejandro', route, voiceId)
+    );
+    providerId = created.data?.agent_id;
+    if (!created.ok || typeof providerId !== 'string')
+      return json({ error: 'No se confirmó la creación de la voz. Revise ElevenLabs antes de repetir.' }, 502);
+    await db.from('us_dialer_runtime').update({ provider_agent_id: providerId }).eq('id', 1);
+  }
+  route.provider_agent_id = providerId;
+  let failures = usConfigFailures(
+    (await providerRequest(apiKey, `/agents/${encodeURIComponent(providerId)}`)).data ?? {},
+    route
+  );
+  if (failures.length && !failures.includes('provider_read')) {
+    const patched = await providerRequest(
+      apiKey,
+      `/agents/${encodeURIComponent(providerId)}`,
+      usAgentConfig('Alejandro', route, voiceId),
+      fetch,
+      'PATCH'
+    );
+    if (!patched.ok) {
+      const detail = JSON.stringify(sanitizeProviderError(patched.data)).slice(0, 300);
+      await db
+        .from('us_dialer_runtime')
+        .update({ last_error: keepPause(`Verificación pendiente: ${failures.join(', ')}. ${detail}`) })
+        .eq('id', 1);
+      return json({ error: `La configuración no pasó la verificación. Motivo técnico: ${failures.join(', ')}. ${detail}` }, 409);
+    }
+    const reread = await providerRequest(apiKey, `/agents/${encodeURIComponent(providerId)}`);
+    failures = usConfigFailures(reread.data ?? {}, route);
+  }
+  if (failures.length)
+    return json({ error: `La configuración no pasó la verificación. Motivo técnico: ${failures.join(', ')}.` }, 409);
+  const { error: verifyError } = await db
+    .from('us_dialer_runtime')
+    .update({
+      config_verified_at: new Date().toISOString(),
+      transfer_uri: route.transfer_uri,
+      last_error: keepPause(''),
+      ...(usNumber ? { caller_e164: usNumber, phone_number_id: phoneNumberId } : {}),
+    })
+    .eq('id', 1);
+  if (verifyError) throw verifyError;
+  // Creates the US tick (cron) and marks the scheduler ready; calling stays paused until
+  // the admin presses Iniciar.
+  const { error: cronError } = await db.rpc('enable_us_scheduler');
+  if (cronError) throw cronError;
+  return json({ ok: true, provider_agent_id: providerId, phone_number_id: phoneNumberId, caller_e164: usNumber });
+}
