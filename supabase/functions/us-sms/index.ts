@@ -1,9 +1,12 @@
-// US SMS on Telnyx, from the same US number Anna calls from (us_dialer_runtime.caller_e164).
-// Sends are registered first through us_sms_send (idempotent, consent-gated); Telnyx's
-// delivery and reply webhooks arrive here signed with Ed25519. Secrets: TELNYX_API_KEY and
-// TELNYX_PUBLIC_KEY, only in the function's environment. Never WhatsApp in the US flow.
+// US SMS on Telnyx, from PLW's US number (us_dialer_runtime.caller_e164, +1 754-799-1065).
+// - Telnyx webhooks (?telnyx=1, signed with Ed25519): delivery results, and customers' texts,
+//   which land on the customer's SMS tab (record_sms_received).
+// - reply (any agent): answers a customer who texted PLW first; register_sms_reply runs as the
+//   agent and checks the rule and their access before anything is sent.
+// - send (admin): the sample-link text to a dialer lead (us_sms_send), same rule.
+// Secrets: TELNYX_API_KEY and TELNYX_PUBLIC_KEY, only in the function's environment.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { authorizeAdmin } from './auth.ts';
+import { authorizeStaff } from '../telephony/handlers.js';
 import { handleTelnyxEvent, sendTelnyxSms, verifyTelnyxSignature } from './telnyx.js';
 
 const cors = {
@@ -19,6 +22,17 @@ const json = (body: unknown, status = 200) =>
 
 // Also the URL to set as the webhook of the Telnyx messaging profile (for replies).
 const WEBHOOK_URL = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/us-sms?telnyx=1`;
+const NOT_CONFIGURED = 'Falta configurar Telnyx: la clave en el servidor o el número de EE. UU. en el marcador.';
+
+type Db = ReturnType<typeof createClient>;
+
+/** The key and the US number to send from, or null while Telnyx is not set up. */
+async function sender(db: Db): Promise<{ apiKey: string; from: string } | null> {
+  const apiKey = Deno.env.get('TELNYX_API_KEY') ?? '';
+  const { data: runtime } = await db.from('us_dialer_runtime').select('caller_e164').eq('id', 1).maybeSingle();
+  const from: string = runtime?.caller_e164 ?? '';
+  return apiKey && from ? { apiKey, from } : null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
@@ -49,35 +63,68 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // Who is calling comes from the verified, unrevoked session only; the body is read after.
     const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer /, '');
-    const auth = await authorizeAdmin({ admin: db, jwt });
-    if (!auth.ok) return json(auth.body, auth.status);
-    const input = await req.json();
+    const staff = await authorizeStaff({ admin: db, jwt });
+    if (!staff) return json({ error: 'Sesión revocada o no válida.' }, 401);
+    const input = await req.json().catch(() => null);
+    if (typeof input !== 'object' || input === null) return json({ error: 'Solicitud no válida.' }, 400);
+
+    if (input.action === 'reply') {
+      const telnyx = await sender(db);
+      if (!telnyx) return json({ error: NOT_CONFIGURED }, 503);
+      // Runs as the agent: the database checks their access to the customer and the rule.
+      const asAgent = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${jwt}` } },
+      });
+      const { data: reg, error: regError } = await asAgent.rpc('register_sms_reply', {
+        p_prospect_id: String(input.prospectId ?? ''),
+        p_body: String(input.body ?? ''),
+        p_idempotency_key: String(input.idempotencyKey ?? '').slice(0, 120),
+      });
+      if (regError || !reg) return json({ error: regError?.message?.slice(0, 200) || 'No se pudo registrar el mensaje.' }, 409);
+      if (reg.reused || reg.status !== 'queued') return json({ ok: true, id: reg.id, status: reg.status });
+
+      const sent = await sendTelnyxSms({
+        apiKey: telnyx.apiKey,
+        from: telnyx.from,
+        to: reg.to,
+        text: String(input.body).trim(),
+        webhookUrl: WEBHOOK_URL,
+      });
+      const status = sent.ok ? 'sent' : sent.optedOut ? 'suppressed' : 'failed';
+      await db
+        .from('sms_messages')
+        .update(sent.ok ? { status, provider_message_id: sent.id } : { status, error: sent.error })
+        .eq('id', reg.id);
+      if (!sent.ok && !sent.optedOut) return json({ error: `Telnyx no envió el mensaje: ${sent.error}` }, 502);
+      if (sent.optedOut) return json({ error: 'El cliente pidió no recibir más mensajes (STOP).' }, 409);
+      return json({ ok: true, id: reg.id, status });
+    }
 
     if (input.action === 'send') {
-      const apiKey = Deno.env.get('TELNYX_API_KEY') ?? '';
-      const { data: runtime } = await db.from('us_dialer_runtime').select('caller_e164').eq('id', 1).maybeSingle();
-      const from: string = runtime?.caller_e164 ?? '';
-      if (!apiKey || !from)
-        return json({ error: 'Falta configurar Telnyx: la clave en el servidor o el número de EE. UU. en el marcador.' }, 503);
+      if (staff.role !== 'admin') return json({ error: 'No autorizado.' }, 403);
+      const telnyx = await sender(db);
+      if (!telnyx) return json({ error: NOT_CONFIGURED }, 503);
       if (!input.leadId || !input.body || !input.idempotencyKey)
         return json({ error: 'Faltan datos del mensaje.' }, 400);
       const body = String(input.body).slice(0, 800);
-      // Register first: idempotent, consent/suppression evaluated in the database.
+      // Register first: idempotent; the rule (the number texted PLW first) is checked in the database.
       const { data: reg, error: regError } = await db.rpc('us_sms_send', {
         p_lead_id: input.leadId,
         p_idempotency_key: String(input.idempotencyKey).slice(0, 120),
         p_body: body,
         p_web_url: String(input.webUrl ?? '').slice(0, 300),
         p_secretary_url: String(input.secretaryUrl ?? '').slice(0, 300),
-        p_sender_id: from,
+        p_sender_id: telnyx.from,
       });
       if (regError || !reg)
         return json({ error: `No se pudo registrar el SMS${regError?.message ? `: ${regError.message.slice(0, 160)}` : '.'}` }, 409);
       if (reg.status !== 'queued' || reg.reused)
         return json({ ok: true, id: reg.id, status: reg.status, reused: reg.reused ?? true });
 
-      const sent = await sendTelnyxSms({ apiKey, from, to: reg.to_e164, text: body, webhookUrl: WEBHOOK_URL });
+      const sent = await sendTelnyxSms({ apiKey: telnyx.apiKey, from: telnyx.from, to: reg.to_e164, text: body, webhookUrl: WEBHOOK_URL });
       if (!sent.ok) {
         await db
           .from('us_sms_messages')

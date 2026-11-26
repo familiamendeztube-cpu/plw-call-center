@@ -64,10 +64,15 @@ async function checked(query) {
   return data;
 }
 
+// Texts only: a photo or file shows as this line on the customer's SMS tab.
+export const MEDIA_ONLY = '(El cliente envió una foto o un archivo; aquí solo se ven los textos.)';
+
 /**
- * message.finalized updates the stored SMS; message.received stores the reply and, on STOP,
- * withdraws SMS consent for every lead with that number. Telnyx retries webhooks, so a reply
- * already stored is ignored. HELP/STOP auto-answers are the Telnyx messaging profile's job.
+ * message.finalized updates the stored SMS (an agent's text or an admin sample link);
+ * message.received files the text on the customer with that number, or a new customer, through
+ * record_sms_received, which also ignores a text Telnyx delivers twice. A STOP also withdraws SMS
+ * consent for every dialer lead with that number. HELP/STOP auto-answers are the Telnyx messaging
+ * profile's job.
  */
 export async function handleTelnyxEvent(db, event) {
   const type = event?.data?.event_type;
@@ -78,31 +83,31 @@ export async function handleTelnyxEvent(db, event) {
     const status = FINAL_STATUS[payload.to?.[0]?.status];
     if (!status) return;
     const error = payload.errors?.[0];
-    await checked(
-      db
-        .from('us_sms_messages')
-        .update({
-          status,
-          ...(status === 'failed' ? { error: String(error?.detail || error?.title || error?.code || '').slice(0, 300) } : {}),
-        })
-        .eq('provider_message_id', payload.id)
-    );
+    const update = {
+      status,
+      ...(status === 'failed' ? { error: String(error?.detail || error?.title || error?.code || '').slice(0, 300) } : {}),
+    };
+    for (const table of ['sms_messages', 'us_sms_messages'])
+      await checked(db.from(table).update(update).eq('provider_message_id', payload.id));
     return;
   }
 
   if (type !== 'message.received') return;
   const from = String(payload.from?.phone_number ?? '');
   if (!US_E164.test(from)) return;
-  const text = String(payload.text ?? '').slice(0, 500);
-  const suppressed = STOP.test(text.trim());
-  const leads = (await checked(db.from('us_leads').select('id').or(`phone_e164.eq.${from},sms_mobile.eq.${from}`))) ?? [];
+  const text = String(payload.text ?? '').trim().slice(0, 1600);
+  const suppressed = STOP.test(text);
   await checked(
-    db.from('us_sms_inbound').upsert(
-      { lead_id: leads[0]?.id ?? null, from_e164: from, body: text, suppressed, provider_message_id: payload.id },
-      { onConflict: 'provider_message_id', ignoreDuplicates: true }
-    )
+    db.rpc('record_sms_received', {
+      p_from: from,
+      p_body: text || (Array.isArray(payload.media) && payload.media.length ? MEDIA_ONLY : ''),
+      p_provider_message_id: payload.id,
+      p_stop: suppressed,
+    })
   );
-  if (suppressed && leads.length)
+  if (!suppressed) return;
+  const leads = (await checked(db.from('us_leads').select('id').or(`phone_e164.eq.${from},sms_mobile.eq.${from}`))) ?? [];
+  if (leads.length)
     await checked(
       db
         .from('us_leads')

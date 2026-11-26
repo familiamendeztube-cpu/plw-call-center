@@ -10,6 +10,7 @@ import type { AdminSnapshot } from '@/features/admin/models/overview';
 import { FOLLOWUP_KIND_LABELS } from '@/features/followups/models/followup';
 import { ConversationPane } from '@/features/inbox/components/ConversationPane';
 import { WhatsAppConversation } from '@/features/whatsapp/components/WhatsAppConversation';
+import { SmsConversation } from '@/features/sms/components/SmsConversation';
 import { DraftTabs } from '@/features/site-draft/components/DraftTabs';
 import {
   PAYMENT_STATUSES,
@@ -178,6 +179,10 @@ export function AdminCustomerDrawer({
               prospect={prospect}
               agentNames={agentNames}
             />
+          ) : prospect.source === 'sms' && conversation ? (
+            <div className="h-[28rem] overflow-hidden rounded-lg border border-neutral-200">
+              <SmsConversation conversationId={conversation.id} prospect={prospect} agentNames={agentNames} />
+            </div>
           ) : conversation ? (
             <div className="h-[28rem] overflow-hidden rounded-lg border border-neutral-200">
               <ConversationPane conversationId={conversation.id} agentNames={agentNames} />

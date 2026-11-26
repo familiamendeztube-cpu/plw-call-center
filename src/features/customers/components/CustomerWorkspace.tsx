@@ -31,16 +31,19 @@ import { HotelDemoLinkCard } from '@/features/customers/components/HotelDemoLink
 import { HotelClosingCard } from '@/features/customers/components/HotelClosingCard';
 import { WhatsAppConversation } from '@/features/whatsapp/components/WhatsAppConversation';
 import { useWhatsAppChat } from '@/features/whatsapp/hooks/useWhatsApp';
+import { SmsConversation } from '@/features/sms/components/SmsConversation';
+import { useSmsWaiting } from '@/features/sms/hooks/useSms';
 
 type TabItem = { id: CustomerTab; label: string };
 const SHARED_TABS: TabItem[] = [
   { id: 'oferta', label: 'Qué ofrecer' },
   { id: 'material', label: 'Presentación y videos' },
 ];
-// The first tab is how the customer arrived: email thread, AI call, or WhatsApp chat.
+// The first tab is how the customer arrived: email thread, AI call, WhatsApp chat, or SMS.
 const EMAIL_TAB: TabItem = { id: 'correo', label: 'Correo' };
 const CALL_TAB: TabItem = { id: 'llamada', label: 'Llamada' };
 const WHATSAPP_TAB: TabItem = { id: 'whatsapp', label: 'WhatsApp' };
+const SMS_TAB: TabItem = { id: 'sms', label: 'SMS' };
 
 interface CustomerWorkspaceProps {
   entry: CustomerEntry;
@@ -69,11 +72,22 @@ export function CustomerWorkspace({
   const dialable = toUsNumber(prospect.phone);
   const fromCall = prospect.source === 'ai_call';
   const fromWhatsApp = prospect.source === 'whatsapp';
+  const fromSms = prospect.source === 'sms';
+  // US customers text instead of WhatsApp: every customer with a US number has an SMS tab.
+  const texts = fromSms || callerOrigin(prospect.phone) === 'us';
   // An email or call customer who later wrote on WhatsApp gets a WhatsApp tab too.
   const { chat, markRead } = useWhatsAppChat(prospect.id, conversation?.lastMessageAt);
+  const smsWaiting = useSmsWaiting(prospect.id, conversation?.lastMessageAt, texts);
   const tabs = fromWhatsApp
     ? [WHATSAPP_TAB, ...SHARED_TABS]
-    : [fromCall ? CALL_TAB : EMAIL_TAB, ...(chat ? [WHATSAPP_TAB] : []), ...SHARED_TABS];
+    : fromSms
+      ? [SMS_TAB, ...SHARED_TABS]
+      : [
+          fromCall ? CALL_TAB : EMAIL_TAB,
+          ...(chat ? [WHATSAPP_TAB] : []),
+          ...(texts ? [SMS_TAB] : []),
+          ...SHARED_TABS,
+        ];
   const firstTab = tabs[0].id;
   const requested = parseCustomerTab(searchParams.get(CUSTOMER_TAB_PARAM));
   // A link to a tab this customer does not have (e.g. "correo" for a call) opens the first one.
@@ -220,7 +234,9 @@ export function CustomerWorkspace({
                 )}
               >
                 {item.label}
-                {item.id === 'whatsapp' && chat?.unread && !active ? (
+                {((item.id === 'whatsapp' && chat?.unread) ||
+                  (item.id === 'sms' && smsWaiting && conversation?.unread)) &&
+                !active ? (
                   <span
                     aria-label="Mensaje sin leer"
                     className="ml-1.5 inline-block h-2 w-2 rounded-full bg-plw-gold"
@@ -233,8 +249,8 @@ export function CustomerWorkspace({
       </header>
 
       {/* An email customer who later phoned the AI: show that call above the tabs, except over
-          the WhatsApp chat, which needs the height. */}
-      {fromCall || tab === 'whatsapp' ? null : (
+          the WhatsApp and SMS chats, which need the height. */}
+      {fromCall || tab === 'whatsapp' || tab === 'sms' ? null : (
         <AiCallPanel prospectId={prospect.id} agentNames={agentNames} />
       )}
 
@@ -261,7 +277,23 @@ export function CustomerWorkspace({
             </div>
           )
         ) : null}
-        {tab === firstTab && tab !== 'whatsapp' ? (
+        {tab === 'sms' ? (
+          conversation ? (
+            <SmsConversation
+              key={conversation.id}
+              conversationId={conversation.id}
+              prospect={prospect}
+              agentId={agentId}
+              agentNames={agentNames}
+              onProspectChange={onProspectChange}
+            />
+          ) : (
+            <div className="p-6">
+              <StatusMessage tone="error" title="No se encontró la conversación de este cliente." />
+            </div>
+          )
+        ) : null}
+        {tab === firstTab && tab !== 'whatsapp' && tab !== 'sms' ? (
           conversation ? (
             <ConversationPane
               key={conversation.id}

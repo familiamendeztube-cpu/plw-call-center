@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   handleTelnyxEvent,
+  MEDIA_ONLY,
   sendTelnyxSms,
   verifyTelnyxSignature,
 } from '../../supabase/functions/us-sms/telnyx.js';
@@ -37,7 +38,8 @@ function fakeDb(rows = {}) {
     );
     return chain;
   };
-  return { from, ops };
+  const rpc = async (name, args) => (ops.push({ table: `rpc:${name}`, calls: [args] }), { data: null, error: null });
+  return { from, rpc, ops };
 }
 
 test('only webhooks signed by our Telnyx key, and recent, are accepted', async () => {
@@ -84,44 +86,49 @@ test('an SMS goes out from the US number with our webhook; STOP refusals are rec
   assert.equal(down.ok, false);
 });
 
-test('delivery results update the stored SMS by its Telnyx id', async () => {
+test("delivery results update the stored SMS by its Telnyx id, an agent's text or an admin link", async () => {
   const db = fakeDb();
   await handleTelnyxEvent(db, {
     data: { event_type: 'message.finalized', payload: { id: 'msg-1', to: [{ status: 'delivery_failed' }], errors: [{ code: '40008', title: 'Message filtered by carrier' }] } },
   });
   await handleTelnyxEvent(db, { data: { event_type: 'message.finalized', payload: { id: 'msg-2', to: [{ status: 'delivered' }] } } });
   await handleTelnyxEvent(db, { data: { event_type: 'message.finalized', payload: { id: 'msg-3', to: [{ status: 'delivery_unconfirmed' }] } } });
+  const failed = [['update', { status: 'failed', error: 'Message filtered by carrier' }], ['eq', 'provider_message_id', 'msg-1']];
+  const delivered = [['update', { status: 'delivered' }], ['eq', 'provider_message_id', 'msg-2']];
   assert.deepEqual(
-    db.ops.map((op) => op.calls),
+    db.ops.map((op) => [op.table, op.calls]),
     [
-      [['update', { status: 'failed', error: 'Message filtered by carrier' }], ['eq', 'provider_message_id', 'msg-1']],
-      [['update', { status: 'delivered' }], ['eq', 'provider_message_id', 'msg-2']],
+      ['sms_messages', failed],
+      ['us_sms_messages', failed],
+      ['sms_messages', delivered],
+      ['us_sms_messages', delivered],
     ],
     'an unconfirmed delivery leaves the SMS as sent'
   );
 });
 
-test('a STOP reply withdraws SMS consent for every lead with that number; other replies only get stored', async () => {
+test("a text is filed on the customer's SMS tab; a STOP also withdraws consent for every lead with that number", async () => {
   const stopDb = fakeDb({ us_leads: [{ id: 'lead-1' }, { id: 'lead-2' }] });
-  const received = (text, id) => ({
-    data: { event_type: 'message.received', payload: { id, text, from: { phone_number: '+13105550123' } } },
+  const received = (text, id, media) => ({
+    data: { event_type: 'message.received', payload: { id, text, media, from: { phone_number: '+13105550123' } } },
   });
-  await handleTelnyxEvent(stopDb, received('STOP', 'in-1'));
-  const [lookup, inbound, consent] = stopDb.ops;
+  await handleTelnyxEvent(stopDb, received(' STOP ', 'in-1'));
+  const [filed, lookup, consent] = stopDb.ops;
+  assert.equal(filed.table, 'rpc:record_sms_received');
+  assert.deepEqual(filed.calls[0], { p_from: '+13105550123', p_body: 'STOP', p_provider_message_id: 'in-1', p_stop: true });
   assert.deepEqual(lookup.calls[1], ['or', 'phone_e164.eq.+13105550123,sms_mobile.eq.+13105550123']);
-  assert.equal(inbound.table, 'us_sms_inbound');
-  assert.deepEqual(inbound.calls[0][1], {
-    lead_id: 'lead-1', from_e164: '+13105550123', body: 'STOP', suppressed: true, provider_message_id: 'in-1',
-  });
-  assert.deepEqual(inbound.calls[0][2], { onConflict: 'provider_message_id', ignoreDuplicates: true }, 'Telnyx retries');
   assert.equal(consent.table, 'us_leads');
   assert.equal(consent.calls[0][1].sms_consent, false);
   assert.deepEqual(consent.calls[1], ['in', 'id', ['lead-1', 'lead-2']]);
 
   const chatDb = fakeDb({ us_leads: [{ id: 'lead-1' }] });
   await handleTelnyxEvent(chatDb, received('¿Cuánto cuesta?', 'in-2'));
-  assert.deepEqual(chatDb.ops.map((op) => op.table), ['us_leads', 'us_sms_inbound']);
-  assert.equal(chatDb.ops[1].calls[0][1].suppressed, false);
+  assert.deepEqual(chatDb.ops.map((op) => op.table), ['rpc:record_sms_received'], 'leads untouched without STOP');
+  assert.equal(chatDb.ops[0].calls[0].p_stop, false);
+
+  const photoDb = fakeDb();
+  await handleTelnyxEvent(photoDb, received('', 'in-4', [{ url: 'https://media' }]));
+  assert.equal(photoDb.ops[0].calls[0].p_body, MEDIA_ONLY);
 
   const foreignDb = fakeDb();
   await handleTelnyxEvent(foreignDb, {
