@@ -31,8 +31,19 @@ class BridgeTests(unittest.TestCase):
         self.assertIsNone(w.parse_cdr(self.row(disposition='NO ANSWER'))['sip_username'])
 
     def test_non_originating_legs_ignored(self):
-        row = self.row(); row[2] = 'PJSIP/agent-3-000002'
+        # A dialed leg has its own uniqueid but the caller's linkedid.
+        row = self.row(); row[0] = '100.2'; row[2] = 'PJSIP/agent-3-000002'
         self.assertIsNone(w.parse_cdr(row))
+        row = self.row('outbound'); row[0] = '100.2'; row[2] = 'PJSIP/plw-us-telnyx-000002'
+        self.assertIsNone(w.parse_cdr(row))
+
+    def test_us_calls_counted_in_hand_built_contexts(self):
+        row = self.row('outbound'); row[5] = '+17545550123'; row[6] = 'plw-us-outbound'
+        c = w.parse_cdr(row)
+        self.assertEqual((c['direction'], c['sip_username'], c['number']), ('outbound', 'agent-2', '+17545550123'))
+        row = self.row(); row[2] = 'PJSIP/plw-us-telnyx-000001'; row[4] = '+13055550101'; row[6] = 'default'
+        c = w.parse_cdr(row)
+        self.assertEqual((c['direction'], c['sip_username'], c['number']), ('inbound', 'agent-3', '+13055550101'))
 
     def test_snapshot_rejects_duplicate_agents_and_non_booleans(self):
         for rows in [[{'username':'agent-1','available':'true'}],

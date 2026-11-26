@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 AGENT = re.compile(r'^agent-[0-9]+$')
+# Callers come in on these trunks: Vocex (Costa Rica) and Telnyx (US, endpoint set up by hand).
+TRUNKS = ('PJSIP/vocex-', 'PJSIP/plw-us-telnyx-')
 QUEUE = 'plw-inbound'
 STATE = Path('/var/lib/plw-bridge')
 CDR = Path('/var/log/asterisk/cdr-custom/plw.csv')
@@ -78,8 +80,12 @@ def parse_cdr(row):
     if len(row) != 12:
         raise ValueError('Invalid CDR columns')
     uid, linked, channel, peer, source, dest, context, disposition, seconds, start, end, sequence = row
-    inbound = context == 'from-vocex' and channel.startswith('PJSIP/vocex-')
-    outbound = context == 'from-agents' and channel.startswith('PJSIP/agent-')
+    # The leg that started the call carries its own uniqueid as linkedid; legs it dialed don't.
+    # Not matched on dialplan context: the US routes run in their own hand-built contexts.
+    if linked and linked != uid:
+        return None
+    inbound = channel.startswith(TRUNKS)
+    outbound = channel.startswith('PJSIP/agent-')
     if not inbound and not outbound:
         return None
     endpoint = peer if inbound else channel
