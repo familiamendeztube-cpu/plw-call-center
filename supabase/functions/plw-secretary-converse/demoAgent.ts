@@ -6,7 +6,7 @@
 export const DEMO_AGENT_VERSION = 'secretaria-demo-2026-11-19a';
 export const DEMO_SETTINGS_KEY = 'secretary_demo_agent';
 export const DEMO_LIMITS = { conversations: 3, questions: 10, minutes: 5 } as const;
-export const PLW_CONTACT = '4010-6198';
+export const PLW_CONTACT = '6725 Sunset Blvd, Los Angeles, CA 90028';
 
 // Same model the verified Anna Turismo agent uses; it supports the en/zh presets.
 const AGENT_MODEL = 'eleven_v3_conversational';

@@ -30,7 +30,7 @@ export function BrandPanel() {
         </p>
       </div>
       <p className="relative mt-10 text-xs text-white/60 lg:mt-0">
-        Uso exclusivo del personal de PLW · Costa Rica
+        Uso exclusivo del personal de PLW · Los Ángeles · Costa Rica
       </p>
     </section>
   );

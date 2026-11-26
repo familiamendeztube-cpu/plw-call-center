@@ -133,7 +133,7 @@ async function startAction(db: Db, link: LinkRow, origin: string): Promise<Respo
   const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
   if (!payload || payload.allowed !== true || typeof payload.conversationToken !== 'string') {
     return json(
-      { error: 'La demostración ya usó sus conversaciones. Contáctenos al 4010-6198.' },
+      { error: 'La demostración ya usó sus conversaciones. Contáctenos en 6725 Sunset Blvd, Los Angeles, CA 90028.' },
       503,
       origin
     );

@@ -252,7 +252,7 @@ export function HotelDemoPage() {
         )}
         {phase.kind === 'closed' ? (
           <p className="mt-2 text-center text-xs text-neutral-500">
-            Gracias por probar la demostración. Para tenerla en su hotel, contáctenos al 4010-6198.
+            Gracias por probar la demostración. Escríbanos desde Los Ángeles: 6725 Sunset Blvd, CA 90028.
           </p>
         ) : null}
       </section>
@@ -333,7 +333,7 @@ export function HotelDemoPage() {
             <p className="mt-3 text-xs font-medium text-neutral-600">Horarios disponibles:</p>
             {slots.length === 0 ? (
               <p className="mt-1 text-sm text-neutral-500">
-                No hay horarios abiertos por ahora. Llame al 4010-6198.
+                No hay horarios abiertos por ahora. Escríbanos: 6725 Sunset Blvd, Los Angeles, CA 90028.
               </p>
             ) : (
               byDay(slots).map(([day, times]) => (
@@ -365,7 +365,7 @@ export function HotelDemoPage() {
       </section>
 
       <footer className="mt-auto pt-4 text-center text-[11px] text-neutral-400">
-        Professional Latino Workers · 4010-6198 · Demostración sin costo ni compromiso.
+        Professional Latino Workers · 6725 Sunset Blvd, Los Angeles, CA 90028 · Demostración sin costo ni compromiso.
       </footer>
     </main>
   );

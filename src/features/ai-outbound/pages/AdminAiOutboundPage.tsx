@@ -22,6 +22,7 @@ import {
   type TourismPromise,
   type TourismAlert,
 } from '@/features/ai-outbound/services/tourismPromises';
+import { UsDialerCard, type UsCall, type UsRuntime, type UsLead, type UsCallback, type UsSmsMessage } from '@/features/ai-outbound/components/UsDialerCard';
 import { cx } from '@/components/ui/cx';
 
 export function AdminAiOutboundPage() {
@@ -33,6 +34,12 @@ export function AdminAiOutboundPage() {
   const [tourismCalls, setTourismCalls] = useState<TourismCall[]>([]);
   const [promises, setPromises] = useState<TourismPromise[]>([]);
   const [alerts, setAlerts] = useState<TourismAlert[]>([]);
+  const [usRuntime, setUsRuntime] = useState<UsRuntime | null>(null);
+  const [usError, setUsError] = useState<string | null>(null);
+  const [usCalls, setUsCalls] = useState<UsCall[]>([]);
+  const [usLeads, setUsLeads] = useState<UsLead[]>([]);
+  const [usCallbacks, setUsCallbacks] = useState<UsCallback[]>([]);
+  const [usSms, setUsSms] = useState<UsSmsMessage[]>([]);
   const { state, reload } = useOutboundCampaigns();
 
   const reloadTourism = () => {
@@ -54,6 +61,21 @@ export function AdminAiOutboundPage() {
       setTourismCalls(calls.error ? [] : ((calls.data ?? []) as unknown as TourismCall[]));
       listTourismPromises().then(setPromises).catch(() => setPromises([]));
       listTourismAlerts().then(setAlerts).catch(() => setAlerts([]));
+      void Promise.all([
+        supabase.from('us_dialer_runtime').select('scheduler_ready,paused,last_tick_at,last_error,provider_agent_id,config_verified_at,transfer_uri,caller_e164,dialed_today,daily_cap,allowed_from,allowed_to').eq('id', 1).maybeSingle(),
+        supabase.from('us_calls').select('id,created_at,phone,state,outcome,summary,error,is_test,lead:us_leads(business_name)').order('created_at', { ascending: false }).limit(10),
+        supabase.from('us_leads').select('id,raw_phone,phone_e164,dest,contact_name,business_name,business_type,timezone,consent_ref,sms_mobile,sms_consent,excluded_reason,last_call_at,created_at').order('created_at', { ascending: true }).limit(500),
+        supabase.from('us_callbacks').select('id,phone,scheduled_for,timezone,status,fail_reason,lead:us_leads(business_name)').order('scheduled_for', { ascending: true }).limit(20),
+        supabase.from('us_sms_messages').select('id,lead_id,to_e164,body,web_url,secretary_url,status,created_at').order('created_at', { ascending: false }).limit(20),
+      ])
+        .then(([runtime, calls, leads, callbacks, sms]) => {
+          setUsError(runtime.error ? 'No se pudo leer el estado del marcador de EE. UU.' : null);
+          setUsRuntime((runtime.data as UsRuntime | null) ?? null);
+          setUsCalls(calls.error ? [] : ((calls.data ?? []) as unknown as UsCall[]));
+          setUsLeads(leads.error ? [] : ((leads.data ?? []) as unknown as UsLead[]));
+          setUsCallbacks(callbacks.error ? [] : ((callbacks.data ?? []) as unknown as UsCallback[]));
+          setUsSms(sms.error ? [] : ((sms.data ?? []) as unknown as UsSmsMessage[]));
+        });
     });
   };
 
@@ -95,6 +117,16 @@ export function AdminAiOutboundPage() {
         onResolve={(id, note) => resolveTourismPromise(id, note)}
         onReschedule={(id, slot, note) => rescheduleTourismPromise(id, slot, note)}
         onRestart={() => restartTourismAfterAlert()}
+      />
+
+      <UsDialerCard
+        runtime={usRuntime}
+        runtimeError={usError}
+        calls={usCalls}
+        leads={usLeads}
+        callbacks={usCallbacks}
+        smsMessages={usSms}
+        onChanged={reloadTourism}
       />
 
       {state.status === 'loading' ? (

@@ -59,7 +59,7 @@ test('the agent only starts with our token, stops at 5 minutes and closes with t
   assert.match(prompt, new RegExp(`hasta ${DEMO_LIMITS.questions} preguntas`));
   assert.ok(prompt.includes(DEMO_CLOSING));
   assert.ok(config.conversation_config.agent.prompt.built_in_tools.end_call);
-  for (const text of [DEMO_CLOSING, DEMO_USED_UP]) assert.match(text, /4010-6198/);
+  for (const text of [DEMO_CLOSING, DEMO_USED_UP]) assert.match(text, /6725 Sunset Blvd/);
   assert.match(DEMO_NOTICE, /3 conversaciones de hasta 10 preguntas/);
 });
 

@@ -46,6 +46,21 @@ const OUTBOUND_ADMIN_TABLES = [
 const OUTBOUND_INTAKE_TABLES = OUTBOUND_ADMIN_TABLES.filter(
   (table) => !['ai_outbound_settings', 'ai_outbound_test_calls'].includes(table)
 );
+// US campaign intake: same model as the CR outbound tables — admin-only browser INSERT
+// (import), no UPDATE/TRUNCATE; everything else service_role or guarded RPCs.
+const US_INTAKE_TABLES = ['us_leads'];
+// US dialer: browser (admin UI) reads runtime, calls, callbacks, SMS and market settings;
+// SMS writes stay service_role only (they do not appear here).
+const US_DIALER_TABLES = [
+  'us_calls',
+  'us_callbacks',
+  'us_campaign_agents',
+  'us_campaigns',
+  'us_dialer_alerts',
+  'us_dialer_runtime',
+  'us_leads',
+  'us_market_settings',
+];
 const SHARED_TABLES = ['sales_materials', 'settings'];
 // Tourism dialer: the browser (admin UI) reads runtime state and its own campaign rows;
 // callbacks and call rows are service_role only, so they appear only in this read list.
@@ -71,6 +86,7 @@ const BROWSER_READABLE_TABLES = [
   ...ADMIN_ONLY_TABLES,
   ...OUTBOUND_ADMIN_TABLES,
   ...TOURISM_DIALER_TABLES,
+  ...US_DIALER_TABLES,
   ...SHARED_TABLES,
   'prospect_site_drafts',
   'staff_presence',
@@ -142,6 +158,15 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'start_next_dental_batch',
   'update_dental_lead',
   'upsert_prospect_site_draft',
+  'us_classify_lead_rows',
+  'us_sms_consent',
+  'us_prepare_sample',
+  'control_us_dialer',
+  'reserve_us_test',
+  'resolve_us_callback',
+  'reschedule_us_callback',
+  'us_normalize_phone',
+  'classify_us_phone',
 ];
 
 const OWNER_ACTIONS = [
@@ -511,7 +536,7 @@ test('browser writes are limited to the admin-only outbound intake tables', asyn
     WHERE n.nspname = 'public' AND c.relkind = 'r'
       AND (has_table_privilege('authenticated', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE')
         OR has_table_privilege('anon', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE'))`);
-  assert.deepEqual(rows.map((row) => row.relname).sort(), OUTBOUND_INTAKE_TABLES.sort());
+  assert.deepEqual(rows.map((row) => row.relname).sort(), [...OUTBOUND_INTAKE_TABLES, ...US_INTAKE_TABLES].sort());
 });
 
 test('every table has row level security', async () => {

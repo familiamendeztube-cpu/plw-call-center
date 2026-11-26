@@ -27,7 +27,7 @@ export function PlwWordmark({ tone = 'light', className }: PlwWordmarkProps) {
           Professional Latino Workers
         </p>
         <p className={cx('text-xs', isLight ? 'text-plw-gold-soft' : 'text-plw-gold')}>
-          Costa Rica
+          Los Ángeles · Costa Rica
         </p>
       </div>
     </div>

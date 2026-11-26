@@ -64,3 +64,11 @@ verify_jwt = false
 [functions.plw-hotel-demo]
 # Public hotel demo page: opaque link token only; context/book/cancel, no private reads.
 verify_jwt = false
+
+[functions.us-dialer]
+# Live admin sessions or the shared dedicated Vault scheduler key are checked in the handler.
+verify_jwt = false
+
+[functions.us-sms]
+# US SMS: admin sessions for sends; Twilio signed webhooks for status and inbound replies.
+verify_jwt = false
