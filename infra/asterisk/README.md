@@ -174,6 +174,15 @@ plw-agents rotate agent-1
 
 ## US line (Telnyx)
 
+**Current setup (set up by hand on 2026-11-26). Do not run `plw-telnyx` on this server; it refuses to anyway.**
+
+- Telnyx: FQDN connection **PLW-USA-ElevenLabs**, outbound credential authentication, US-only outbound profile, Hollywood number **+1 754-799-1065** assigned.
+- Agents' US calls: browser → this server → endpoint **plw-us-telnyx** → Telnyx. The dialplan sets the caller ID to +1 754-799-1065. Costa Rica calls still come in through the plw-inbound queue.
+- Calls to the Hollywood number go from Telnyx straight to the ElevenLabs agent **PLW USA — Demo** (the number is imported in ElevenLabs as **PLW USA — Hollywood**). They don't ring the agents.
+- Anna's US dialer (Marcador IA): not configured or tested yet. **Configurar** only reads ElevenLabs' number list, creates its own US agent, and saves the number and Alejandro's transfer address in PLW. It doesn't touch the Demo agent, the number's inbound assistant or Telnyx. Her transfer to Alejandro is still open: it's a SIP REFER to his browser login on this server, which only works if her calls run through this server.
+
+Everything below was the original plan for a server without a US line, kept for reference only.
+
 Every outbound call goes to the US (owner, 2026-11-26); Costa Rica calls still come in. The Telnyx number carries Anna's US calls, the agents' calls from the browser phone, and the US texts. Anna's calls go ElevenLabs → this server → Telnyx, so her transfers still ring Alejandro's browser phone. Calls to the US number join the same queue as Costa Rica calls; the app labels every caller **EE. UU.** or **Costa Rica**. The app only lets agents dial US numbers; their old Costa Rica lines on this server are left in place. `telnyx/plw-telnyx.sh` adds this next to Vocex without editing anything that exists. It needs `plw-dental` installed first.
 
 | Secret | Where it lives | Who can get it |

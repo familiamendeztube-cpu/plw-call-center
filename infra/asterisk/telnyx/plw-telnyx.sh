@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# DO NOT RUN ON THE CURRENT PHONE SERVER. The US line there was set up by hand on 2026-11-26
+# (endpoint plw-us-telnyx, Telnyx connection PLW-USA-ElevenLabs); see "US line (Telnyx)" in
+# infra/asterisk/README.md. This installer refuses to run when it finds that line. Kept only as a
+# reference for a new server.
+#
 # Adds the US line: Telnyx as a second trunk on this Asterisk, next to Vocex.
 #   - Anna's US calls (ElevenLabs, login plw-us-dialer) go out through Telnyx with the US
 #     number as caller ID. Only +1 numbers; 900/976 premium numbers are refused.
@@ -42,6 +47,8 @@ telnyx_registered() { ast 'pjsip show registrations' | grep -E '^ *telnyx/' | ha
 
 check_ready() {
   [[ $EUID -eq 0 ]] || die "Run as root."
+  ! ast 'pjsip show endpoints' | has 'plw-us-telnyx' ||
+    die "This server already has a US line set up by hand (plw-us-telnyx). This installer would conflict with it. Nothing changed."
   [[ ! -e $PJSIP_FILE && ! -e $DIALPLAN_FILE ]] ||
     die "Already installed. Use 'plw-telnyx rollback BACKUP' first to reinstall. Nothing changed."
   [[ -e $CONF_DIR/pjsip_dental.conf ]] ||
