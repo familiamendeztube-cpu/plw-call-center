@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
       if (body?.action === 'number_agent') return json(await usNumberAgent(db, apiKey));
       if (body?.action === 'assign_reception') return json(await assignUsReception(db, apiKey));
       if (body?.action === 'configure') return await configureUs(db, apiKey, body.callerNumber);
+      if (body?.action === 'voices') return json(await usVoices(db, apiKey));
       await runUsTick(db, apiKey);
       return json({ ok: true });
     }
@@ -105,6 +106,29 @@ Deno.serve(async (req) => {
   }
 });
 
+/** Read-only: languages and voices of Anna and PLW USA — Recepción, and the Melissa/Siren voice ids. */
+async function usVoices(db: ReturnType<typeof createClient>, apiKey: string) {
+  const { data: runtime } = await db.from('us_dialer_runtime').select('provider_agent_id').eq('id', 1).maybeSingle();
+  const { data: row } = await db.from('settings').select('value').eq('key', 'us_reception_agent').maybeSingle();
+  const agents: Record<string, unknown> = {};
+  for (const [label, id] of [['anna', runtime?.provider_agent_id], ['reception', row?.value?.agent_id]]) {
+    if (typeof id !== 'string') continue;
+    const c = (await providerRequest(apiKey, `/agents/${encodeURIComponent(id)}`)).data?.conversation_config ?? {};
+    agents[label] = {
+      language: c.agent?.language ?? null,
+      presets: Object.fromEntries(Object.entries(c.language_presets ?? {}).map(([lang, p]: [string, any]) => [lang, p?.overrides?.tts ?? null])),
+      tts: { voice_id: c.tts?.voice_id ?? null, model_id: c.tts?.model_id ?? null, supported_voices: c.tts?.supported_voices ?? null },
+    };
+  }
+  const found: unknown[] = [];
+  for (const name of ['Melissa', 'Siren']) {
+    const r = await fetch(`https://api.elevenlabs.io/v2/voices?search=${name}&page_size=10`, { headers: { 'xi-api-key': apiKey } });
+    const voices = r.ok ? (await r.json()).voices ?? [] : [];
+    found.push(...voices.map((v: any) => ({ voice_id: v.voice_id, name: v.name })));
+  }
+  return { agents, voices: found };
+}
+
 /**
  * Configurar Anna EE. UU.: creates or re-checks Anna's US agent in ElevenLabs, saves the US number,
  * its ElevenLabs id and Alejandro's transfer address, and turns the US tick on. Calling stays
@@ -135,25 +159,18 @@ async function configureUs(
         error: `El número ${usNumber} no aparece en ElevenLabs. Impórtelo en ElevenLabs (Phone Numbers) y presione Configurar de nuevo.`,
       }, 409);
   }
-  const { data: settings, error } = await db
-    .from('ai_outbound_settings')
-    .select('voice_id')
-    .eq('id', 1)
-    .single();
-  if (error || !settings?.voice_id) return json({ error: 'Falta configurar la voz.' }, 409);
-  // Anna transfers to the US team line: it rings Alejandro first, then PLW USA — Recepción.
+  // Anna's voices are fixed in usScript.js (Melissa in Spanish, Siren in English). Anna transfers to the US team line: it rings Alejandro first, then PLW USA — Recepción.
   if (!usNumber) return json({ error: 'Escriba el número de EE. UU. y presione Configurar.' }, 409);
   const route = {
     transfer_uri: usNumber,
     provider_agent_id: runtime.data.provider_agent_id,
   };
-  const voiceId = settings.voice_id;
   let providerId = runtime.data.provider_agent_id;
   if (!providerId) {
     const created = await providerRequest(
       apiKey,
       '/agents/create',
-      usAgentConfig('Alejandro', route, voiceId)
+      usAgentConfig('Alejandro', route)
     );
     providerId = created.data?.agent_id;
     if (!created.ok || typeof providerId !== 'string')
@@ -169,7 +186,7 @@ async function configureUs(
     const patched = await providerRequest(
       apiKey,
       `/agents/${encodeURIComponent(providerId)}`,
-      usAgentConfig('Alejandro', route, voiceId),
+      usAgentConfig('Alejandro', route),
       fetch,
       'PATCH'
     );

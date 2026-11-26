@@ -4,9 +4,12 @@
 
 export const US_SCRIPT_VERSION = 'anna-2026-11-26-us-es-c';
 export const US_FIRST_MESSAGE = '';
-// Same model as the verified Anna Turismo agent: eleven_turbo_v2 is English-only and ElevenLabs
-// refuses it for a Spanish agent.
-export const US_VOICE_MODEL = 'eleven_v3_conversational';
+// Owner's choice (2026-11-26): GPT-6 Luna + Eleven v4 Turbo; Melissa speaks Spanish (default),
+// Siren speaks English (when the language tool switches to English).
+export const US_VOICE_MODEL = 'eleven_v4_turbo';
+export const US_LLM = 'gpt-6-luna';
+export const US_VOICE_ES = 'kjHz50TasdqbpbfK4uaN'; // Melissa - Warm, Smiling and Fast-Paced
+export const US_VOICE_EN = 'eXpIbVcVbLo8ZJQDlDnl'; // Siren - natural realistic podcast voice
 export const PLW_US_ADDRESS = '6725 Sunset Blvd, Los Angeles, CA 90028';
 
 const LANGUAGE_RULES = `

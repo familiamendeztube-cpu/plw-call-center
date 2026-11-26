@@ -55,7 +55,7 @@ const agentJson = (config) => ({ ok: true, status: 200, json: async () => config
 test('the US first message is empty and the opening states who Anna is and where she calls from', () => {
   assert.equal(US_FIRST_MESSAGE, '');
   assert.equal(
-    usAgentConfig('Alejandro', ROUTE, 'voice').conversation_config.agent.first_message,
+    usAgentConfig('Alejandro', ROUTE).conversation_config.agent.first_message,
     ''
   );
   const prompt = usPrompt();
@@ -83,7 +83,7 @@ test('the US prompt handles the English menu and the Spanish human without assum
 });
 
 test('the US verifier self-check passes and catches drift', () => {
-  const healthy = usAgentConfig('Alejandro', ROUTE, 'voice');
+  const healthy = usAgentConfig('Alejandro', ROUTE);
   healthy.agent_id = 'us_agent';
   assert.deepEqual(usConfigFailures(healthy, ROUTE), []);
   for (const [failure, drift] of [
@@ -92,6 +92,12 @@ test('the US verifier self-check passes and catches drift', () => {
     ['skip_turn', (c) => delete c.conversation_config.agent.prompt.built_in_tools.skip_turn],
     ['keypad', (c) => delete c.conversation_config.agent.prompt.built_in_tools.play_keypad_touch_tone],
     ['expressive_mode', (c) => (c.conversation_config.tts.expressive_mode = true)],
+    // Owner's setup: Melissa in Spanish (default), Siren in English, GPT-6 Luna, Eleven v4 Turbo.
+    ['voice_model', (c) => (c.conversation_config.tts.model_id = 'eleven_v3_conversational')],
+    ['voice_spanish', (c) => (c.conversation_config.tts.voice_id = 'CRUQ4Y1bKyD8VqRkNh6V')],
+    ['llm', (c) => (c.conversation_config.agent.prompt.llm = 'gemini-2.5-flash')],
+    ['language_presets', (c) => (c.conversation_config.language_presets.en.overrides.tts.voice_id = 'kjHz50TasdqbpbfK4uaN')],
+    ['language_presets', (c) => (c.conversation_config.language_presets.fr = { overrides: { agent: {} } })],
   ]) {
     const config = structuredClone(healthy);
     drift(config);
@@ -249,7 +255,7 @@ test('an ElevenLabs outage skips the US tick; drift un-verifies but keeps the ag
     assert.ok(runtimeWrites.some((v) => /se reintentará/.test(v.last_error ?? '')));
     assert.equal(db.rpcs.length, 0);
   }
-  const drifted = usAgentConfig('Alejandro', ROUTE, 'voice');
+  const drifted = usAgentConfig('Alejandro', ROUTE);
   drifted.agent_id = 'us_agent';
   drifted.conversation_config.agent.prompt.prompt = 'Otro guion';
   const db = fakeDb({ us_dialer_runtime: RUNTIME, us_calls: [] });
@@ -260,7 +266,7 @@ test('an ElevenLabs outage skips the US tick; drift un-verifies but keeps the ag
 });
 
 test('a verified voice claims through claim_us_call, and paused blocks the claim', async () => {
-  const healthy = usAgentConfig('Alejandro', ROUTE, 'voice');
+  const healthy = usAgentConfig('Alejandro', ROUTE);
   healthy.agent_id = 'us_agent';
   const db = fakeDb({ us_dialer_runtime: RUNTIME, us_calls: [] });
   await runUsTick(db, 'key', async () => agentJson(healthy));
@@ -294,7 +300,7 @@ test('speech-to-text gets the business name and bilingual email words, at most 5
     assert.ok(keywords.includes(word), word);
   assert.ok(!keywords.includes('La'), 'short words add noise');
   assert.ok(usAsrKeywords('x '.repeat(200)).length <= 50);
-  const config = usAgentConfig('Alejandro', ROUTE, 'voice');
+  const config = usAgentConfig('Alejandro', ROUTE);
   assert.equal(config.platform_settings.overrides.conversation_config_override.asr.keywords, true);
 });
 

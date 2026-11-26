@@ -4,6 +4,9 @@
 import {
   US_FIRST_MESSAGE,
   US_VOICE_MODEL,
+  US_LLM,
+  US_VOICE_ES,
+  US_VOICE_EN,
   US_SCRIPT_VERSION,
   usPrompt,
 } from './usScript.js';
@@ -181,7 +184,7 @@ export const US_OUTCOMES = [
   'DO_NOT_CALL', 'WRONG_NUMBER', 'NO_ANSWER', 'VOICEMAIL', 'IVR_NO_HUMAN', 'TECHNICAL_FAILURE',
 ];
 
-export function usAgentConfig(staffName, route, voiceId, { basicTurn = false } = {}) {
+export function usAgentConfig(staffName, route, { basicTurn = false } = {}) {
   return {
     name: `PLW EE. UU. · Anna · ${staffName} · ${US_SCRIPT_VERSION}`,
     tags: ['plw-us'],
@@ -191,6 +194,7 @@ export function usAgentConfig(staffName, route, voiceId, { basicTurn = false } =
         first_message: US_FIRST_MESSAGE,
         prompt: {
           prompt: usPrompt() + `\nVersión: ${US_SCRIPT_VERSION}.`,
+          llm: US_LLM,
           tool_ids: [],
           mcp_server_ids: [],
           knowledge_base: [],
@@ -226,12 +230,11 @@ export function usAgentConfig(staffName, route, voiceId, { basicTurn = false } =
           },
         },
       },
+      // Spanish by default (Melissa); English is the only other language, spoken by Siren.
       language_presets: {
-        en: { overrides: { agent: {} } },
-        fr: { overrides: { agent: {} } },
-        zh: { overrides: { agent: {} } },
+        en: { overrides: { agent: {}, tts: { voice_id: US_VOICE_EN } } },
       },
-      tts: { voice_id: voiceId, model_id: US_VOICE_MODEL, expressive_mode: false },
+      tts: { voice_id: US_VOICE_ES, model_id: US_VOICE_MODEL, expressive_mode: false },
       vad: { background_voice_detection: true },
       turn: basicTurn ? BASIC_TURN : TURN,
       conversation: { max_duration_seconds: 600 },
@@ -328,6 +331,8 @@ export function usConfigFailures(config, route) {
   if (agent?.language !== 'es') failures.push('language');
   if (p?.timezone !== 'America/Los_Angeles') failures.push('timezone');
   if (config.conversation_config?.tts?.model_id !== US_VOICE_MODEL) failures.push('voice_model');
+  if (config.conversation_config?.tts?.voice_id !== US_VOICE_ES) failures.push('voice_spanish');
+  if (p?.llm !== US_LLM) failures.push('llm');
   if (config.conversation_config?.tts?.expressive_mode !== false) failures.push('expressive_mode');
   if (
     config.conversation_config?.vad?.background_voice_detection !== true ||
@@ -349,7 +354,8 @@ export function usConfigFailures(config, route) {
   if (!built.play_keypad_touch_tone) failures.push('keypad');
   const presets = config.conversation_config?.language_presets ?? {};
   if (
-    !['en', 'fr', 'zh'].every((lang) => presets[lang]) ||
+    Object.keys(presets).join() !== 'en' ||
+    presets.en?.overrides?.tts?.voice_id !== US_VOICE_EN ||
     Object.values(presets).some((preset) => text(preset?.overrides?.agent?.first_message) !== '')
   )
     failures.push('language_presets');
