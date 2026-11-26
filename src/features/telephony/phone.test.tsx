@@ -112,10 +112,13 @@ test('during a call the screen shows the other person and cannot be edited', asy
   await userEvent.type(numberField(), '71301928');
   act(() => emit({ type: 'call', call: ACTIVE_CALL }));
 
-  expect(numberField().value).toBe('88887777');
+  expect(numberField().value).toBe('8888-7777');
   expect(numberField().readOnly).toBe(true);
   await userEvent.type(numberField(), '5{Enter}');
-  expect(numberField().value).toBe('88887777');
+  expect(numberField().value).toBe('8888-7777');
+  // A US caller shows with the area code in parentheses.
+  act(() => emit({ type: 'call', call: { ...ACTIVE_CALL, remoteNumber: '+12029003800' } }));
+  expect(numberField().value).toBe('(202) 900-3800');
   expect(connector.dial).not.toHaveBeenCalled();
 });
 
@@ -241,7 +244,7 @@ test('the narrow dialer answers a ringing call', async () => {
     emit({ type: 'call', call: { ...ACTIVE_CALL, direction: 'inbound', state: 'ringing' } })
   );
 
-  expect(numberField().value).toBe('88887777');
+  expect(numberField().value).toBe('8888-7777');
   await userEvent.click(screen.getByRole('button', { name: 'Contestar' }));
   expect(connector.answer).toHaveBeenCalledOnce();
 });

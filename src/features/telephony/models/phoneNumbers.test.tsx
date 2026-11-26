@@ -45,3 +45,11 @@ test('WhatsApp takes a US number without +1 and still takes Costa Rica callers',
   expect(whatsAppNumber('+44 20 7946 0958')).toBe('+442079460958');
   expect(whatsAppNumber('+1 105 555 1234')).toBeNull();
 });
+
+test('numbers show with the US area code in parentheses, and Costa Rica as 4-4', async () => {
+  const { formatPhone } = await import('@/features/telephony/models/call');
+  expect(formatPhone('+12029003800')).toBe('(202) 900-3800');
+  expect(formatPhone('2029003800')).toBe('(202) 900-3800');
+  expect(formatPhone('+50688881234')).toBe('8888-1234');
+  expect(formatPhone('agent-2')).toBe('agent-2');
+});

@@ -1,14 +1,29 @@
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
-import { CALL_STATE_LABELS, isCallLive, originLabel } from '@/features/telephony/models/call';
+import {
+  CALL_STATE_LABELS,
+  formatPhone,
+  isCallLive,
+  originLabel,
+  toUsNumber,
+} from '@/features/telephony/models/call';
 import { CallTimer } from '@/features/telephony/components/CallTimer';
 import { useCanDial } from '@/features/presence/hooks/useCanDial';
 import { cx } from '@/components/ui/cx';
 
-/** The number being dialed. Enter calls it; during a call it shows who is on the line. */
+/**
+ * The number being dialed. Enter calls it; during a call it shows who is on the line. A number
+ * shows as (202) 900-3800 once it is complete; while typing it stays as typed, so deleting a
+ * digit never fights the formatting.
+ */
 export function DialInput({ className }: { className: string }) {
   const { call, dialNumber, changeDialNumber, placeCall } = useTelephony();
   const live = call !== null && isCallLive(call.state);
   const active = useCanDial();
+  const shown = live
+    ? formatPhone(call.remoteNumber)
+    : toUsNumber(dialNumber)
+      ? formatPhone(dialNumber)
+      : dialNumber;
 
   return (
     <input
@@ -17,7 +32,7 @@ export function DialInput({ className }: { className: string }) {
       autoComplete="off"
       placeholder="Introduce un número"
       readOnly={live}
-      value={live ? call.remoteNumber : dialNumber}
+      value={shown}
       onChange={(event) => changeDialNumber(event.target.value)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' && !live && dialNumber && active) void placeCall();
@@ -52,7 +67,7 @@ export function PhoneScreen() {
         <span>{CALL_STATE_LABELS[state]}</span>
         <CallTimer startedAt={call?.startedAt ?? null} running={call?.state === 'active'} />
       </span>
-      <DialInput className="mt-3 h-9 w-full text-center text-3xl font-light tracking-wide placeholder:text-lg placeholder:text-white/50" />
+      <DialInput className="mt-3 h-9 w-full text-center text-2xl font-light tracking-wide placeholder:text-lg placeholder:text-white/50" />
       <span aria-live="polite" className="mt-1 block h-4 text-center text-xs text-plw-gold-soft">
         {live
           ? `${call.direction === 'outbound' ? 'Llamada saliente' : 'Llamada entrante'}${origin ? ` · ${origin}` : ''}`

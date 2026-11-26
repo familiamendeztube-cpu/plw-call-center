@@ -54,6 +54,15 @@ export const originLabel = (number: string) => {
   return origin ? ORIGIN_LABELS[origin] : '';
 };
 
+/** How a number is shown: (202) 900-3800 in the US, 8888-1234 in Costa Rica, as given otherwise. */
+export function formatPhone(number: string): string {
+  const origin = callerOrigin(number);
+  const key = phoneKey(number);
+  if (origin === 'us') return `(${key.slice(0, 3)}) ${key.slice(3, 6)}-${key.slice(6)}`;
+  if (origin === 'cr') return `${key.slice(0, 4)}-${key.slice(4)}`;
+  return number;
+}
+
 /**
  * Calls the server has saved, plus calls that ended in this tab and aren't saved yet.
  * A live call counts as saved once a record with the same number ended within two minutes

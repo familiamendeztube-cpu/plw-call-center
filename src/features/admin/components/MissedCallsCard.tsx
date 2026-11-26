@@ -7,7 +7,7 @@ import { missedCalls } from '@/features/admin/models/missedCalls';
 import { loadPhoneRecords } from '@/features/admin/services/phoneRecords';
 import { findCustomerByPhone } from '@/features/customers/models/customerEntries';
 import type { Prospect } from '@/features/leads/models/prospect';
-import { originLabel } from '@/features/telephony/models/call';
+import { formatPhone, originLabel } from '@/features/telephony/models/call';
 
 const DAYS = 7;
 
@@ -75,10 +75,10 @@ function MissedList({
           <li key={call.linkedId} className="flex flex-wrap items-center gap-3 py-2.5">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-plw-ink">
-                {customer ? customer.businessName : call.number}
+                {customer ? customer.businessName : formatPhone(call.number)}
               </p>
               <p className="text-xs text-neutral-500">
-                {customer ? `${call.number} · ` : ''}
+                {customer ? `${formatPhone(call.number)} · ` : ''}
                 {originLabel(call.number) ? `${originLabel(call.number)} · ` : ''}
                 {formatDateTime(call.at)}
                 {owner ? ` · Cliente de ${owner}` : ''}

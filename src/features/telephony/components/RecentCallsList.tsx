@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowDownLeft, ArrowUpRight, Phone, PhoneMissed } from 'lucide-react';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
-import { formatCallDuration, originLabel, toUsNumber } from '@/features/telephony/models/call';
+import { formatCallDuration, formatPhone, originLabel, toUsNumber } from '@/features/telephony/models/call';
 import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
 import { useOptionalAgentProspects } from '@/features/leads/context/agentProspectsContext';
 import { formatTime } from '@/app/dates';
@@ -43,11 +43,11 @@ export function RecentCallsList() {
                 </Link>
               ) : (
                 <span className="block truncate text-sm font-medium text-plw-ink">
-                  {call.remoteNumber}
+                  {formatPhone(call.remoteNumber)}
                 </span>
               )}
               <span className="block text-xs text-neutral-500">
-                {customer ? `${call.remoteNumber} · ` : ''}
+                {customer ? `${formatPhone(call.remoteNumber)} · ` : ''}
                 {originLabel(call.remoteNumber) ? `${originLabel(call.remoteNumber)} · ` : ''}
                 {formatTime(call.endedAt)} · {formatCallDuration(call.durationSeconds)}
               </span>
@@ -56,7 +56,7 @@ export function RecentCallsList() {
               <button
                 type="button"
                 onClick={() => changeDialNumber(dialable)}
-                aria-label={`Marcar de nuevo ${customer?.businessName ?? call.remoteNumber}`}
+                aria-label={`Marcar de nuevo ${customer?.businessName ?? formatPhone(call.remoteNumber)}`}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-plw-navy transition-[background-color,transform] duration-150 ease-out hover:bg-plw-ivory active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plw-gold/60"
               >
                 <Phone size={14} aria-hidden="true" />

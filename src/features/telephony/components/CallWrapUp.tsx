@@ -17,6 +17,7 @@ import type { Prospect } from '@/features/leads/models/prospect';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import {
   formatCallDuration,
+  formatPhone,
   isCallLive,
   originLabel,
   toUsNumber,
@@ -124,7 +125,7 @@ export function CallWrapUp() {
             {formatCallDuration(ended.durationSeconds)}
           </p>
           <p className="truncate text-base font-semibold text-plw-ink">
-            {customer?.businessName ?? ended.number}
+            {customer?.businessName ?? formatPhone(ended.number)}
           </p>
         </div>
         <button
