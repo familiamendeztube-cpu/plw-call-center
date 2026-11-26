@@ -86,7 +86,7 @@ export const CALL_STATE_LABELS: Record<CallState, string> = {
   ended: 'Finalizada',
 };
 
-// Eight digits starting with 2-8, with or without 506 (Costa Rica lists and the AI dialers).
+// Eight digits starting with 2-8, with or without 506: Costa Rica callers (calls only come in).
 const COSTA_RICA_NUMBER = /^(?:\+?506)?([2-8]\d{7})$/;
 // Agents call only the US (owner, 2026-11-26): 10 digits with or without 1, area and exchange
 // starting 2-9, no N11 area codes, no 900/976 premium numbers. The phone server

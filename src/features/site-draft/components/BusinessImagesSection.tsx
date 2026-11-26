@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { callStaffFunction } from '@/integrations/supabase/callStaffFunction';
 import { buildMapsSearchUrl, type SiteDraftImage } from '../models/siteDraft';
+import { toUsNumber } from '@/features/telephony/models/call';
 
 const FIELD =
   'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-normal text-plw-ink focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30';
@@ -11,7 +12,6 @@ const MAX_BYTES = 5 * 1024 * 1024;
 // The draft holds at most 4 images (database check on approved_images).
 const MAX_APPROVED = 4;
 const MAX_PER_PICK = 8;
-const CR_PHONE = /^(?:\+506)?[\s-]?\d{4}[\s-]?\d{4}$/;
 
 export interface CandidateImage {
   id: string;
@@ -168,7 +168,7 @@ export function BusinessImagesSection({
     }
   };
 
-  const validPhone = CR_PHONE.test(sourcePhone.trim());
+  const validPhone = toUsNumber(sourcePhone) !== null;
   const validUrl = /^https:\/\/[^\s]{4,300}$/.test(sourceUrl.trim()) && !sourceUrl.includes('..');
   const mapsUrl = buildMapsSearchUrl(businessName, locale);
 
@@ -192,8 +192,8 @@ export function BusinessImagesSection({
           type="tel"
           value={sourcePhone}
           maxLength={20}
-          placeholder="+506 8888-7777"
-          hint={sourcePhone.trim() === '' || validPhone ? 'Costa Rica: +506 y 8 dígitos.' : 'Formato no reconocido.'}
+          placeholder="(213) 555-0100"
+          hint={sourcePhone.trim() === '' || validPhone ? 'EE. UU.: 10 dígitos con el código de área.' : 'Formato no reconocido.'}
           onChange={(event) => setSourcePhone(event.target.value)}
         />
         <TextField

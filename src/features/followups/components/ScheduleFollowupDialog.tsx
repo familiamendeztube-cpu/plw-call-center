@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useAppServices } from '@/app/ServicesContext';
-import { costaRicaLocalInputToIso, isoToCostaRicaLocalInput } from '@/app/dates';
+import { appLocalInputToIso, isoToAppLocalInput } from '@/app/dates';
 import { Dialog } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -35,7 +35,7 @@ export function ScheduleFollowupDialog({
   const [kind, setKind] = useState<FollowupKind>('callback');
   const [title, setTitle] = useState(initialTitle.slice(0, 120));
   const [dueLocal, setDueLocal] = useState(() =>
-    isoToCostaRicaLocalInput(new Date(Date.now() + ONE_HOUR_MS).toISOString())
+    isoToAppLocalInput(new Date(Date.now() + ONE_HOUR_MS).toISOString())
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export function ScheduleFollowupDialog({
         agentId,
         kind,
         title: trimmedTitle,
-        dueAt: costaRicaLocalInputToIso(dueLocal),
+        dueAt: appLocalInputToIso(dueLocal),
       });
       onScheduled(followup);
       onClose();
@@ -81,7 +81,7 @@ export function ScheduleFollowupDialog({
     <Dialog
       open
       title="Programar seguimiento"
-      description="Hora de Costa Rica. El seguimiento aparecerá en tu lista."
+      description="Hora del Pacífico (Los Ángeles). El seguimiento aparecerá en tu lista."
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">

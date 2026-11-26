@@ -21,7 +21,6 @@ import { AdminSettingsPage } from '@/features/admin/pages/AdminSettingsPage';
 import { AdminAuditPage } from '@/features/admin/pages/AdminAuditPage';
 import { AdminAiCallsPage } from '@/features/ai-calls/pages/AdminAiCallsPage';
 import { AdminAiOutboundPage } from '@/features/ai-outbound/pages/AdminAiOutboundPage';
-import { DentalLeadsPage } from '@/features/dental-leads/pages/DentalLeadsPage';
 import { HotelDemoPage } from '@/features/hotel-demo/pages/HotelDemoPage';
 
 export function AppRoutes() {
@@ -41,7 +40,7 @@ export function AppRoutes() {
       >
         <Route path="/hoy" element={<TodayPage />} />
         <Route path="/clientes" element={<CustomersPage />} />
-        <Route path="/dentistas" element={<DentalLeadsPage />} />
+        <Route path="/dentistas" element={<Navigate to="/hoy" replace />} />
         {/* Dental campaign retired: old dialer links go to the current general dialer. */}
         <Route path="/llamadas-dentales" element={<Navigate to="/admin/marcador-general" replace />} />
         <Route path="/bandeja" element={<Navigate to="/clientes" replace />} />
@@ -67,7 +66,7 @@ export function AppRoutes() {
         {/* Dental campaign retired: old dialer/test links redirect to the current dialer. */}
         <Route path="/admin/marcador-ia" element={<Navigate to="/admin/marcador-general" replace />} />
         <Route path="/admin/test" element={<Navigate to="/admin/marcador-general" replace />} />
-        <Route path="/admin/dentistas" element={<DentalLeadsPage />} />
+        <Route path="/admin/dentistas" element={<Navigate to="/admin/marcador-general" replace />} />
         <Route path="/admin/seguimientos" element={<AdminFollowupsPage />} />
         <Route path="/admin/material-comercial" element={<MaterialsPage />} />
         <Route path="/admin/integraciones" element={<AdminIntegrationsPage />} />

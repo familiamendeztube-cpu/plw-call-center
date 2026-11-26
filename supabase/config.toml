@@ -34,7 +34,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.ai-outbound-test-call]
-# The admin session is checked inside the handler via authorizeAdmin.
+# Retired 2026-11-26 (outbound calls are US-only): answers 410 to every request.
 verify_jwt = false
 
 [functions.dental-dialer]

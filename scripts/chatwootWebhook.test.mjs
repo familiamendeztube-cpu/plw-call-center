@@ -197,6 +197,10 @@ test('a typed number becomes the number WhatsApp writes to', () => {
   assert.equal(whatsAppNumber(' (506) 8888 1234 '), '+50688881234');
   assert.equal(whatsAppNumber('+50688881234'), '+50688881234');
   assert.equal(whatsAppNumber('+1 (305) 555-0100'), '+13055550100');
+  // US first (2026-11-26): ten digits need no +1.
+  assert.equal(whatsAppNumber('(305) 555-0100'), '+13055550100');
+  assert.equal(whatsAppNumber('13055550100'), '+13055550100');
+  assert.equal(whatsAppNumber('+1 105 555 0100'), null);
   for (const typed of ['', '1234', '18888-1234', '+506 1888 1234', '50612345678', '+0123456789', 'tel:88881234']) {
     assert.equal(whatsAppNumber(typed), null, typed);
   }

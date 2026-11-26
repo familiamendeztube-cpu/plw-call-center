@@ -1,184 +1,63 @@
 import { useEffect, useState } from 'react';
-import { Phone, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { StatusMessage } from '@/components/ui/StatusMessage';
-import { CampaignDetail } from '@/features/ai-outbound/components/CampaignDetail';
-import { CreateCampaignDialog } from '@/features/ai-outbound/components/CreateCampaignDialog';
-import { TestCallDialog } from '@/features/ai-outbound/components/TestCallDialog';
-import { useOutboundCampaigns } from '@/features/ai-outbound/hooks/useOutboundCampaigns';
-import {
-  TourismDialerCard,
-  type TourismCall,
-  type TourismRuntime,
-} from '@/features/ai-outbound/components/TourismDialerCard';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import {
-  listTourismAlerts,
-  listTourismPromises,
-  resolveTourismPromise,
-  rescheduleTourismPromise,
-  restartTourismAfterAlert,
-  type TourismPromise,
-  type TourismAlert,
-} from '@/features/ai-outbound/services/tourismPromises';
-import { UsDialerCard, type UsCall, type UsRuntime, type UsLead, type UsCallback, type UsSmsMessage } from '@/features/ai-outbound/components/UsDialerCard';
-import { cx } from '@/components/ui/cx';
+  UsDialerCard,
+  type UsCall,
+  type UsCallback,
+  type UsLead,
+  type UsRuntime,
+  type UsSmsMessage,
+} from '@/features/ai-outbound/components/UsDialerCard';
 
+/** The AI dialer calls the US only (owner, 2026-11-26); Costa Rica is inbound-only. */
 export function AdminAiOutboundPage() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [tourism, setTourism] = useState<TourismRuntime | null>(null);
-  const [tourismError, setTourismError] = useState<string | null>(null);
-  const [tourismCalls, setTourismCalls] = useState<TourismCall[]>([]);
-  const [promises, setPromises] = useState<TourismPromise[]>([]);
-  const [alerts, setAlerts] = useState<TourismAlert[]>([]);
-  const [usRuntime, setUsRuntime] = useState<UsRuntime | null>(null);
-  const [usError, setUsError] = useState<string | null>(null);
-  const [usCalls, setUsCalls] = useState<UsCall[]>([]);
-  const [usLeads, setUsLeads] = useState<UsLead[]>([]);
-  const [usCallbacks, setUsCallbacks] = useState<UsCallback[]>([]);
-  const [usSms, setUsSms] = useState<UsSmsMessage[]>([]);
-  const { state, reload } = useOutboundCampaigns();
+  const [runtime, setRuntime] = useState<UsRuntime | null>(null);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  const [calls, setCalls] = useState<UsCall[]>([]);
+  const [leads, setLeads] = useState<UsLead[]>([]);
+  const [callbacks, setCallbacks] = useState<UsCallback[]>([]);
+  const [sms, setSms] = useState<UsSmsMessage[]>([]);
 
-  const reloadTourism = () => {
+  const reload = () => {
     const supabase = getSupabaseClient();
     void Promise.all([
-      supabase
-        .from('tourism_dialer_runtime')
-        .select('scheduler_ready,paused,last_tick_at,last_error,provider_agent_id,config_verified_at,transfer_uri,dialed_today,daily_cap')
-        .eq('id', 1)
-        .maybeSingle(),
-      supabase
-        .from('tourism_calls')
-        .select('id,created_at,phone,state,outcome,summary,error,is_test,lead:ai_outbound_leads(business_name)')
-        .order('created_at', { ascending: false })
-        .limit(10),
-    ]).then(([runtime, calls]) => {
-      setTourismError(runtime.error ? 'No se pudo leer el estado del marcador de turismo.' : null);
-      setTourism((runtime.data as TourismRuntime | null) ?? null);
-      setTourismCalls(calls.error ? [] : ((calls.data ?? []) as unknown as TourismCall[]));
-      listTourismPromises().then(setPromises).catch(() => setPromises([]));
-      listTourismAlerts().then(setAlerts).catch(() => setAlerts([]));
-      void Promise.all([
-        supabase.from('us_dialer_runtime').select('scheduler_ready,paused,last_tick_at,last_error,provider_agent_id,config_verified_at,transfer_uri,caller_e164,dialed_today,daily_cap,allowed_from,allowed_to').eq('id', 1).maybeSingle(),
-        supabase.from('us_calls').select('id,created_at,phone,state,outcome,summary,error,is_test,lead:us_leads(business_name)').order('created_at', { ascending: false }).limit(10),
-        supabase.from('us_leads').select('id,raw_phone,phone_e164,dest,contact_name,business_name,business_type,timezone,consent_ref,sms_mobile,sms_consent,excluded_reason,last_call_at,created_at').order('created_at', { ascending: true }).limit(500),
-        supabase.from('us_callbacks').select('id,phone,scheduled_for,timezone,status,fail_reason,lead:us_leads(business_name)').order('scheduled_for', { ascending: true }).limit(20),
-        supabase.from('us_sms_messages').select('id,lead_id,to_e164,body,web_url,secretary_url,status,created_at').order('created_at', { ascending: false }).limit(20),
-      ])
-        .then(([runtime, calls, leads, callbacks, sms]) => {
-          setUsError(runtime.error ? 'No se pudo leer el estado del marcador de EE. UU.' : null);
-          setUsRuntime((runtime.data as UsRuntime | null) ?? null);
-          setUsCalls(calls.error ? [] : ((calls.data ?? []) as unknown as UsCall[]));
-          setUsLeads(leads.error ? [] : ((leads.data ?? []) as unknown as UsLead[]));
-          setUsCallbacks(callbacks.error ? [] : ((callbacks.data ?? []) as unknown as UsCallback[]));
-          setUsSms(sms.error ? [] : ((sms.data ?? []) as unknown as UsSmsMessage[]));
-        });
+      supabase.from('us_dialer_runtime').select('scheduler_ready,paused,last_tick_at,last_error,provider_agent_id,config_verified_at,transfer_uri,caller_e164,dialed_today,daily_cap,allowed_from,allowed_to').eq('id', 1).maybeSingle(),
+      supabase.from('us_calls').select('id,created_at,phone,state,outcome,summary,error,is_test,lead:us_leads(business_name)').order('created_at', { ascending: false }).limit(10),
+      supabase.from('us_leads').select('id,raw_phone,phone_e164,dest,contact_name,business_name,business_type,timezone,consent_ref,sms_mobile,sms_consent,excluded_reason,last_call_at,created_at').order('created_at', { ascending: true }).limit(500),
+      supabase.from('us_callbacks').select('id,phone,scheduled_for,timezone,status,fail_reason,lead:us_leads(business_name)').order('scheduled_for', { ascending: true }).limit(20),
+      supabase.from('us_sms_messages').select('id,lead_id,to_e164,body,web_url,secretary_url,status,created_at').order('created_at', { ascending: false }).limit(20),
+    ]).then(([runtimeRow, callRows, leadRows, callbackRows, smsRows]) => {
+      setRuntimeError(runtimeRow.error ? 'No se pudo leer el estado del marcador de EE. UU.' : null);
+      setRuntime((runtimeRow.data as UsRuntime | null) ?? null);
+      setCalls(callRows.error ? [] : ((callRows.data ?? []) as unknown as UsCall[]));
+      setLeads(leadRows.error ? [] : ((leadRows.data ?? []) as unknown as UsLead[]));
+      setCallbacks(callbackRows.error ? [] : ((callbackRows.data ?? []) as unknown as UsCallback[]));
+      setSms(smsRows.error ? [] : ((smsRows.data ?? []) as unknown as UsSmsMessage[]));
     });
   };
 
   useEffect(() => {
-    reloadTourism();
-    const timer = setInterval(reloadTourism, 30000);
+    reload();
+    const timer = setInterval(reload, 30000);
     return () => clearInterval(timer);
   }, []);
-
-  const campaigns = state.status === 'ready' ? state.data : [];
-  const selected = campaigns.find((campaign) => campaign.id === selectedId) ?? campaigns[0] ?? null;
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Marcador IA"
-        description="Prepara campañas de llamadas salientes del asistente IA con listas de contactos."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => setTesting(true)}>
-              <Phone size={16} aria-hidden="true" />
-              Llamada de prueba
-            </Button>
-            <Button onClick={() => setCreating(true)}>
-              <Plus size={16} aria-hidden="true" />
-              Nueva campaña
-            </Button>
-          </div>
-        }
+        description="Anna llama a negocios de EE. UU. con la línea de EE. UU. Costa Rica solo recibe llamadas."
       />
-
-      <TourismDialerCard
-        runtime={tourism}
-        runtimeError={tourismError}
-        calls={tourismCalls}
-        promises={promises}
-        alerts={alerts}
-        onChanged={reloadTourism}
-        onResolve={(id, note) => resolveTourismPromise(id, note)}
-        onReschedule={(id, slot, note) => rescheduleTourismPromise(id, slot, note)}
-        onRestart={() => restartTourismAfterAlert()}
-      />
-
       <UsDialerCard
-        runtime={usRuntime}
-        runtimeError={usError}
-        calls={usCalls}
-        leads={usLeads}
-        callbacks={usCallbacks}
-        smsMessages={usSms}
-        onChanged={reloadTourism}
+        runtime={runtime}
+        runtimeError={runtimeError}
+        calls={calls}
+        leads={leads}
+        callbacks={callbacks}
+        smsMessages={sms}
+        onChanged={reload}
       />
-
-      {state.status === 'loading' ? (
-        <StatusMessage tone="loading" title="Cargando campañas..." />
-      ) : state.status === 'error' ? (
-        <StatusMessage tone="error" title={state.message} />
-      ) : campaigns.length === 0 ? (
-        <StatusMessage
-          tone="empty"
-          title="Aún no hay campañas."
-          description="Crea una campaña y luego importa tu lista de contactos."
-        />
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-          <nav aria-label="Campañas" className="flex flex-col gap-2">
-            {campaigns.map((campaign) => (
-              <button
-                key={campaign.id}
-                type="button"
-                onClick={() => setSelectedId(campaign.id)}
-                aria-current={selected?.id === campaign.id ? 'true' : undefined}
-                className={cx(
-                  'rounded-xl border px-4 py-3 text-left text-sm transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.97]',
-                  selected?.id === campaign.id
-                    ? 'border-plw-deep bg-white font-semibold text-plw-ink shadow-raised'
-                    : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'
-                )}
-              >
-                {campaign.name}
-              </button>
-            ))}
-          </nav>
-          {selected ? (
-            <CampaignDetail
-              key={selected.id}
-              campaign={selected}
-              onDeleted={() => {
-                setSelectedId(null);
-                reload();
-              }}
-            />
-          ) : null}
-        </div>
-      )}
-
-      <CreateCampaignDialog
-        open={creating}
-        onClose={() => setCreating(false)}
-        onCreated={reload}
-      />
-
-      <TestCallDialog open={testing} onClose={() => setTesting(false)} />
     </div>
   );
 }

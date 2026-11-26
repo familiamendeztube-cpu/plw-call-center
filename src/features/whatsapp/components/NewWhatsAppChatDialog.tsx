@@ -4,7 +4,7 @@ import { TextField } from '@/components/ui/TextField';
 import { TemplateComposer } from '@/features/whatsapp/components/TemplateComposer';
 import { startWhatsAppChat, whatsAppNumber } from '@/features/whatsapp/hooks/useWhatsApp';
 
-const NUMBER_HINT = 'Los 8 dígitos de Costa Rica, o + y el código de otro país.';
+const NUMBER_HINT = 'EE. UU.: 10 dígitos con el código de área. Costa Rica: 8 dígitos. Otro país: + y su código.';
 
 interface NewWhatsAppChatDialogProps {
   onClose: () => void;

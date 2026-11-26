@@ -1,4 +1,4 @@
-import { getCostaRicaDayKey } from '@/app/dates';
+import { getAppDayKey } from '@/app/dates';
 import type { Agent } from '@/features/auth/models/agent';
 import {
   liveStatus,
@@ -45,7 +45,7 @@ export interface AgentWorkload {
 }
 
 function isDueToday(followup: Followup, todayKey: string): boolean {
-  return !followup.completed && getCostaRicaDayKey(new Date(followup.dueAt)) === todayKey;
+  return !followup.completed && getAppDayKey(new Date(followup.dueAt)) === todayKey;
 }
 
 function newestFirst(first: ActivityEvent, second: ActivityEvent): number {
@@ -53,7 +53,7 @@ function newestFirst(first: ActivityEvent, second: ActivityEvent): number {
 }
 
 export function computeOverviewMetrics(snapshot: AdminSnapshot, now: Date): OverviewMetrics {
-  const todayKey = getCostaRicaDayKey(now);
+  const todayKey = getAppDayKey(now);
   const live = snapshot.agents.map((agent) =>
     liveStatus(
       snapshot.presence.find((entry) => entry.agentId === agent.id),
@@ -81,7 +81,7 @@ export function computeOverviewMetrics(snapshot: AdminSnapshot, now: Date): Over
 }
 
 export function computeAgentWorkloads(snapshot: AdminSnapshot, now: Date): AgentWorkload[] {
-  const todayKey = getCostaRicaDayKey(now);
+  const todayKey = getAppDayKey(now);
   return snapshot.agents.map((agent) => {
     const presence = snapshot.presence.find((entry) => entry.agentId === agent.id);
     const agentActivity = snapshot.activity

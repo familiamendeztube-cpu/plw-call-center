@@ -87,7 +87,6 @@ test('one list, most urgent first, each customer once', () => {
         },
       ],
       aiCalls: [aiCall],
-      annaAsked: [],
     },
     NOW
   );

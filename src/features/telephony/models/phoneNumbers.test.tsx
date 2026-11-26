@@ -35,3 +35,13 @@ test('one number matches itself in any format, and two US numbers sharing 8 digi
   );
   expect(merged.map((call) => call.id).sort()).toEqual(['live-2', 'saved-1']);
 });
+
+// The server copy is checked in scripts/chatwootWebhook.test.mjs.
+test('WhatsApp takes a US number without +1 and still takes Costa Rica callers', async () => {
+  const { whatsAppNumber } = await import('@/features/whatsapp/hooks/useWhatsApp');
+  expect(whatsAppNumber('(305) 555-1234')).toBe('+13055551234');
+  expect(whatsAppNumber('+1 305 555 1234')).toBe('+13055551234');
+  expect(whatsAppNumber('8888 1234')).toBe('+50688881234');
+  expect(whatsAppNumber('+44 20 7946 0958')).toBe('+442079460958');
+  expect(whatsAppNumber('+1 105 555 1234')).toBeNull();
+});

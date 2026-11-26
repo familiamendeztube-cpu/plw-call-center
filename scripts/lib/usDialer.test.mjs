@@ -256,3 +256,18 @@ test('a callback is rescheduled in the business local time, by admins only', asy
     const when = (await tx.query("SELECT to_char(scheduled_for AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI') AS t FROM us_callbacks")).rows[0].t;
     assert.equal(when, '2026-12-02 18:30', '10:30 in Los Angeles');
   }));
+
+test('two US businesses sharing their last 8 digits are two customers; one number in any format is one', async () =>
+  fixture(async (tx) => {
+    await as(tx, AGENT);
+    const add = async (name, phone) =>
+      (await tx.query("SELECT agent_create_prospect($1,'',''::text,$2,'Restaurante','') AS id", [name, phone])).rows[0].id;
+    const miami = await add('Miami Grill', '+1 (305) 555-1234');
+    const tulsa = await add('Tulsa Grill', '405-555-1234');
+    assert.notEqual(miami, tulsa, 'different area codes are different customers');
+    assert.equal(await add('Miami Grill', '13055551234'), miami, 'the same number typed differently');
+    assert.equal(await add('Soda Tica', '8888-1234'), await add('Soda Tica', '+506 8888 1234'), 'Costa Rica still matches');
+    await tx.exec('RESET ROLE');
+    const keys = (await tx.query("SELECT phone_key('+1 (305) 555-1234') a, phone_key('+506 8888-1234') b, phone_key('ext 12') c")).rows[0];
+    assert.deepEqual(keys, { a: '3055551234', b: '88881234', c: '12' });
+  }));

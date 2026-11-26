@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CalendarClock, Check, Phone, RotateCcw, UserRound } from 'lucide-react';
 import { formatDateTime } from '@/app/dates';
 import { useAppServices } from '@/app/ServicesContext';
@@ -8,16 +8,9 @@ import { Button } from '@/components/ui/Button';
 import { sparkBurst } from '@/components/ui/motion';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusMessage } from '@/components/ui/StatusMessage';
-import { useAuth } from '@/features/auth/context/useAuth';
 import { useAgentSession } from '@/features/auth/hooks/useAgentSession';
 import { useAiCalls } from '@/features/ai-calls/hooks/useAiCalls';
-import { TOURISM_AGENT_ID } from '@/features/ai-outbound/components/TourismDialerCard';
-import { TourismEmailReview } from '@/features/ai-outbound/components/TourismEmailReview';
-import { TourismPriorityQueue } from '@/features/ai-outbound/components/TourismPriorityQueue';
 import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
-import { useDentalDialer } from '@/features/dental-leads/hooks/useDentalDialer';
-import { useDentalLeads } from '@/features/dental-leads/hooks/useDentalLeads';
-import { followUps as annaFollowUps } from '@/features/dental-leads/models/followUps';
 import { RescheduleFollowupDialog } from '@/features/followups/components/RescheduleFollowupDialog';
 import { useFollowups } from '@/features/followups/hooks/useFollowups';
 import type { Followup } from '@/features/followups/models/followup';
@@ -37,31 +30,17 @@ const KIND_TONES: Record<TodayKind, BadgeTone> = {
   overdue: 'danger',
   unread: 'navy',
   due_today: 'neutral',
-  anna_asked: 'warning',
 };
 
 export function TodayPage() {
-  const { session } = useAuth();
-  const production = session?.source === 'production';
   const { agentId } = useAgentSession();
   const { followups: followupService } = useAppServices();
   const prospects = useAgentProspects();
   const followups = useFollowups(agentId);
   const conversations = useConversations(agentId);
   const aiCalls = useAiCalls({ status: 'pending' });
-  const dentalLeads = useDentalLeads(production, false);
-  const dialer = useDentalDialer(production);
   const [moving, setMoving] = useState<Followup | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const anna = useMemo(
-    () =>
-      annaFollowUps(
-        dentalLeads.leads.filter((lead) => lead.owner_staff_id === agentId),
-        dialer.calls.filter((call) => call.staff_id === agentId)
-      ),
-    [dentalLeads.leads, dialer.calls, agentId]
-  );
 
   const ready = followups.state.status === 'ready' && conversations.state.status === 'ready';
   const items =
@@ -72,7 +51,6 @@ export function TodayPage() {
             followups: followups.state.data,
             conversations: conversations.state.data,
             aiCalls: aiCalls.state.status === 'ready' ? aiCalls.state.data : [],
-            annaAsked: anna.asked,
           },
           new Date()
         )
@@ -107,14 +85,6 @@ export function TodayPage() {
         <p role="alert" className="text-sm font-medium text-danger-700">
           {actionError}
         </p>
-      ) : null}
-
-      {/* Alejandro's queue: only he can open those customers and schedule their follow-ups. */}
-      {production && agentId === TOURISM_AGENT_ID ? (
-        <>
-          <TourismEmailReview />
-          <TourismPriorityQueue agentId={agentId} onScheduled={() => followups.reload()} />
-        </>
       ) : null}
 
       {failure && failure.status === 'error' ? (
@@ -159,15 +129,6 @@ export function TodayPage() {
         </ul>
       )}
 
-      {anna.callback.length > 0 ? (
-        <p className="text-sm text-neutral-600">
-          Anna dejó {anna.callback.length} {anna.callback.length === 1 ? 'dentista' : 'dentistas'}{' '}
-          para volver a llamar (buzón de voz o sin respuesta).{' '}
-          <Link to="/dentistas" className="font-medium text-plw-navy underline">
-            Ver la lista
-          </Link>
-        </p>
-      ) : null}
 
       {moving ? (
         <RescheduleFollowupDialog

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useAppServices } from '@/app/ServicesContext';
-import { costaRicaLocalInputToIso, isoToCostaRicaLocalInput } from '@/app/dates';
+import { appLocalInputToIso, isoToAppLocalInput } from '@/app/dates';
 import { Dialog } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -23,7 +23,7 @@ export function RescheduleFollowupDialog({
   const { followups } = useAppServices();
   // Same time tomorrow; an old follow-up moves to at least an hour from now.
   const [dueLocal, setDueLocal] = useState(() =>
-    isoToCostaRicaLocalInput(
+    isoToAppLocalInput(
       new Date(Math.max(Date.parse(followup.dueAt) + DAY_MS, Date.now() + HOUR_MS)).toISOString()
     )
   );
@@ -39,7 +39,7 @@ export function RescheduleFollowupDialog({
     setSaving(true);
     setError(null);
     try {
-      onSaved(await followups.reschedule(followup.id, costaRicaLocalInputToIso(dueLocal)));
+      onSaved(await followups.reschedule(followup.id, appLocalInputToIso(dueLocal)));
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo reprogramar el seguimiento.');
@@ -51,7 +51,7 @@ export function RescheduleFollowupDialog({
     <Dialog open title="Reprogramar seguimiento" description={followup.title} onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <TextField
-          label="Nueva fecha y hora (Costa Rica)"
+          label="Nueva fecha y hora (hora del Pacífico)"
           type="datetime-local"
           value={dueLocal}
           onChange={(event) => setDueLocal(event.target.value)}

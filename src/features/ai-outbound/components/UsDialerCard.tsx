@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { APP_TIME_ZONE } from '@/app/dates';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -108,7 +109,7 @@ const DEST_LABELS: Record<UsLead['dest'], string> = {
 const usTime = (iso: string, tz = 'America/New_York') =>
   new Date(iso).toLocaleString('es-CR', { timeZone: tz, dateStyle: 'short', timeStyle: 'short' });
 
-const crTime = (iso: string) => usTime(iso, 'America/Costa_Rica');
+const appTime = (iso: string) => usTime(iso, APP_TIME_ZONE);
 
 interface Props {
   runtime: UsRuntime | null;
@@ -417,7 +418,7 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
                   <span className="font-medium text-plw-ink">
                     {call.is_test ? 'Prueba' : call.lead?.business_name || 'Sin nombre'}
                   </span>
-                  <span className="text-neutral-500">{call.phone} · {crTime(call.created_at)}</span>
+                  <span className="text-neutral-500">{call.phone} · {appTime(call.created_at)}</span>
                   <span className="ml-auto text-neutral-700">
                     {call.outcome ? (OUTCOME_LABELS[call.outcome] ?? call.outcome) : (STATE_LABELS[call.state] ?? call.state)}
                   </span>
@@ -563,7 +564,7 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
           <ul className="mt-2 divide-y divide-neutral-200 text-sm">
             {smsMessages.map((sms) => (
               <li key={sms.id} className="py-2">
-                <span className="text-neutral-500">{sms.to_e164} · {crTime(sms.created_at)} · </span>
+                <span className="text-neutral-500">{sms.to_e164} · {appTime(sms.created_at)} · </span>
                 <Badge tone={sms.status === 'delivered' ? 'success' : sms.status === 'failed' || sms.status === 'suppressed' ? 'danger' : 'warning'}>
                   {sms.status}
                 </Badge>

@@ -225,10 +225,11 @@ export function SiteDraftCard({ prospect, canEdit }: SiteDraftCardProps) {
         `Muestra del sitio web de ${draft.businessName}`
       )}&body=${encodeURIComponent(text)}`;
     } else {
-      // wa.me needs the country code: Costa Rica numbers are often stored as 8 digits.
+      // wa.me needs the country code: US numbers are often stored as 10 digits, Costa Rica's as 8.
       const digits = prospect.phone.replace(/[^0-9]/g, '');
+      const country = digits.length === 10 ? '1' : digits.length === 8 ? '506' : '';
       window.open(
-        `https://wa.me/${digits.length === 8 ? `506${digits}` : digits}?text=${encodeURIComponent(text)}`,
+        `https://wa.me/${country}${digits}?text=${encodeURIComponent(text)}`,
         '_blank',
         'noopener'
       );

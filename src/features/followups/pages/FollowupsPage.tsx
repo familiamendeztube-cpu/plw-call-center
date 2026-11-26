@@ -57,7 +57,7 @@ export function FollowupsPage() {
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Seguimientos"
-        description="Llamadas de regreso, correos y reuniones programadas. Las fechas se muestran en hora de Costa Rica."
+        description="Llamadas de regreso, correos y reuniones programadas. Las fechas se muestran en hora del Pacífico (Los Ángeles)."
         actions={
           <>
             <DemoDataNote />

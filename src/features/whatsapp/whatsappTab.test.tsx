@@ -287,7 +287,7 @@ test('an agent writes to a number from outside PLW with a reviewed template', as
 
   const phone = screen.getByLabelText('Número de WhatsApp');
   await user.type(phone, '8888 12');
-  expect(screen.getByText(/Los 8 dígitos de Costa Rica/)).toBeTruthy();
+  expect(screen.getByText(/EE. UU.: 10 dígitos con el código de área/)).toBeTruthy();
   await user.type(phone, '34');
   expect(screen.getByText('Se enviará al +50688881234.')).toBeTruthy();
   await user.type(screen.getByLabelText('Nombre del cliente (opcional)'), 'Ana Mora');

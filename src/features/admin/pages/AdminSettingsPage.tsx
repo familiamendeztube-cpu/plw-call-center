@@ -47,7 +47,7 @@ export function AdminSettingsPage() {
       />
       <Panel as="section" className="p-6">
         <dl className="divide-y divide-neutral-200">
-          <Row label="Zona horaria" value="America/Costa_Rica (UTC-06:00)" />
+          <Row label="Zona horaria" value="America/Los_Angeles (hora del Pacífico, con horario de verano)" />
           <Row
             label="Modo de acceso"
             value={IS_DEMO_MODE ? 'Modo demostración con datos ficticios' : 'Autenticación real'}

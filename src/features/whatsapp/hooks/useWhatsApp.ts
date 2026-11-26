@@ -143,14 +143,17 @@ export async function loadWhatsAppTemplates(): Promise<WhatsAppTemplate[] | null
 }
 
 /**
- * The number as WhatsApp writes it, or null; the server applies the same rule. Costa Rica's eight
- * digits need no 506; another country is written with + and its code.
+ * The number as WhatsApp writes it, or null; the server applies the same rule. A US number needs
+ * no +1 (10 digits); Costa Rica's eight digits need no 506; another country is written with + and
+ * its code.
  */
 export function whatsAppNumber(typed: string): string | null {
   const compact = typed.replace(/[\s().-]/g, '');
+  const us = /^(?:\+?1)?([2-9]\d{2}[2-9]\d{6})$/.exec(compact);
+  if (us) return `+1${us[1]}`;
   const local = /^(?:\+?506)?([2-8]\d{7})$/.exec(compact);
   if (local) return `+506${local[1]}`;
-  return /^\+(?!506)[1-9]\d{7,14}$/.test(compact) ? compact : null;
+  return /^\+(?!1|506)[1-9]\d{7,14}$/.test(compact) ? compact : null;
 }
 
 /**

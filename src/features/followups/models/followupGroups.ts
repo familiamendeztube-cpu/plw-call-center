@@ -1,4 +1,4 @@
-import { getCostaRicaDayKey } from '@/app/dates';
+import { getAppDayKey } from '@/app/dates';
 import type { Followup } from '@/features/followups/models/followup';
 
 export interface FollowupGroups {
@@ -13,7 +13,7 @@ function byDueDate(first: Followup, second: Followup): number {
 }
 
 export function groupFollowups(followups: Followup[], now: Date): FollowupGroups {
-  const todayKey = getCostaRicaDayKey(now);
+  const todayKey = getAppDayKey(now);
   const groups: FollowupGroups = { overdue: [], today: [], upcoming: [], completed: [] };
 
   followups.forEach((followup) => {
@@ -26,7 +26,7 @@ export function groupFollowups(followups: Followup[], now: Date): FollowupGroups
       groups.overdue.push(followup);
       return;
     }
-    if (getCostaRicaDayKey(due) === todayKey) {
+    if (getAppDayKey(due) === todayKey) {
       groups.today.push(followup);
       return;
     }

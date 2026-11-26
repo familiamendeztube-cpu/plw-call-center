@@ -105,14 +105,17 @@ export function whatsAppFile(name, size) {
 }
 
 /**
- * A number to start a chat with, as WhatsApp writes it (+ and digits), or null. Costa Rica's eight
- * digits need no 506; another country is written with + and its code. The website keeps a copy.
+ * A number to start a chat with, as WhatsApp writes it (+ and digits), or null. A US number needs
+ * no +1 (10 digits); Costa Rica's eight digits need no 506; another country is written with + and
+ * its code. The website keeps a copy.
  */
 export function whatsAppNumber(input) {
   const typed = typeof input === 'string' ? input.replace(/[\s().-]/g, '') : '';
+  const us = /^(?:\+?1)?([2-9]\d{2}[2-9]\d{6})$/.exec(typed);
+  if (us) return `+1${us[1]}`;
   const local = /^(?:\+?506)?([2-8]\d{7})$/.exec(typed);
   if (local) return `+506${local[1]}`;
-  return /^\+(?!506)[1-9]\d{7,14}$/.test(typed) ? typed : null;
+  return /^\+(?!1|506)[1-9]\d{7,14}$/.test(typed) ? typed : null;
 }
 
 export const CONNECT_ERRORS = {
