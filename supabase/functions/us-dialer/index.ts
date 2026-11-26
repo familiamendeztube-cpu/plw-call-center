@@ -141,14 +141,10 @@ async function configureUs(
     .eq('id', 1)
     .single();
   if (error || !settings?.voice_id) return json({ error: 'Falta configurar la voz.' }, 409);
-  const { data: sip, error: sipError } = await db
-    .from('agent_sip_accounts')
-    .select('sip_username,sip_domain')
-    .eq('staff_id', 'agent-2')
-    .maybeSingle();
-  if (sipError || !sip) return json({ error: 'Falta el teléfono del agente receptor.' }, 409);
+  // Anna transfers to the US team line: it rings Alejandro first, then PLW USA — Recepción.
+  if (!usNumber) return json({ error: 'Escriba el número de EE. UU. y presione Configurar.' }, 409);
   const route = {
-    transfer_uri: `sip:${sip.sip_username}@${sip.sip_domain}`,
+    transfer_uri: usNumber,
     provider_agent_id: runtime.data.provider_agent_id,
   };
   const voiceId = settings.voice_id;

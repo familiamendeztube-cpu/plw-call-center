@@ -22,7 +22,7 @@ export function AdminAiOutboundPage() {
   const reload = () => {
     const supabase = getSupabaseClient();
     void Promise.all([
-      supabase.from('us_dialer_runtime').select('scheduler_ready,paused,last_tick_at,last_error,provider_agent_id,config_verified_at,transfer_uri,caller_e164,dialed_today,daily_cap,allowed_from,allowed_to').eq('id', 1).maybeSingle(),
+      supabase.from('us_dialer_runtime').select('scheduler_ready,paused,last_tick_at,last_error,provider_agent_id,config_verified_at,transfer_uri,caller_e164,dialed_today,daily_cap,max_lines,allowed_from,allowed_to').eq('id', 1).maybeSingle(),
       supabase.from('us_calls').select('id,created_at,phone,state,outcome,summary,error,is_test,lead:us_leads(business_name)').order('created_at', { ascending: false }).limit(10),
       supabase.from('us_leads').select('id,raw_phone,phone_e164,dest,contact_name,business_name,business_type,timezone,consent_ref,sms_mobile,sms_consent,excluded_reason,last_call_at,created_at').order('created_at', { ascending: true }).limit(500),
       supabase.from('us_callbacks').select('id,phone,scheduled_for,timezone,status,fail_reason,lead:us_leads(business_name)').order('scheduled_for', { ascending: true }).limit(20),

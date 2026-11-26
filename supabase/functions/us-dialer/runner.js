@@ -66,9 +66,9 @@ export async function dispatchUsCall(db, apiKey, claim, fetchImpl = fetch) {
         to_number: call.phone,
         conversation_initiation_client_data: {
           dynamic_variables: {
-            business_name: lead.business_name || '',
+            business_name: lead.business_name || 'su negocio',
             contact_name: lead.contact_name || '',
-            business_type: lead.business_type || '',
+            business_type: lead.business_type || 'servicios',
             plw_office: PLW_US_ADDRESS,
             plw_us_call_id: call.id,
             plw_transfer_uri: runtime.transfer_uri,
@@ -112,37 +112,6 @@ export async function dispatchUsCall(db, apiKey, claim, fetchImpl = fetch) {
     );
 }
 
-/** Confirmed day+time captures become exactly-once callbacks in the lead's own timezone. */
-async function scheduleCallback(db, call, details, leadTimezone) {
-  if (!details.callback_date || !details.callback_clock) return;
-  if (details.callback_confirmed !== 'true') return;
-  const tz = leadTimezone || 'America/New_York';
-  // Resolve the local wall clock in the lead's timezone to a UTC instant (DST-safe).
-  const { error, data } = await db.rpc('us_local_to_utc', {
-    p_date: details.callback_date,
-    p_clock: details.callback_clock,
-    p_tz: tz,
-  });
-  if (error || typeof data !== 'string') {
-    console.error('us callback slot not resolved', error?.code ?? 'no data');
-    return;
-  }
-  const { error: upsertError } = await db
-    .from('us_callbacks')
-    .upsert(
-      {
-        call_id: call.id,
-        lead_id: call.lead_id,
-        phone: call.phone,
-        scheduled_for: data,
-        timezone: tz,
-        promised_at: new Date().toISOString(),
-      },
-      { onConflict: 'lead_id,phone,scheduled_for', ignoreDuplicates: true }
-    );
-  if (upsertError) console.error('us callback not saved', upsertError.code);
-}
-
 export async function syncUsCalls(db, apiKey, fetchImpl = fetch) {
   const cutoff = new Date(Date.now() - 120000).toISOString();
   const calls = await checked(
@@ -155,11 +124,6 @@ export async function syncUsCalls(db, apiKey, fetchImpl = fetch) {
       .order('created_at')
       .limit(8)
   );
-  const leadIds = [...new Set(calls.map((c) => c.lead_id).filter(Boolean))];
-  const timezones = leadIds.length
-    ? await checked(db.from('us_leads').select('id, timezone').in('id', leadIds))
-    : [];
-  const tzById = new Map(timezones.map((row) => [row.id, row.timezone]));
   await Promise.all(
     calls.map(async (call) => {
       try {
@@ -211,8 +175,8 @@ export async function syncUsCalls(db, apiKey, fetchImpl = fetch) {
         if (update.state) {
           if (update.state === 'failed' && isSip403Error(call.error)) await recordUsResult(db, call);
           else if (update.state === 'completed') await recordUsResult(db, call, false);
-          await scheduleCallback(db, call, results.details, tzById.get(call.lead_id)).catch(() => {});
-          // Interested calls land in Clientes for Alejandro; idempotent per conversation.
+          // Interested, transferred or callback calls land in Clientes for Alejandro, and an agreed
+          // day and time becomes his follow-up; idempotent per conversation.
           const { error: customerError } = await db.rpc('us_call_to_customer', { p_call_id: call.id });
           if (customerError) console.error('us customer not created', customerError.code);
         }
@@ -348,10 +312,10 @@ export async function runUsTick(db, apiKey, fetchImpl = fetch) {
   }
   if (runtime.last_error) await setRuntime(db, { last_error: '' });
   if ((runtime.consecutive_403 ?? 0) >= 2) return;
-  // Shared line: at most one in-flight call across ALL dialers (the claim RPC enforces it
-  // again under its advisory lock, counting tourism, dental and US calls).
+  // Up to max_lines calls at once; claim_us_call enforces the limit under its lock and returns
+  // nothing once the lines are full.
   const claims = [];
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < Math.max(1, runtime.max_lines ?? 1); i++) {
     try {
       const claim = await checked(db.rpc('claim_us_call'));
       if (claim) claims.push(claim);

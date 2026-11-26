@@ -33,6 +33,7 @@ export interface UsRuntime {
   caller_e164: string | null;
   dialed_today: number;
   daily_cap: number;
+  max_lines: number;
   allowed_from: string;
   allowed_to: string;
 }
@@ -80,6 +81,7 @@ const STATE_LABELS: Record<string, string> = {
 };
 
 const OUTCOME_LABELS: Record<string, string> = {
+  TRANSFERRED_TO_SPECIALIST: 'Transferida a Alejandro',
   APPOINTMENT_CONFIRMED: 'Cita confirmada',
   INTERESTED_FOLLOW_UP: 'Interesado',
   EMAIL_INFO_REQUESTED: 'Pidió correo',
@@ -333,8 +335,8 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
           <p className="mt-1 text-sm text-neutral-600">
             Anna llama de lunes a viernes, {runtime?.allowed_from ?? '08:00'}–{runtime?.allowed_to ?? '16:00'} hora local de
             cada negocio (zona horaria propia, con horario de verano). Si no se conoce la zona, solo llama cuando ese horario
-            se cumple a la vez en Nueva York y en Los Ángeles. Máximo {runtime?.daily_cap ?? 100} llamadas por día, una a la
-            vez en la línea compartida. Número de EE. UU.: {runtime?.caller_e164 ?? 'pendiente: escríbalo y presione Configurar'}.
+            se cumple a la vez en Nueva York y en Los Ángeles. Máximo {runtime?.daily_cap ?? 100} llamadas por día, hasta {runtime?.max_lines ?? 1}
+            a la vez. Si le interesa, Anna transfiere a Alejandro o le agenda una llamada. Número de EE. UU.: {runtime?.caller_e164 ?? 'pendiente: escríbalo y presione Configurar'}.
           </p>
         </div>
         <Badge tone={status === 'Marcando' ? 'success' : status === 'Pausado' ? 'warning' : 'neutral'}>

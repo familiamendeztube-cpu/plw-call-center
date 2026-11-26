@@ -95,9 +95,6 @@ export function providerReason(result, timeoutSeconds) {
   return ` (HTTP ${result.status}${text ? `: ${text}` : ''})`;
 }
 
-// Distinct header: the tourism incoming alert filters on X-PLW-Tourism-Call; a US transfer
-// must never match it, and vice versa.
-const TRANSFER_HEADER = { type: 'dynamic', key: 'X-PLW-US-Call', value: 'plw_us_call_id' };
 
 const LANGUAGE_TOOL = {
   type: 'system',
@@ -167,17 +164,19 @@ const OUTCOME_FIELD = {
   plw_outcome: {
     type: 'string',
     description:
-      'Exactly one code for how the call ended: APPOINTMENT_CONFIRMED, INTERESTED_FOLLOW_UP, ' +
-      'EMAIL_INFO_REQUESTED, CALLBACK_REQUESTED, DEMO_SCHEDULED, RECEPTIONIST_CONTACT, ' +
+      'Exactly one code for how the call ended: TRANSFERRED_TO_SPECIALIST, APPOINTMENT_CONFIRMED, ' +
+      'INTERESTED_FOLLOW_UP, EMAIL_INFO_REQUESTED, CALLBACK_REQUESTED, DEMO_SCHEDULED, RECEPTIONIST_CONTACT, ' +
       'DECISION_MAKER_UNAVAILABLE, NOT_INTERESTED, DO_NOT_CALL, WRONG_NUMBER, NO_ANSWER, ' +
-      'VOICEMAIL, IVR_NO_HUMAN, TECHNICAL_FAILURE. Use DEMO_SCHEDULED only when the person confirmed ' +
+      'VOICEMAIL, IVR_NO_HUMAN, TECHNICAL_FAILURE. Use TRANSFERRED_TO_SPECIALIST when the call was ' +
+      'transferred to Alejandro. Use CALLBACK_REQUESTED when a call with Alejandro was agreed for a later ' +
+      'day or time. Use DEMO_SCHEDULED only when the person confirmed ' +
       'both day and time for the demo. Use DO_NOT_CALL whenever the person asked not to be called again. ' +
       'IVR_NO_HUMAN only when the call stayed inside a phone menu with no human. A recording is never NOT_INTERESTED.',
   },
 };
 
 export const US_OUTCOMES = [
-  'APPOINTMENT_CONFIRMED', 'INTERESTED_FOLLOW_UP', 'EMAIL_INFO_REQUESTED', 'CALLBACK_REQUESTED',
+  'TRANSFERRED_TO_SPECIALIST', 'APPOINTMENT_CONFIRMED', 'INTERESTED_FOLLOW_UP', 'EMAIL_INFO_REQUESTED', 'CALLBACK_REQUESTED',
   'DEMO_SCHEDULED', 'RECEPTIONIST_CONTACT', 'DECISION_MAKER_UNAVAILABLE', 'NOT_INTERESTED',
   'DO_NOT_CALL', 'WRONG_NUMBER', 'NO_ANSWER', 'VOICEMAIL', 'IVR_NO_HUMAN', 'TECHNICAL_FAILURE',
 ];
@@ -212,11 +211,14 @@ export function usAgentConfig(staffName, route, voiceId, { basicTurn = false } =
               params: {
                 system_tool_type: 'transfer_to_number',
                 transfers: [
+                  // The team line (+1 754-799-1065): Telnyx sends it to the phone server, which
+                  // rings Alejandro and, if he can't answer, PLW USA — Recepción takes a callback.
+                  // Anna's calls go straight from ElevenLabs to Telnyx, so a SIP address on our
+                  // server can't be reached by a transfer; a phone number can.
                   {
-                    transfer_destination: { type: 'sip_uri', sip_uri: route.transfer_uri },
+                    transfer_destination: { type: 'phone', phone_number: route.transfer_uri },
                     transfer_type: 'sip_refer',
-                    condition: `La persona expresa interés y acepta hablar ahora mismo con ${staffName}.`,
-                    custom_sip_headers: [TRANSFER_HEADER],
+                    condition: `La persona acepta hablar ahora mismo con ${staffName}.`,
                   },
                 ],
               },
@@ -337,15 +339,7 @@ export function usConfigFailures(config, route) {
   if (!Array.isArray(t) || t.length !== 1) failures.push('transfer_count');
   else {
     if (t[0].transfer_type !== 'sip_refer') failures.push('transfer_type');
-    if (t[0].transfer_destination?.sip_uri !== route.transfer_uri) failures.push('transfer_destination');
-    const h = t[0].custom_sip_headers;
-    if (
-      !Array.isArray(h) ||
-      h.length !== 1 ||
-      h[0]?.key !== TRANSFER_HEADER.key ||
-      h[0]?.value !== TRANSFER_HEADER.value
-    )
-      failures.push('transfer_headers');
+    if (t[0].transfer_destination?.phone_number !== route.transfer_uri) failures.push('transfer_destination');
   }
   return failures;
 }

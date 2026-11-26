@@ -14,7 +14,7 @@ import {
   PLW_US_ADDRESS,
 } from '../../supabase/functions/us-dialer/usScript.js';
 
-const ROUTE = { provider_agent_id: 'us_agent', transfer_uri: 'sip:agent-2@phone.example.com' };
+const ROUTE = { provider_agent_id: 'us_agent', transfer_uri: '+17547991065' };
 const RUNTIME = {
   ...ROUTE,
   scheduler_ready: true,
@@ -97,10 +97,13 @@ test('the US verifier self-check passes and catches drift', () => {
     drift(config);
     assert.deepEqual(usConfigFailures(config, ROUTE), [failure]);
   }
-  // The US header never matches the tourism one.
+  // Anna transfers to the team line by phone number; a different number is drift.
+  const transfer = healthy.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers[0];
+  assert.deepEqual(transfer.transfer_destination, { type: 'phone', phone_number: ROUTE.transfer_uri });
+  assert.equal(transfer.transfer_type, 'sip_refer');
   const config = structuredClone(healthy);
-  config.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers[0].custom_sip_headers[0].key = 'X-PLW-Tourism-Call';
-  assert.deepEqual(usConfigFailures(config, ROUTE), ['transfer_headers']);
+  config.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers[0].transfer_destination.phone_number = '+13055550000';
+  assert.deepEqual(usConfigFailures(config, ROUTE), ['transfer_destination']);
 });
 
 // US phones are dialed as full E.164; no slice(-8) anywhere; DNC is checked before dialing.
@@ -153,7 +156,7 @@ test('a US call dials the full E.164 number, passes the LA office and skips bloc
   assert.ok(!source.includes('slice(-8)'), 'no last-8 slicing in the US flow');
 });
 
-test('a finished US call syncs results, schedules the confirmed callback via the lead timezone and converts the customer', async () => {
+test('a finished US call syncs results and hands the agreed callback to Alejandro, never to Anna', async () => {
   const db = fakeDb({
     us_calls: [{ id: 'call-1', lead_id: 'lead-1', conversation_id: 'conv_1', provider_agent_id: 'us_agent', phone: '+13055551234', is_test: false, error: '' }],
     us_leads: [{ id: 'lead-1', timezone: 'America/Chicago' }],
@@ -179,9 +182,10 @@ test('a finished US call syncs results, schedules the confirmed callback via the
     },
   };
   await syncUsCalls(db, 'key', async () => agentJson(conversation));
-  assert.ok(order.includes('rpc:us_local_to_utc'), 'the callback slot resolves in the lead timezone');
-  assert.deepEqual(db.rpcs.find((r) => r.name === 'us_local_to_utc')?.args, {
-    p_date: '2026-12-01', p_clock: '14:30', p_tz: 'America/Chicago',
+  // The agreed time becomes Alejandro's follow-up inside us_call_to_customer; Anna books nothing.
+  assert.ok(!order.includes('from:us_callbacks'), 'no AI redial is scheduled');
+  assert.deepEqual(db.updates.find((u) => u.table === 'us_calls' && u.values.details)?.values.details, {
+    language: 'en', callback_date: '2026-12-01', callback_clock: '14:30', callback_confirmed: 'true',
   });
   const customerAt = order.indexOf('rpc:us_call_to_customer');
   assert.ok(customerAt >= 0, 'the interested call became a customer for Alejandro');

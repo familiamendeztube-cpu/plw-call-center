@@ -68,7 +68,7 @@ async function claimAt(tx, at) {
   return claim;
 }
 
-test('the US claim follows each business clock, skips do-not-call and dials a callback once', async () =>
+test('the US claim follows each business clock, skips do-not-call and never redials a callback', async () =>
   fixture(async (tx, campaign) => {
     await tx.exec(READY);
     await lead(tx, campaign, 1, '+13055550101', 'America/Los_Angeles');
@@ -80,24 +80,42 @@ test('the US claim follows each business clock, skips do-not-call and dials a ca
     // 08:30 New York, 05:30 Los Angeles: only the New York lead that did not opt out.
     assert.equal((await claimAt(tx, '2026-12-01T13:30:00Z')).lead.id, id(504));
 
+    // A callback agreed with that business is Alejandro's follow-up: Anna never calls it again.
     const call = (await tx.query('SELECT id FROM us_calls WHERE lead_id=$1', [id(504)])).rows[0].id;
     await tx.query(
       "INSERT INTO us_callbacks(id,call_id,lead_id,phone,scheduled_for,timezone) VALUES($1,$2,$3,'+13055550104','2026-12-01T16:00:00Z','America/New_York')",
       [id(700), call, id(504)]
     );
-    // Noon New York: the due callback goes first and is closed as it is dialed.
-    assert.equal((await claimAt(tx, '2026-12-01T17:00:00Z')).lead.id, id(504));
-    assert.equal((await tx.query('SELECT status FROM us_callbacks WHERE id=$1', [id(700)])).rows[0].status, 'done');
-
-    assert.equal((await claimAt(tx, '2026-12-01T17:01:00Z')).lead.id, id(501)); // 09:01 Los Angeles
-    assert.equal((await claimAt(tx, '2026-12-01T17:02:00Z')).lead.id, id(502));
-    assert.equal(await claimAt(tx, '2026-12-01T17:03:00Z'), null, 'the callback is not redialed; the opt-out never');
-    assert.equal((await tx.query('SELECT dialed_today FROM us_dialer_runtime')).rows[0].dialed_today, 4);
+    assert.equal((await claimAt(tx, '2026-12-01T17:00:00Z')).lead.id, id(501)); // 09:00 Los Angeles
+    assert.equal((await claimAt(tx, '2026-12-01T17:01:00Z')).lead.id, id(502));
+    assert.equal(await claimAt(tx, '2026-12-01T17:02:00Z'), null, 'no redial of 504; the opt-out never');
+    assert.equal((await tx.query('SELECT dialed_today FROM us_dialer_runtime')).rows[0].dialed_today, 3);
 
     // Saturday: nobody.
     await tx.query("UPDATE us_leads SET dest='us' WHERE id=$1", [id(503)]);
     await tx.query('DELETE FROM ai_outbound_do_not_call');
     assert.equal(await claimAt(tx, '2026-12-05T17:00:00Z'), null);
+  }));
+
+test('Anna runs up to max_lines calls at once (5 live), and no more', async () =>
+  fixture(async (tx, campaign) => {
+    await tx.exec(READY);
+    assert.equal((await tx.query('SELECT max_lines FROM us_dialer_runtime')).rows[0].max_lines, 5);
+    for (let n = 1; n <= 7; n++) await lead(tx, campaign, n, `+1305555010${n}`, 'America/New_York');
+    const at = '2026-12-01T17:00:00Z';
+    await tx.query(
+      "UPDATE staff_presence SET availability='active',operational=NULL,last_heartbeat_at=$1 WHERE staff_id='agent-2'",
+      [at]
+    );
+    await as(tx);
+    const claimed = [];
+    for (let i = 0; i < 7; i++) claimed.push((await tx.query('SELECT claim_us_call($1) AS c', [at])).rows[0].c);
+    assert.equal(claimed.filter(Boolean).length, 5, 'five calls in progress');
+    assert.equal(new Set(claimed.filter(Boolean).map((c) => c.call.phone)).size, 5, 'five different businesses');
+    await tx.exec('RESET ROLE');
+    await tx.query("UPDATE us_calls SET state='completed', finished_at=$1 WHERE id=$2", [at, claimed[0].call.id]);
+    await as(tx);
+    assert.ok((await tx.query('SELECT claim_us_call($1) AS c', [at])).rows[0].c, 'a line frees up, the next call starts');
   }));
 
 test('nothing is claimed without the US number or with Alejandro offline', async () =>
@@ -270,4 +288,36 @@ test('two US businesses sharing their last 8 digits are two customers; one numbe
     await tx.exec('RESET ROLE');
     const keys = (await tx.query("SELECT phone_key('+1 (305) 555-1234') a, phone_key('+506 8888-1234') b, phone_key('ext 12') c")).rows[0];
     assert.deepEqual(keys, { a: '3055551234', b: '88881234', c: '12' });
+  }));
+
+test("a transfer or an agreed callback becomes Alejandro's customer, with a follow-up at the business's time", async () =>
+  fixture(async (tx, campaign) => {
+    await lead(tx, campaign, 1, '+13055550101', 'America/Los_Angeles');
+    await lead(tx, campaign, 2, '+13055550102', 'America/New_York');
+    const call = (n, leadN, outcome, details) =>
+      tx.query(
+        `INSERT INTO us_calls(id,lead_id,campaign_id,staff_id,phone,provider_agent_id,conversation_id,state,outcome,ended_reason,details,summary,finished_at)
+         VALUES($1,$2,$3,'agent-2',$4,'us_agent',$5,'completed',$6,'human',$7,'Resumen',now())`,
+        [id(900 + n), id(500 + leadN), campaign, `+1305555010${leadN}`, `conv_${n}`, outcome, details]
+      );
+    await call(1, 1, 'TRANSFERRED_TO_SPECIALIST', {});
+    // The owner was out; the receptionist agreed a time: still Alejandro's, with the follow-up.
+    await call(2, 2, 'DECISION_MAKER_UNAVAILABLE', {
+      callback_confirmed: 'true', callback_date: '2026-12-02', callback_clock: '10:30', contact_name: 'Rosa',
+    });
+    await as(tx);
+    assert.ok((await tx.query('SELECT us_call_to_customer($1) AS r', [id(901)])).rows[0].r, 'transferred call');
+    assert.ok((await tx.query('SELECT us_call_to_customer($1) AS r', [id(902)])).rows[0].r, 'agreed callback');
+    await tx.query('SELECT us_call_to_customer($1)', [id(902)]); // a second sync adds nothing
+    await tx.exec('RESET ROLE');
+    const followups = (
+      await tx.query(
+        "SELECT f.agent_id, f.kind, to_char(f.due_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI') AS due, f.title FROM followups f JOIN prospects p ON p.id = f.prospect_id WHERE p.idempotency_key LIKE 'us:%'"
+      )
+    ).rows;
+    assert.equal(followups.length, 1);
+    assert.equal(followups[0].agent_id, 'agent-2');
+    assert.equal(followups[0].kind, 'callback');
+    assert.equal(followups[0].due, '2026-12-02 15:30', '10:30 in New York');
+    assert.match(followups[0].title, /10:30 hora local \(America\/New_York\)/);
   }));
