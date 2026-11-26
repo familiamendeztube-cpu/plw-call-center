@@ -1,5 +1,8 @@
-// The only ElevenLabs agent whose calls PLW stores. Other agents in the workspace are ignored.
+// The ElevenLabs receptionists whose calls PLW stores: Costa Rica (4010 6199) and PLW USA —
+// Recepción (+1 754-799-1065, made by us-dialer/reception.js). Other agents are ignored.
 export const PLW_AGENT_ID = 'agent_8601m6hbjwamevz887627c1qp0sq';
+export const US_RECEPTION_AGENT_ID = 'agent_8501m8cq6azdfjdafr3x94rfec0a';
+const RECEPTION_AGENT_IDS = new Set([PLW_AGENT_ID, US_RECEPTION_AGENT_ID]);
 export const MAX_BODY_BYTES = 5 * 1024 * 1024;
 const MAX_AGE_SECONDS = 30 * 60; // Same window as the official SDK.
 const MAX_CLOCK_SKEW_SECONDS = 5 * 60;
@@ -122,7 +125,7 @@ export function callFromEvent(event) {
   if (event.type !== 'post_call_transcription') return { ignore: 'event_type' };
   const data = event.data;
   if (typeof data !== 'object' || data === null) return { invalid: 'malformed' };
-  if (data.agent_id !== PLW_AGENT_ID) return { ignore: 'other_agent' };
+  if (!RECEPTION_AGENT_IDS.has(data.agent_id)) return { ignore: 'other_agent' };
   if (typeof data.conversation_id !== 'string' || !CONVERSATION_ID.test(data.conversation_id)) {
     return { invalid: 'malformed' };
   }

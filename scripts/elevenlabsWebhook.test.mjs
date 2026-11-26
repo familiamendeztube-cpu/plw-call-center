@@ -175,6 +175,11 @@ test('ignores other event types and other agents, refuses malformed events', () 
   const other = postCallEvent();
   other.data.agent_id = 'agent_someone_else';
   assert.deepEqual(callFromEvent(other), { ignore: 'other_agent' });
+  // PLW USA — Recepción's callbacks are stored like Costa Rica's, with the US caller's number.
+  const us = postCallEvent();
+  us.data.agent_id = 'agent_8501m8cq6azdfjdafr3x94rfec0a';
+  us.data.metadata = { ...us.data.metadata, phone_call: { external_number: '+1 (305) 555-1234' } };
+  assert.equal(callFromEvent(us).call.caller_phone, '+13055551234');
   const bad = postCallEvent();
   bad.data.conversation_id = '../../etc';
   assert.deepEqual(callFromEvent(bad), { invalid: 'malformed' });

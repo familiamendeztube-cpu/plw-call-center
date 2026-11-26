@@ -4,7 +4,9 @@
 
 export const US_SCRIPT_VERSION = 'anna-2026-11-26-us-es';
 export const US_FIRST_MESSAGE = '';
-export const US_VOICE_MODEL = 'eleven_turbo_v2';
+// Same model as the verified Anna Turismo agent: eleven_turbo_v2 is English-only and ElevenLabs
+// refuses it for a Spanish agent.
+export const US_VOICE_MODEL = 'eleven_v3_conversational';
 export const PLW_US_ADDRESS = '6725 Sunset Blvd, Los Angeles, CA 90028';
 
 const LANGUAGE_RULES = `

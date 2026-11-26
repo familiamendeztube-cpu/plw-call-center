@@ -13,7 +13,7 @@ import { Panel } from '@/components/ui/Panel';
 import { cx } from '@/components/ui/cx';
 import { useAuth } from '@/features/auth/context/useAuth';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
-import { toUsNumber } from '@/features/telephony/models/call';
+import { formatPhone, originLabel, toUsNumber } from '@/features/telephony/models/call';
 import {
   loadAiCallAudio,
   setAiCallStatus,
@@ -210,7 +210,10 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
         <Field label="Cliente" value={call.customerName} />
         <Field label="Negocio" value={call.businessName} />
         <Field label="Giro del negocio" value={call.businessType} />
-        <Field label="Teléfono" value={number} />
+        <Field
+          label="Teléfono"
+          value={number ? [formatPhone(number), originLabel(number)].filter(Boolean).join(' · ') : null}
+        />
         <Field label="Qué quiere mejorar" value={call.reason} />
         <Field
           label="Contacto solicitado"

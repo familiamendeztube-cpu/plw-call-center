@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
 import { runUsTick, dispatchUsCall, syncUsCalls, reconcileUsStuckCalls } from './runner.js';
+import { ensureUsReception } from './reception.js';
 import {
   findPhoneNumberId,
   normalizeUsPhone,
@@ -37,6 +38,9 @@ Deno.serve(async (req) => {
       const { data: valid, error } = await db.rpc('dental_runner_key_valid', { p_key: runnerKey });
       if (error || valid !== true) return json({ error: 'No autorizado.' }, 401);
       if (!apiKey) return json({ error: 'Falta configurar ElevenLabs.' }, 503);
+      const body = await req.json().catch(() => null);
+      // Creates or updates PLW USA — Recepción. Only the server holds the runner key (in Vault).
+      if (body?.action === 'reception') return json(await ensureUsReception(db, apiKey));
       await runUsTick(db, apiKey);
       return json({ ok: true });
     }
