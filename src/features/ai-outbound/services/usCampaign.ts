@@ -29,16 +29,6 @@ export async function getUsCampaign(): Promise<{ id: string } | null> {
   return data;
 }
 
-export async function listUsLeads(): Promise<UsLead[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('us_leads')
-    .select('id,raw_phone,phone_e164,dest,contact_name,business_name,business_type,timezone,consent_ref,sms_mobile,sms_consent,excluded_reason,last_call_at,created_at')
-    .order('created_at', { ascending: true })
-    .limit(500);
-  if (error) throw new Error('No se pudieron cargar los contactos de EE. UU.');
-  return (data ?? []) as UsLead[];
-}
-
 export async function importUsLeads(
   campaignId: string,
   rows: { raw_phone: string; business_name: string; contact_name: string; business_type: string; consent_ref: string }[]
@@ -56,17 +46,9 @@ export async function reclassifyUsLeads(campaignId: string): Promise<number> {
   return Number((data as { classified?: number })?.classified ?? 0);
 }
 
-export async function addUsToDnc(phoneE164: string, leadId: string): Promise<void> {
-  const client = getSupabaseClient();
-  const { error: dncError } = await client
-    .from('ai_outbound_do_not_call')
-    .upsert({ phone: phoneE164, reason: 'Excluido de la campaña de EE. UU.' }, { onConflict: 'phone', ignoreDuplicates: true });
-  if (dncError) throw new Error('No se pudo agregar el número a la lista de no llamar.');
-  const { error: leadError } = await client
-    .from('us_leads')
-    .update({ dest: 'dnc', excluded_reason: 'Marcado como no llamar.', updated_at: new Date().toISOString() })
-    .eq('id', leadId);
-  if (leadError) throw new Error('No se pudo actualizar el contacto.');
+export async function addUsToDnc(leadId: string): Promise<void> {
+  const { error } = await getSupabaseClient().rpc('us_mark_dnc', { p_lead_id: leadId });
+  if (error) throw new Error(error.message || 'No se pudo agregar el número a la lista de no llamar.');
 }
 
 export async function saveUsSmsConsent(leadId: string, mobile: string, consent: boolean): Promise<void> {
@@ -94,10 +76,11 @@ export async function resolveUsCallback(id: string, status: string, reason = '')
   if (error) throw new Error(error.message || 'No se pudo resolver la devolución.');
 }
 
-export async function rescheduleUsCallback(id: string, whenIso: string): Promise<void> {
+/** `localTime` is the datetime-local value as typed: the business's own clock, not Costa Rica's. */
+export async function rescheduleUsCallback(id: string, localTime: string): Promise<void> {
   const { error } = await getSupabaseClient().rpc('reschedule_us_callback', {
     p_callback_id: id,
-    p_when: whenIso,
+    p_local: localTime,
   });
   if (error) throw new Error(error.message || 'No se pudo reagendar la devolución.');
 }

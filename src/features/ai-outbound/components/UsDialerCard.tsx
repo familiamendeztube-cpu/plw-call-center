@@ -6,11 +6,11 @@ import { isRecord, postStaffFunction, readStaffFunctionError } from '@/integrati
 import { parseCsvText } from '@/features/ai-outbound/models/outboundLead';
 import { readLeadFile } from '@/features/ai-outbound/models/leadFile';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { buildPreviewUrl } from '@/features/site-draft/models/siteDraft';
 import {
   addUsToDnc,
   getUsCampaign,
   importUsLeads,
-  listUsLeads,
   prepareUsSample,
   reclassifyUsLeads,
   resolveUsCallback,
@@ -131,8 +131,7 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
   const [consentFor, setConsentFor] = useState<UsLead | null>(null);
   const [consentMobile, setConsentMobile] = useState('');
   const [consentChecked, setConsentChecked] = useState(false);
-  const [sampleFor, setSampleFor] = useState<UsLead | null>(null);
-  const [sampleNote, setSampleNote] = useState('');
+  const [callerNumber, setCallerNumber] = useState('');
 
   const run = async (action: string, payload: Record<string, unknown> = {}) => {
     const response = await postStaffFunction('us-dialer', { ...payload, action });
@@ -183,7 +182,7 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
         setMessage({ kind: 'error', text: 'La lista pasa de 500 filas; divídala en dos importaciones.' });
         return;
       }
-      let campaign = await getUsCampaign();
+      const campaign = await getUsCampaign();
       if (!campaign) {
         setMessage({ kind: 'error', text: 'Falta la campaña de EE. UU. en la base de datos.' });
         return;
@@ -247,8 +246,6 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
   };
 
   const prepareSample = async (lead: UsLead) => {
-    setSampleFor(lead);
-    setSampleNote('');
     setMessage(null);
     try {
       const { data: prospect } = await getSupabaseClient()
@@ -267,7 +264,6 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
           ? 'Muestra ya existente: se reutilizó el mismo borrador y enlace.'
           : 'Muestra lista: borrador y enlace creados. Compártala solo cuando el cliente la pida.',
       });
-      setSampleNote(result.preview_token);
       onChanged();
     } catch (error) {
       setMessage({ kind: 'error', text: error instanceof Error ? error.message : 'Error' });
@@ -292,14 +288,15 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
         setMessage({ kind: 'error', text: 'Primero prepare la muestra; el SMS lleva sus dos enlaces.' });
         return;
       }
-      const base = `${window.location.origin}/demo-hotel/plw-${draft.preview_token}`;
+      // Same sample links agents share from Clientes (Kike Sites preview + its Secretaria IA page).
+      const base = buildPreviewUrl(draft.preview_token);
       const response = await postStaffFunction('us-sms', {
         action: 'send',
         leadId: lead.id,
         idempotencyKey: `sms-${lead.id}-${draft.preview_token.slice(0, 12)}`,
-        body: `Professional Latino Workers: vea la muestra para su negocio: ${base} y hable con nuestra asistente: ${base}?voice=1. Responda STOP para no recibir más mensajes.`,
+        body: `Professional Latino Workers: vea la muestra para su negocio: ${base} y hable con nuestra asistente: ${base}/secretaria. Responda STOP para no recibir más mensajes.`,
         webUrl: base,
-        secretaryUrl: `${base}?voice=1`,
+        secretaryUrl: `${base}/secretaria`,
       });
       if (!response.ok) {
         const error = await readStaffFunctionError(response);
@@ -334,8 +331,9 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
           <h2 className="text-lg font-semibold text-plw-ink">Marcador EE. UU. · Negocios en español</h2>
           <p className="mt-1 text-sm text-neutral-600">
             Anna llama de lunes a viernes, {runtime?.allowed_from ?? '08:00'}–{runtime?.allowed_to ?? '16:00'} hora local de
-            cada negocio (zona horaria propia, con horario de verano). Máximo {runtime?.daily_cap ?? 100} llamadas por día,
-            una a la vez en la línea compartida. Remitente: {runtime?.caller_e164 ?? 'número pendiente de configurar'}.
+            cada negocio (zona horaria propia, con horario de verano). Si no se conoce la zona, solo llama cuando ese horario
+            se cumple a la vez en Nueva York y en Los Ángeles. Máximo {runtime?.daily_cap ?? 100} llamadas por día, una a la
+            vez en la línea compartida. Número de EE. UU.: {runtime?.caller_e164 ?? 'pendiente: escríbalo y presione Configurar'}.
           </p>
         </div>
         <Badge tone={status === 'Marcando' ? 'success' : status === 'Pausado' ? 'warning' : 'neutral'}>
@@ -349,8 +347,24 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
         <p className={`text-sm ${message.kind === 'ok' ? 'text-success-700' : 'text-danger-700'}`}>{message.text}</p>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button disabled={busy !== null} onClick={() => void withBusy('configure', () => run('configure'))}>
+      <div className="flex flex-wrap items-end gap-3">
+        <TextField
+          label="Número de EE. UU. (línea de salida)"
+          type="tel"
+          inputMode="tel"
+          value={callerNumber}
+          onChange={(event) => setCallerNumber(event.target.value)}
+          placeholder={runtime?.caller_e164 ?? '213 555 1234'}
+          className="w-48"
+        />
+        <Button
+          disabled={busy !== null}
+          onClick={() =>
+            void withBusy('configure', () =>
+              run('configure', callerNumber.trim() ? { callerNumber: callerNumber.trim() } : {})
+            )
+          }
+        >
           {busy === 'configure' ? 'Configurando…' : runtime?.provider_agent_id ? 'Reconfigurar Anna EE. UU.' : 'Configurar Anna EE. UU.'}
         </Button>
         {paused ? (
@@ -443,7 +457,7 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
                       const slot = String(data.get('slot') ?? '');
                       setBusy('test');
                       (slot
-                        ? rescheduleUsCallback(callback.id, new Date(slot).toISOString())
+                        ? rescheduleUsCallback(callback.id, slot)
                         : resolveUsCallback(callback.id, 'done')
                       )
                         .then(() => {
@@ -454,7 +468,14 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
                         .finally(() => setBusy(null));
                     }}
                   >
-                    <input name="slot" type="datetime-local" className="w-52 rounded-lg border border-neutral-300 px-2 py-1 text-xs text-plw-ink" />
+                    <input
+                      name="slot"
+                      type="datetime-local"
+                      aria-label={`Nueva hora, hora local del negocio (${callback.timezone})`}
+                      title="Hora local del negocio"
+                      className="w-52 rounded-lg border border-neutral-300 px-2 py-1 text-xs text-plw-ink"
+                    />
+                    <span className="text-xs text-neutral-500">hora local del negocio; vacío = marcar como hecha</span>
                     <Button type="submit" size="sm" variant="secondary" disabled={busy !== null}>
                       Guardar
                     </Button>
@@ -482,7 +503,7 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
             {queueLeads.slice(0, 50).map((lead) => (
               <li key={lead.id} className="flex flex-wrap items-baseline gap-x-2 py-2">
                 <span className="font-medium text-plw-ink">{lead.business_name || 'Sin nombre'}</span>
-                <span className="text-neutral-500">{lead.phone_e164} · {lead.timezone}</span>
+                <span className="text-neutral-500">{lead.phone_e164} · {lead.timezone || 'zona sin confirmar'}</span>
                 {lead.sms_consent ? <Badge tone="success">SMS ok</Badge> : null}
                 <span className="ml-auto flex gap-2">
                   <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => openConsent(lead)}>
@@ -500,7 +521,7 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
                     disabled={busy !== null}
                     onClick={() => {
                       setBusy('test');
-                      addUsToDnc(lead.phone_e164 ?? '', lead.id)
+                      addUsToDnc(lead.id)
                         .then(() => {
                           setMessage({ kind: 'ok', text: 'Número marcado como no llamar.' });
                           onChanged();

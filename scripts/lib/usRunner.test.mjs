@@ -58,7 +58,9 @@ test('the US first message is empty and the opening states who Anna is and where
     ''
   );
   const prompt = usPrompt();
-  assert.match(prompt, /soy Anna, de Professional Latino Workers, les llamo desde Los Ángeles/);
+  // Anna says she is an AI in the first sentence, in Spanish and in English.
+  assert.match(prompt, /soy Anna, asistente virtual con inteligencia artificial de Professional Latino Workers; les llamo desde Los Ángeles/);
+  assert.match(prompt, /this is Anna, an AI virtual assistant with Professional Latino Workers/);
   assert.ok(prompt.includes(PLW_US_ADDRESS), 'the LA office address is in the prompt');
   assert.match(prompt, /ESTADOS UNIDOS/);
 });
@@ -175,6 +177,9 @@ test('a finished US call syncs results, schedules the confirmed callback via the
   });
   const customerAt = order.indexOf('rpc:us_call_to_customer');
   assert.ok(customerAt >= 0, 'the interested call became a customer for Alejandro');
+  // us_call_to_customer only converts calls that reached a person.
+  const outcome = db.updates.find((u) => u.table === 'us_calls' && u.values.outcome);
+  assert.equal(outcome?.values.ended_reason, 'human');
   assert.ok(!order.includes('prospects'), 'no direct prospects read: the service role has no grant');
 });
 

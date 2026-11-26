@@ -56,6 +56,10 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === 'configure') {
+      // The US number gates Iniciar and test calls (it means the US trunk exists).
+      const caller = input.callerNumber ? normalizeUsPhone(input.callerNumber) : null;
+      if (input.callerNumber && !caller)
+        return json({ error: 'Revise el número de EE. UU.: 10 dígitos con área, con o sin el 1 inicial.' }, 400);
       const runtime = await db.from('us_dialer_runtime').select('*').eq('id', 1).maybeSingle();
       if (!runtime.data) return json({ error: 'Falta la tabla del marcador de EE. UU.' }, 409);
       const keepPause = (message: string) =>
@@ -122,11 +126,14 @@ Deno.serve(async (req) => {
           config_verified_at: new Date().toISOString(),
           transfer_uri: route.transfer_uri,
           last_error: keepPause(''),
+          ...(caller ? { caller_e164: caller } : {}),
         })
         .eq('id', 1);
       if (verifyError) throw verifyError;
-      // No cron changes here: the US tick uses the same runner key and cron as the other
-      // dialers; campaign execution stays off until the admin starts it from the panel.
+      // Creates the US tick (cron) and marks the scheduler ready; calling stays paused until
+      // the admin presses Iniciar.
+      const { error: cronError } = await db.rpc('enable_us_scheduler');
+      if (cronError) throw cronError;
       return json({ ok: true });
     }
 

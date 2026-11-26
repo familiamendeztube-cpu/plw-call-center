@@ -197,7 +197,7 @@ export async function syncUsCalls(db, apiKey, fetchImpl = fetch) {
         if (results.outcome || Object.keys(results.details).length) {
           const { error } = await db
             .from('us_calls')
-            .update({ outcome: results.outcome, details: results.details })
+            .update({ outcome: results.outcome, details: results.details, ended_reason: results.endedReason })
             .eq('id', call.id);
           if (error) console.error('us outcome not saved', error.code);
         }

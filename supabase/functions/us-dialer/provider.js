@@ -276,8 +276,17 @@ export function usCallResults(analysis) {
   }
   if (details.contact_email && !EMAIL_PATTERN.test(details.contact_email)) delete details.contact_email;
   const optOut = isTrue(values.get('plw_opt_out')) || outcome === 'DO_NOT_CALL';
-  return { outcome, details, optOut };
+  // us_call_to_customer and us_prepare_sample only act on calls that reached a person.
+  const endedReason = outcome ? (ENDED_REASONS[outcome] ?? 'human') : null;
+  return { outcome, details, optOut, endedReason };
 }
+
+const ENDED_REASONS = {
+  VOICEMAIL: 'voicemail',
+  IVR_NO_HUMAN: 'ivr',
+  NO_ANSWER: 'technical',
+  TECHNICAL_FAILURE: 'technical',
+};
 
 const text = (value) => String(value ?? '').replace(/\r\n/g, '\n').trim();
 

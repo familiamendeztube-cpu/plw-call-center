@@ -3,7 +3,7 @@
 // scripts/lib/secretaryDemo.test.mjs); index.ts does the network calls.
 
 /** Bump to re-PATCH the live agent on the next demo start. */
-export const DEMO_AGENT_VERSION = 'secretaria-demo-2026-11-19a';
+export const DEMO_AGENT_VERSION = 'secretaria-demo-2026-11-26a';
 export const DEMO_SETTINGS_KEY = 'secretary_demo_agent';
 export const DEMO_LIMITS = { conversations: 3, questions: 10, minutes: 5 } as const;
 export const PLW_CONTACT = '6725 Sunset Blvd, Los Angeles, CA 90028';

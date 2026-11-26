@@ -166,6 +166,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'resolve_us_callback',
   'reschedule_us_callback',
   'us_normalize_phone',
+  'us_mark_dnc',
   'classify_us_phone',
 ];
 

@@ -2,9 +2,9 @@
 // consent-gated) and delivered with the Messaging Service; status callbacks and inbound
 // replies are Twilio-signed webhooks. STOP/HELP/unsubscribe suppresses the lead. Never
 // WhatsApp in the US flow. Credentials only from Deno.env, never returned to the browser.
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
-import { handleStatusCallback, handleInboundReply } from './webhooks.js';
+import { handleStatusCallback, handleInboundReply } from './webhooks.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       const authToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? '';
       const { data: settings } = await db
         .from('us_market_settings')
-        .select('messaging_service_sid,sms_sender_id')
+        .select('messaging_service_sid,sms_sender_id,status_webhook_url')
         .eq('id', 1)
         .maybeSingle();
       const serviceSid = settings?.messaging_service_sid ?? '';
@@ -95,10 +95,13 @@ Deno.serve(async (req) => {
         To: toNumber,
         MessagingServiceSid: serviceSid,
         Body: String(input.body).slice(0, 800),
-        StatusCallback: settings?.status_webhook_url
-          ? `${input.statusWebhookUrl ?? settings.status_webhook_url}${settings.status_webhook_url.includes('?') ? '&' : '?'}twilio=1&kind=status`
-          : '',
       });
+      // Only the saved URL, never one from the browser; Twilio rejects an empty StatusCallback.
+      if (settings?.status_webhook_url)
+        form.set(
+          'StatusCallback',
+          `${settings.status_webhook_url}${settings.status_webhook_url.includes('?') ? '&' : '?'}twilio=1&kind=status`
+        );
       const twResp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`, {
         method: 'POST',
         headers: {
@@ -130,19 +133,22 @@ Deno.serve(async (req) => {
   }
 });
 
-async function handleWebhook(db: any, req: Request, authToken: string) {
+async function handleWebhook(db: SupabaseClient, req: Request, authToken: string) {
   const url = new URL(req.url);
   const kind = url.searchParams.get('kind') ?? '';
   const form = await req.formData().catch(() => null);
   if (!form) return json({ error: 'Cuerpo no válido.' }, 400);
   // Twilio signature: HMAC-SHA1 over url + concatenated POST fields, base64.
   const signature = req.headers.get('X-Twilio-Signature') ?? '';
+  // Checked first: an empty token cannot even build the HMAC key.
+  if (!authToken || !signature) return json({ error: 'Firma no válida.' }, 401);
   const params: Record<string, string> = {};
   for (const [key, value] of form.entries())
     if (typeof value === 'string') params[key] = value;
-  const expected = await twilioSignature(url.toString(), params, authToken);
-  if (!authToken || !signature || signature !== expected)
-    return json({ error: 'Firma no válida.' }, 401);
+  // Twilio signs the public URL it posted to; inside the function req.url lacks /functions/v1.
+  const publicUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/us-sms${url.search}`;
+  const expected = await twilioSignature(publicUrl, params, authToken);
+  if (signature !== expected) return json({ error: 'Firma no válida.' }, 401);
   if (kind === 'status')
     return await handleStatusCallback(db, params);
   if (kind === 'inbound')
