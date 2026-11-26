@@ -1,3 +1,5 @@
+-- Callback gate by captured fields: dental_callback_due decides from callback_confirmed,
+-- date and clock (not only the outcome code), and dental_call_to_customer uses it.
 CREATE OR REPLACE FUNCTION public.dental_callback_due(c public.dental_calls)
 RETURNS timestamptz
 LANGUAGE plpgsql

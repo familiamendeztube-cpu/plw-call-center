@@ -1,3 +1,5 @@
+-- Dental claim tries landlines (numbers starting with 2) before mobiles, both for second
+-- attempts after no answer and for fresh leads.
 CREATE OR REPLACE FUNCTION public.claim_dental_call(p_staff_id text, p_now timestamptz DEFAULT now())
  RETURNS jsonb
  LANGUAGE plpgsql

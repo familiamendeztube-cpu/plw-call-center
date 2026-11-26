@@ -1,3 +1,7 @@
+-- Dental auto-dialer scheduler: the runner key kept in Vault (dental_runner_key_valid, shared
+-- since by the tourism and US dialers), the cron that ticks the dental-dialer function
+-- (enable_dental_scheduler) and admin test calls (reserve_dental_test). Committed as
+-- 20261110091000; Bolt applied the same SQL live as this version.
 CREATE FUNCTION dental_runner_key_valid(p_key text) RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path=public,extensions,vault,pg_temp AS $$
  SELECT length(p_key)=64 AND EXISTS(SELECT 1 FROM vault.decrypted_secrets WHERE name='plw_dental_runner_key' AND extensions.digest(decrypted_secret,'sha256')=extensions.digest(p_key,'sha256'));
 $$;

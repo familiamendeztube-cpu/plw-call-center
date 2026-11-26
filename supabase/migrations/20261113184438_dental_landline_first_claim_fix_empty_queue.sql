@@ -1,3 +1,5 @@
+-- Fix for 20261113184301: after the FOR loop, FOUND only said the loop ran, not that a lead
+-- was found, so an empty queue looked like a lead. The claim now checks the lead (l.id).
 CREATE OR REPLACE FUNCTION public.claim_dental_call(p_staff_id text, p_now timestamptz DEFAULT now())
  RETURNS jsonb
  LANGUAGE plpgsql

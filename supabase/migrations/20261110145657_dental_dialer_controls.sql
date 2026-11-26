@@ -1,3 +1,7 @@
+-- Dental auto-dialer, base tables: one ElevenLabs dialer per agent (dental_agent_dialers), the
+-- shared runtime row and every dial attempt (dental_calls), with claim_dental_call,
+-- control_dental_dialer and confirm_dental_transfer. Committed as 20261110090000; Bolt applied
+-- the same SQL live as this version. Dental campaign retired 2026-11-19.
 CREATE TABLE dental_agent_dialers (
  staff_id text PRIMARY KEY REFERENCES staff_profiles(id),provider_agent_id text UNIQUE,caller_phone_number_id text,voice_id text,
  transfer_uri text CHECK(transfer_uri ~ '^sips?:[A-Za-z0-9_.-]+@[A-Za-z0-9.-]+$'),config_verified_at timestamptz,transfer_verified_at timestamptz,

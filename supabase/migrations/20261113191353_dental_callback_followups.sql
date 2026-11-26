@@ -1,3 +1,5 @@
+-- A dental call where the dentist confirmed a callback day and time becomes a 'callback'
+-- follow-up for the lead's agent (followups.source_call_id links it, one per call).
 ALTER TABLE public.followups ADD COLUMN IF NOT EXISTS source_call_id uuid REFERENCES public.dental_calls(id) ON DELETE SET NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS followups_source_call_uidx ON public.followups (source_call_id) WHERE source_call_id IS NOT NULL;
 

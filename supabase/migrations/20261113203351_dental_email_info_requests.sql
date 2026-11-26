@@ -1,3 +1,5 @@
+-- Adds the EMAIL_INFO_REQUESTED dental outcome and 'email' as a preferred contact on
+-- ai_call_requests; email requests never book a callback.
 ALTER TABLE public.dental_calls DROP CONSTRAINT dental_calls_outcome_check;
 ALTER TABLE public.dental_calls ADD CONSTRAINT dental_calls_outcome_check CHECK (outcome = ANY (ARRAY[
   'APPOINTMENT_CONFIRMED'::text, 'APPOINTMENT_REQUESTED'::text, 'INTERESTED_FOLLOW_UP'::text,
