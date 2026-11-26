@@ -70,5 +70,5 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.us-sms]
-# US SMS: admin sessions for sends; Twilio signed webhooks for status and inbound replies.
+# US SMS on Telnyx: admin sessions for sends; Ed25519-signed Telnyx webhooks for delivery and replies.
 verify_jwt = false

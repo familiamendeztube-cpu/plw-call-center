@@ -231,7 +231,7 @@ test('an interested US call becomes a customer, a sample with its own template, 
     assert.deepEqual(draft, { site_slug: 'plw-restaurant', category: 'restaurant' });
 
     await as(tx);
-    const sms = (await tx.query("SELECT us_sms_send($1,'k1','Hola','https://x','https://x/secretaria','','MG1') AS s", [id(501)])).rows[0].s;
+    const sms = (await tx.query("SELECT us_sms_send($1,'k1','Hola','https://x','https://x/secretaria','+12135550100') AS s", [id(501)])).rows[0].s;
     assert.equal(sms.status, 'queued');
     assert.equal(sms.to_e164, '+13105550123', 'the function needs the number to send to');
   }));

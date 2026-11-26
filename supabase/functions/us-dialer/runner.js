@@ -43,14 +43,12 @@ export async function dispatchUsCall(db, apiKey, claim, fetchImpl = fetch) {
     return;
   }
   let result;
-  const settings = await checked(
-    db.from('ai_outbound_settings').select('caller_phone_number_id').eq('id', 1).maybeSingle()
-  );
-  if (!settings?.caller_phone_number_id || !runtime?.transfer_uri) {
+  // The Telnyx number as imported in ElevenLabs (Configurar saves it). Never the Costa Rica line.
+  if (!runtime?.phone_number_id || !runtime?.transfer_uri) {
     await checked(
       db
         .from('us_calls')
-        .update({ state: 'cancelled', error: 'Falta la línea de salida o la ruta de transferencia.', finished_at: new Date().toISOString() })
+        .update({ state: 'cancelled', error: 'Falta el número de EE. UU. en ElevenLabs o la ruta de transferencia.', finished_at: new Date().toISOString() })
         .eq('id', call.id)
         .eq('state', 'reserved')
     );
@@ -63,7 +61,7 @@ export async function dispatchUsCall(db, apiKey, claim, fetchImpl = fetch) {
       signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_S * 1000),
       body: JSON.stringify({
         agent_id: call.provider_agent_id,
-        agent_phone_number_id: settings.caller_phone_number_id,
+        agent_phone_number_id: runtime.phone_number_id,
         // Full E.164 destination: the destination string is never truncated to its last digits.
         to_number: call.phone,
         conversation_initiation_client_data: {

@@ -349,7 +349,7 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
 
       <div className="flex flex-wrap items-end gap-3">
         <TextField
-          label="Número de EE. UU. (línea de salida)"
+          label="Número Telnyx de EE. UU."
           type="tel"
           inputMode="tel"
           value={callerNumber}

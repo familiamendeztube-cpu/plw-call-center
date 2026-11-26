@@ -1,7 +1,14 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
 import { runUsTick, dispatchUsCall, syncUsCalls, reconcileUsStuckCalls } from './runner.js';
-import { normalizeUsPhone, providerRequest, sanitizeProviderError, usAgentConfig, usConfigFailures } from './provider.js';
+import {
+  findPhoneNumberId,
+  normalizeUsPhone,
+  providerRequest,
+  sanitizeProviderError,
+  usAgentConfig,
+  usConfigFailures,
+} from './provider.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -64,13 +71,25 @@ Deno.serve(async (req) => {
       if (!runtime.data) return json({ error: 'Falta la tabla del marcador de EE. UU.' }, 409);
       const keepPause = (message: string) =>
         runtime.data.last_error === 'scheduler_paused' ? 'scheduler_paused' : message;
+      // US calls go out on the Telnyx number imported in ElevenLabs (plw-telnyx prints how), never
+      // on the Costa Rica line. Without a number the voice is still verified, but Iniciar and
+      // test calls stay blocked.
+      const usNumber: string | null = caller ?? runtime.data.caller_e164;
+      let phoneNumberId: string | null = null;
+      if (usNumber) {
+        const numbers = await providerRequest(apiKey, '/phone-numbers');
+        phoneNumberId = numbers.ok ? findPhoneNumberId(numbers.data, usNumber) : null;
+        if (!phoneNumberId)
+          return json({
+            error: `El número ${usNumber} no aparece en ElevenLabs. Impórtelo en Phone Numbers como SIP trunk (lo indica plw-telnyx al instalar) y presione Configurar de nuevo.`,
+          }, 409);
+      }
       const { data: settings, error } = await db
         .from('ai_outbound_settings')
-        .select('voice_id,caller_phone_number_id')
+        .select('voice_id')
         .eq('id', 1)
         .single();
-      if (error || !settings?.voice_id || !settings?.caller_phone_number_id)
-        return json({ error: 'Falta configurar la voz y línea de salida.' }, 409);
+      if (error || !settings?.voice_id) return json({ error: 'Falta configurar la voz.' }, 409);
       const { data: sip, error: sipError } = await db
         .from('agent_sip_accounts')
         .select('sip_username,sip_domain')
@@ -126,7 +145,7 @@ Deno.serve(async (req) => {
           config_verified_at: new Date().toISOString(),
           transfer_uri: route.transfer_uri,
           last_error: keepPause(''),
-          ...(caller ? { caller_e164: caller } : {}),
+          ...(usNumber ? { caller_e164: usNumber, phone_number_id: phoneNumberId } : {}),
         })
         .eq('id', 1);
       if (verifyError) throw verifyError;

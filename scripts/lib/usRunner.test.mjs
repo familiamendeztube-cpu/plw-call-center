@@ -6,7 +6,7 @@ import {
   runUsTick,
   syncUsCalls,
 } from '../../supabase/functions/us-dialer/runner.js';
-import { usAgentConfig, usAsrKeywords, usConfigFailures, normalizeUsPhone, looksLikeUsWithCountryCode } from '../../supabase/functions/us-dialer/provider.js';
+import { usAgentConfig, usAsrKeywords, usConfigFailures, normalizeUsPhone, looksLikeUsWithCountryCode, findPhoneNumberId } from '../../supabase/functions/us-dialer/provider.js';
 import {
   US_SCRIPT_VERSION,
   US_FIRST_MESSAGE,
@@ -21,6 +21,7 @@ const RUNTIME = {
   paused: false,
   config_verified_at: '2026-11-26T12:00:00Z',
   last_error: '',
+  phone_number_id: 'telnyx_line',
 };
 
 function fakeDb(rows) {
@@ -131,12 +132,19 @@ test('a US call dials the full E.164 number, passes the LA office and skips bloc
   assert.equal(openDb.updates.at(-1).values.state, 'cancelled');
   // A test call dials the full E.164 with the LA office variable.
   await dispatchUsCall(
-    fakeDb({ us_dialer_runtime: { ...RUNTIME, paused: true }, ai_outbound_settings: { caller_phone_number_id: 'line' } }),
+    fakeDb({ us_dialer_runtime: { ...RUNTIME, paused: true }, ai_outbound_settings: { caller_phone_number_id: 'cr_line' } }),
     'key',
     { call: { id: 'call-1', is_test: true, phone: '+13055551234', provider_agent_id: 'us_agent' }, lead: { business_name: 'Restaurante La Fe' } },
     fetchImpl
   );
   assert.equal(sent[0].to_number, '+13055551234');
+  assert.equal(sent[0].agent_phone_number_id, 'telnyx_line', 'the Telnyx number, never the Costa Rica line');
+  // Without the Telnyx number in ElevenLabs nothing is dialed.
+  const noLine = fakeDb({ us_dialer_runtime: { ...RUNTIME, phone_number_id: null } });
+  await dispatchUsCall(noLine, 'key', { call: { id: 'call-4', is_test: true, phone: '+13055551234' }, lead: {} }, () => {
+    throw new Error('must not dial without the US line');
+  });
+  assert.equal(noLine.updates.at(-1).values.state, 'cancelled');
   assert.equal(sent[0].conversation_initiation_client_data.dynamic_variables.plw_office, PLW_US_ADDRESS);
   assert.equal(sent[0].conversation_initiation_client_data.dynamic_variables.plw_script_version, US_SCRIPT_VERSION);
   const source = await (await import('node:fs/promises')).readFile(
@@ -266,4 +274,15 @@ test('speech-to-text gets the business name and bilingual email words, at most 5
   assert.ok(usAsrKeywords('x '.repeat(200)).length <= 50);
   const config = usAgentConfig('Alejandro', ROUTE, 'voice');
   assert.equal(config.platform_settings.overrides.conversation_config_override.asr.keywords, true);
+});
+
+// Configurar finds the Telnyx number in ElevenLabs however it was typed at import.
+test('the US number is found in the ElevenLabs list in any format', () => {
+  const list = [
+    { phone_number: '+50640106198', phone_number_id: 'cr_line' },
+    { phone_number: '+1 (213) 555-0100', phone_number_id: 'telnyx_line' },
+  ];
+  assert.equal(findPhoneNumberId(list, '+12135550100'), 'telnyx_line');
+  assert.equal(findPhoneNumberId(list, '+13055550100'), null);
+  assert.equal(findPhoneNumberId(null, '+12135550100'), null);
 });

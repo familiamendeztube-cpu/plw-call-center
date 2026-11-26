@@ -171,3 +171,22 @@ plw-agents rotate agent-1
 - Hold, transfer and keypad tones during a call aren't available yet.
 - 911 and other short codes can't be dialed from the app.
 - The agent's own browser has to hold the phone password to log in, so a technical agent could extract it. It only works for calls to Costa Rican numbers. Replace it when an agent leaves.
+
+## US line (Telnyx)
+
+Anna's US calls and the US texts use the Telnyx number. Calls go ElevenLabs → this server → Telnyx, so her transfers still ring Alejandro's browser phone. `telnyx/plw-telnyx.sh` adds this next to Vocex without editing anything that exists. It needs `plw-dental` installed first.
+
+| Secret | Where it lives | Who can get it |
+| --- | --- | --- |
+| Telnyx SIP password | Only in `/etc/asterisk/pjsip_telnyx.conf` | Root on the server. Typed at the install prompt. |
+| `plw-us-dialer` password (ElevenLabs' login here) | `/etc/asterisk/pjsip_telnyx.conf` and ElevenLabs | Root (`plw-telnyx password`). |
+| `TELNYX_API_KEY`, `TELNYX_PUBLIC_KEY` | Supabase server secrets | The `us-sms` server function only. |
+
+Steps, in order:
+
+1. **Telnyx portal, voice.** Create a SIP connection of type *Credentials* (write down its username and password). Give it an Outbound Voice Profile that allows **United States only**. Assign the US number to that connection.
+2. **Telnyx portal, texts.** Put the number on a messaging profile and set the profile's webhook to `https://meagbbmittuhdgwnhvxa.supabase.co/functions/v1/us-sms?telnyx=1`. Turn on the profile's STOP/HELP automatic replies. US carriers block texts from a 10-digit number until its 10DLC brand and campaign are registered in Telnyx.
+3. **Supabase secrets.** On your PC, from the repo: `npx supabase secrets set TELNYX_API_KEY=... TELNYX_PUBLIC_KEY=... --project-ref meagbbmittuhdgwnhvxa`. The public key is under *Keys & Credentials > Public Key*. Never put either in the repo or a chat.
+4. **This server.** Copy `telnyx/plw-telnyx.sh` over and run `bash plw-telnyx.sh install` as root. It asks for the SIP username, password and the number, checks itself, and puts everything back if a check fails. Undo later with `plw-telnyx rollback /root/plw-before-telnyx-....tar.gz`.
+5. **ElevenLabs.** Import the number as a SIP trunk with the values the install prints.
+6. **PLW.** *Marcador IA > EE. UU.*: type the number and press **Configurar Anna EE. UU.** It finds the number in ElevenLabs and saves it. Then make a test call to your own US phone before pressing **Iniciar**.

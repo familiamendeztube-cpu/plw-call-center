@@ -65,6 +65,14 @@ export function normalizeUsPhone(input) {
   return /^[2-9]\d{2}[2-9]\d{6}$/.test(national) ? `+1${national}` : null;
 }
 
+// The ElevenLabs id of an imported number. ElevenLabs keeps the number as typed at import
+// ("+1 213 555 0100", "12135550100"...), so both sides are normalized before comparing.
+export function findPhoneNumberId(list, e164) {
+  const wanted = normalizeUsPhone(e164);
+  const match = wanted && (Array.isArray(list) ? list : []).find((n) => normalizeUsPhone(n?.phone_number) === wanted);
+  return typeof match?.phone_number_id === 'string' ? match.phone_number_id : null;
+}
+
 // True when the raw digits already carry the US country code exactly once (11 digits).
 export function looksLikeUsWithCountryCode(input) {
   const digits = String(input ?? '').replace(/\D/g, '');

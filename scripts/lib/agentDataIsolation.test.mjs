@@ -59,7 +59,6 @@ const US_DIALER_TABLES = [
   'us_dialer_alerts',
   'us_dialer_runtime',
   'us_leads',
-  'us_market_settings',
 ];
 const SHARED_TABLES = ['sales_materials', 'settings'];
 // Tourism dialer: the browser (admin UI) reads runtime state and its own campaign rows;
