@@ -9,6 +9,7 @@ import type { AgentId } from '@/features/auth/models/agent';
 import type { Prospect } from '@/features/leads/models/prospect';
 
 const REPLY_LABEL = 'Respuesta por SMS';
+const NOTICE = 'rounded-lg border border-plw-gold/60 bg-plw-gold-soft/15 px-4 py-3 text-sm text-plw-ink';
 
 interface SmsConversationProps {
   /** The customer's PLW conversation: header, sales stage and private notes. */
@@ -22,8 +23,8 @@ interface SmsConversationProps {
 }
 
 /**
- * The customer's texts with PLW's US number, in one timeline with the private notes. The agent
- * may answer only after the customer texted first, and never after STOP (owner's rule).
+ * The customer's texts with PLW's US number, in one timeline with the private notes. The agent may
+ * text a customer who agreed on a call or texted PLW, and never after STOP (owner's rule).
  */
 export function SmsConversation({
   conversationId,
@@ -32,7 +33,7 @@ export function SmsConversation({
   agentNames,
   onProspectChange,
 }: SmsConversationProps) {
-  const { state, reload, send, markRead } = useSmsThread(prospect.id);
+  const { state, reload, send, agreeOnCall, markRead } = useSmsThread(prospect.id);
   const shown = state.status === 'ready';
 
   // Only the agent's own visit clears the unread mark, not the administrator's look.
@@ -62,24 +63,20 @@ export function SmsConversation({
     };
   } else {
     const thread = state.data;
-    const locked = !thread.texted
-      ? `Este cliente todavía no le ha escrito por SMS a PLW. Solo puede escribirle después de que el cliente escriba primero al ${PLW_US_SMS_NUMBER}. Si habla con él por teléfono, pídale que le mande un mensaje a ese número.`
-      : thread.stopped
-        ? 'El cliente pidió no recibir más mensajes (STOP). Podrá escribirle de nuevo solo si el cliente vuelve a escribir.'
-        : null;
+    const notice = thread.stopped ? (
+      <p role="status" className={NOTICE}>
+        El cliente pidió no recibir más mensajes (STOP). Podrá escribirle de nuevo solo si el cliente
+        vuelve a escribir.
+      </p>
+    ) : !thread.allowed ? (
+      <AskConsent onAgreed={agentId ? agreeOnCall : undefined} />
+    ) : undefined;
     chat = {
       ready: true,
       messages: thread.messages,
       replyLabel: REPLY_LABEL,
-      notice: locked ? (
-        <p
-          role="status"
-          className="rounded-lg border border-plw-gold/60 bg-plw-gold-soft/15 px-4 py-3 text-sm text-plw-ink"
-        >
-          {locked}
-        </p>
-      ) : undefined,
-      reply: locked ? null : <SmsComposer prospectId={prospect.id} onSend={send} />,
+      notice,
+      reply: notice ? null : <SmsComposer prospectId={prospect.id} onSend={send} />,
     };
   }
 
@@ -91,6 +88,50 @@ export function SmsConversation({
       chat={chat}
       onProspectChange={onProspectChange}
     />
+  );
+}
+
+/**
+ * Before the first text: the agent asks on the call and records the yes (who and when are kept).
+ * The administrator only reads, so they get the explanation without the button.
+ */
+function AskConsent({ onAgreed }: { onAgreed?: () => Promise<void> }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const agree = async () => {
+    if (!onAgreed) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onAgreed();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'No se pudo guardar el permiso.');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div role="status" className={`${NOTICE} flex flex-col gap-3`}>
+      <p>
+        Para escribirle por SMS, el cliente tiene que aceptarlo en una llamada. Pregúntele: «¿Le
+        puedo mandar la información por mensaje de texto a este número?». Si el cliente le escribe al{' '}
+        {PLW_US_SMS_NUMBER}, también podrá responderle.
+      </p>
+      {onAgreed ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" disabled={saving} onClick={() => void agree()}>
+            {saving ? 'Guardando...' : 'El cliente aceptó recibir SMS'}
+          </Button>
+          <span className="text-xs text-neutral-500">Se guarda quién lo marcó y cuándo.</span>
+        </div>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-xs text-danger-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -154,7 +195,9 @@ function SmsComposer({
           {sending ? 'Enviando...' : 'Enviar'}
         </Button>
       </div>
-      <p className="text-right text-xs text-neutral-500">Sale del número de PLW {PLW_US_SMS_NUMBER}</p>
+      <p className="text-right text-xs text-neutral-500">
+        Sale del número de PLW {PLW_US_SMS_NUMBER}. El primer SMS termina con cómo darse de baja.
+      </p>
       {error ? (
         <p role="alert" className="text-xs text-danger-700">
           {error}

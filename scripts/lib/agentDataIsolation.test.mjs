@@ -89,6 +89,7 @@ const BROWSER_READABLE_TABLES = [
   ...SHARED_TABLES,
   'prospect_site_drafts',
   // Agents read only their own customers' texts: scripts/lib/smsCustomers.test.mjs.
+  'sms_consents',
   'sms_messages',
   'staff_presence',
   'staff_profiles',
@@ -127,6 +128,7 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'mark_whatsapp_read',
   // SMS with US customers, own customers only: scripts/lib/smsCustomers.test.mjs.
   'mark_sms_read',
+  'record_sms_consent',
   'register_sms_reply',
   'pending_tourism_emails',
   'verify_tourism_email',

@@ -12,14 +12,13 @@ const COLUMNS = 'id, direction, body, status, is_stop, created_at';
 async function loadSms(prospectId: string): Promise<SmsThread> {
   // Demo customers are not in the database.
   if (IS_DEMO_MODE) return toSmsThread(prospectId, []);
-  const { data, error } = await getSupabaseClient()
-    .from('sms_messages')
-    .select(COLUMNS)
-    .eq('prospect_id', prospectId)
-    .order('created_at', { ascending: true })
-    .limit(500);
-  if (error) throw new Error('No se pudieron cargar los SMS.');
-  return toSmsThread(prospectId, (data ?? []) as SmsRow[]);
+  const supabase = getSupabaseClient();
+  const [texts, consents] = await Promise.all([
+    supabase.from('sms_messages').select(COLUMNS).eq('prospect_id', prospectId).order('created_at', { ascending: true }).limit(500),
+    supabase.from('sms_consents').select('id').eq('prospect_id', prospectId).limit(1),
+  ]);
+  if (texts.error || consents.error) throw new Error('No se pudieron cargar los SMS.');
+  return toSmsThread(prospectId, (texts.data ?? []) as SmsRow[], (consents.data ?? []).length > 0);
 }
 
 /**
@@ -89,10 +88,17 @@ export function useSmsThread(prospectId: string) {
     [prospectId, refresh]
   );
 
+  /** The agent records that the customer agreed on a call to get texts (who and when are kept). */
+  const agreeOnCall = useCallback(async () => {
+    const { error } = await getSupabaseClient().rpc('record_sms_consent', { p_prospect_id: prospectId });
+    if (error) throw new Error(error.message || 'No se pudo guardar el permiso.');
+    refresh();
+  }, [prospectId, refresh]);
+
   const markRead = useCallback(() => {
     if (IS_DEMO_MODE) return;
     void getSupabaseClient().rpc('mark_sms_read', { p_prospect_id: prospectId });
   }, [prospectId]);
 
-  return { ...result, send, markRead };
+  return { ...result, send, agreeOnCall, markRead };
 }

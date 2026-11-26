@@ -1,8 +1,8 @@
 // US SMS on Telnyx, from PLW's US number (us_dialer_runtime.caller_e164, +1 754-799-1065).
 // - Telnyx webhooks (?telnyx=1, signed with Ed25519): delivery results, and customers' texts,
 //   which land on the customer's SMS tab (record_sms_received).
-// - reply (any agent): answers a customer who texted PLW first; register_sms_reply runs as the
-//   agent and checks the rule and their access before anything is sent.
+// - reply (any agent): texts a customer who agreed on a call or texted PLW, never after STOP;
+//   register_sms_reply runs as the agent and checks the rule and their access before sending.
 // - send (admin): the sample-link text to a dialer lead (us_sms_send), same rule.
 // Secrets: TELNYX_API_KEY and TELNYX_PUBLIC_KEY, only in the function's environment.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -86,13 +86,8 @@ Deno.serve(async (req) => {
       if (regError || !reg) return json({ error: regError?.message?.slice(0, 200) || 'No se pudo registrar el mensaje.' }, 409);
       if (reg.reused || reg.status !== 'queued') return json({ ok: true, id: reg.id, status: reg.status });
 
-      const sent = await sendTelnyxSms({
-        apiKey: telnyx.apiKey,
-        from: telnyx.from,
-        to: reg.to,
-        text: String(input.body).trim(),
-        webhookUrl: WEBHOOK_URL,
-      });
+      // The text as stored: the first one to a number also says who writes and how to stop.
+      const sent = await sendTelnyxSms({ apiKey: telnyx.apiKey, from: telnyx.from, to: reg.to, text: reg.body, webhookUrl: WEBHOOK_URL });
       const status = sent.ok ? 'sent' : sent.optedOut ? 'suppressed' : 'failed';
       await db
         .from('sms_messages')

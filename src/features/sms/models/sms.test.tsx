@@ -12,8 +12,10 @@ const row = (id: string, direction: 'in' | 'out', at: string, extra: Partial<Sms
 });
 
 describe('toSmsThread', () => {
-  it('locks the reply box until the customer texts first', () => {
-    expect(toSmsThread('p1', [])).toEqual({ messages: [], texted: false, stopped: false });
+  it('opens the reply box once the customer agreed on a call or texted PLW', () => {
+    expect(toSmsThread('p1', [])).toEqual({ messages: [], allowed: false, stopped: false });
+    expect(toSmsThread('p1', [], true).allowed).toBe(true);
+    expect(toSmsThread('p1', [row('a', 'in', '2026-11-26T22:00:00Z')]).allowed).toBe(true);
   });
 
   it('shows the texts oldest first, customer and agent, with undelivered ones marked', () => {
@@ -25,7 +27,7 @@ describe('toSmsThread', () => {
       ['a', 'customer', false],
       ['b', 'agent', true],
     ]);
-    expect(thread.texted).toBe(true);
+    expect(thread.allowed).toBe(true);
   });
 
   it('a STOP closes the number until the customer writes again', () => {

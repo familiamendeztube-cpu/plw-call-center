@@ -109,27 +109,51 @@ test('a number PLW already knows joins that customer, in any format', async () =
   });
 });
 
-test('an agent replies only after the customer texted first, and never after STOP', async () => {
+const FOOTER = '\n\nProfessional Latino Workers. Responda STOP para no recibir más mensajes.';
+const agreeOnCall = (q, claims, prospectId) =>
+  asBrowser(q, claims, 'SELECT public.record_sms_consent($1) AS phone', [prospectId]).then((rows) => rows[0].phone);
+
+test('an agent texts a customer once they agreed on a call, and never after STOP', async () => {
   await inTransaction(async (q) => {
     const claims = await signIn(q, 'agent-1');
-    const [quiet] = await q(
+    const [customer] = await q(
       `INSERT INTO public.prospects (business_name, contact_name, phone, owner_id, source)
-       VALUES ('Taller Mora', 'Luis', '+13055550104', 'agent-1', 'ai_call') RETURNING id`
+       VALUES ('Taller Mora', 'Luis', '(305) 555-0104', 'agent-1', 'ai_call') RETURNING id`
     );
-    await assert.rejects(reply(q, claims, quiet.id, 'k-0'), /todavía no le ha escrito por SMS/);
+    await assert.rejects(reply(q, claims, customer.id, 'k-0'), /todavía no aceptó recibir SMS/);
 
-    const id = await received(q, '+13055550104');
-    assert.equal(id, quiet.id);
-    const sent = await reply(q, claims, id, 'k-1');
-    assert.deepEqual({ ...sent, id: undefined }, { id: undefined, status: 'queued', to: '+13055550104', reused: false });
-    assert.equal((await reply(q, claims, id, 'k-1')).id, sent.id, 'the same key never sends twice');
-    const [row] = await q('SELECT direction, staff_id, body FROM public.sms_messages WHERE id = $1', [sent.id]);
-    assert.deepEqual(row, { direction: 'out', staff_id: 'agent-1', body: 'Con gusto le ayudo' });
+    assert.equal(await agreeOnCall(q, claims, customer.id), '+13055550104');
+    const [consent] = await q('SELECT staff_id FROM public.sms_consents WHERE prospect_id = $1', [customer.id]);
+    assert.equal(consent.staff_id, 'agent-1', 'who marked it is kept');
+    const first = await reply(q, claims, customer.id, 'k-1');
+    assert.deepEqual(
+      { status: first.status, to: first.to, body: first.body, reused: first.reused },
+      { status: 'queued', to: '+13055550104', body: 'Con gusto le ayudo' + FOOTER, reused: false },
+      'the first text says who writes and how to stop'
+    );
+    assert.equal((await reply(q, claims, customer.id, 'k-1')).id, first.id, 'the same key never sends twice');
+    assert.equal((await reply(q, claims, customer.id, 'k-2', 'Le mando el enlace')).body, 'Le mando el enlace');
 
     await received(q, '+13055550104', 'STOP', true);
-    await assert.rejects(reply(q, claims, id, 'k-2'), /STOP/);
+    await assert.rejects(reply(q, claims, customer.id, 'k-3'), /STOP/);
+    await agreeOnCall(q, claims, customer.id);
+    await assert.rejects(reply(q, claims, customer.id, 'k-4'), /STOP/, 'after STOP only the customer reopens it');
     await received(q, '+13055550104', 'Hola otra vez');
-    assert.equal((await reply(q, claims, id, 'k-3')).status, 'queued', 'writing again reopens the number');
+    assert.equal((await reply(q, claims, customer.id, 'k-5')).status, 'queued', 'writing again reopens the number');
+  });
+});
+
+test('a customer who texts PLW can be answered, and consent needs a US number', async () => {
+  await inTransaction(async (q) => {
+    const claims = await signIn(q, 'agent-1');
+    const id = await received(q, '+13055550108');
+    const answer = await reply(q, claims, id, 'k-1');
+    assert.equal(answer.to, '+13055550108');
+    const [local] = await q(
+      `INSERT INTO public.prospects (business_name, contact_name, phone, owner_id, source)
+       VALUES ('Soda Tica', 'Ana', '8888-1111', 'agent-1', 'manual') RETURNING id`
+    );
+    await assert.rejects(agreeOnCall(q, claims, local.id), /no tiene un número de EE. UU./);
   });
 });
 
@@ -142,6 +166,8 @@ test("an agent sees and answers only their own customers' texts", async () => {
     const visible = await asBrowser(q, claims, 'SELECT id FROM public.sms_messages', []);
     assert.equal(visible.length, 0);
     await assert.rejects(reply(q, claims, theirs, 'k-x'), /Cliente no disponible/);
+    await assert.rejects(agreeOnCall(q, claims, theirs), /Cliente no disponible/);
+    assert.equal((await asBrowser(q, claims, 'SELECT id FROM public.sms_consents', [])).length, 0);
     await assert.rejects(
       asBrowser(q, claims, "INSERT INTO public.sms_messages (prospect_id, direction, phone_e164, body, status) VALUES ($1, 'out', '+13055550105', 'x', 'queued')", [theirs]),
       /permission denied/
@@ -159,18 +185,20 @@ test('opening the texts clears the unread mark', async () => {
   });
 });
 
-test('the admin sample-link text follows the same rule: only to a number that texted first', async () => {
+test('the admin sample link goes to a lead who agreed on the call or texted, never after STOP', async () => {
   await inTransaction(async (q) => {
-    const open = (phone) => q('SELECT public.sms_number_open($1) AS open', [phone]).then((rows) => rows[0].open);
+    const open = (phone, agreed = false) =>
+      q('SELECT public.sms_number_open($1, $2) AS open', [phone, agreed]).then((rows) => rows[0].open);
     assert.equal(await open('+13055550107'), false);
+    assert.equal(await open('+13055550107', true), true, "the lead's call consent");
     await signIn(q, 'agent-1');
     await received(q, '+13055550107');
     assert.equal(await open('+13055550107'), true);
     await received(q, '+13055550107', 'Baja', true);
-    assert.equal(await open('+13055550107'), false);
+    assert.equal(await open('+13055550107', true), false);
     const source = await q(
       "SELECT pg_get_functiondef('public.us_sms_send(uuid, text, text, text, text, text, uuid)'::regprocedure) AS def"
     );
-    assert.match(source[0].def, /sms_number_open\(v_to\)/);
+    assert.ok(source[0].def.includes("sms_number_open(v_to, v_lead.sms_consent AND v_lead.sms_mobile <> '')"));
   });
 });

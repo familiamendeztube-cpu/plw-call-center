@@ -1,9 +1,10 @@
 -- US customers text by SMS, not WhatsApp (owner, 2026-11-26). Texts go to and from PLW's US
 -- number (+1 754-799-1065) through Telnyx; the us-sms server function talks to Telnyx.
 --
--- Rule (owner): an agent may text a customer only after that customer texted PLW first, and never
--- after the customer's latest text was STOP. The admin's sample-link text to a dialer lead
--- (us_sms_send) follows the same rule.
+-- Rule as first built: an agent may text a customer only after that customer texted PLW first,
+-- and never after the customer's latest text was STOP; the admin's sample-link text to a dialer
+-- lead (us_sms_send) followed the same rule. Corrected by 20261126235500_sms_consent_on_call:
+-- customers who agreed on a call can be texted too.
 --
 -- What this adds:
 -- - sms_messages: each customer's texts, both directions. Agents read the texts of the customers

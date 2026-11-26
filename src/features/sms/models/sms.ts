@@ -17,14 +17,14 @@ export interface SmsRow {
 
 export interface SmsThread {
   messages: Message[];
-  /** The customer has texted PLW, so the agent may answer (the server checks again). */
-  texted: boolean;
+  /** The customer agreed on a call or texted PLW, so the agent may text (the server checks again). */
+  allowed: boolean;
   /** The customer's latest text was STOP: no texts until they write again. */
   stopped: boolean;
 }
 
-/** The customer's texts as chat messages, oldest first, and whether the agent may answer. */
-export function toSmsThread(prospectId: string, rows: SmsRow[]): SmsThread {
+/** The customer's texts as chat messages, oldest first, and whether the agent may text them. */
+export function toSmsThread(prospectId: string, rows: SmsRow[], agreedOnCall = false): SmsThread {
   const ordered = [...rows].sort((a, b) => a.created_at.localeCompare(b.created_at));
   const incoming = ordered.filter((row) => row.direction === 'in');
   const lastIncoming = incoming[incoming.length - 1];
@@ -37,7 +37,7 @@ export function toSmsThread(prospectId: string, rows: SmsRow[]): SmsThread {
       sentAt: row.created_at,
       failed: row.status === 'failed' || row.status === 'suppressed',
     })),
-    texted: lastIncoming !== undefined,
+    allowed: agreedOnCall || lastIncoming !== undefined,
     stopped: lastIncoming?.is_stop === true,
   };
 }

@@ -245,16 +245,17 @@ test('an interested US call becomes a customer, a sample with its own template, 
     assert.deepEqual(draft, { site_slug: 'plw-restaurant', category: 'restaurant' });
 
     await as(tx);
-    // Owner's rule: a text only to a number that texted PLW first, whatever was agreed on the call.
+    // Owner's rule: the lead agreed on the call to get texts (sms: true, with its mobile).
     const send = (key) =>
       tx.query("SELECT us_sms_send($1,$2,'Hola','https://x','https://x/secretaria','+12135550100') AS s", [id(501), key]);
-    assert.equal((await send('k0')).rows[0].s.status, 'suppressed');
-    await tx.exec('RESET ROLE');
-    await tx.query("SELECT record_sms_received('+13105550123', 'Hola, mándeme la muestra', 'tx-lead', false)");
-    await as(tx);
     const sms = (await send('k1')).rows[0].s;
     assert.equal(sms.status, 'queued');
     assert.equal(sms.to_e164, '+13105550123', 'the function needs the number to send to');
+    // A STOP from that mobile closes it, call consent or not.
+    await tx.exec('RESET ROLE');
+    await tx.query("SELECT record_sms_received('+13105550123', 'STOP', 'tx-lead', true)");
+    await as(tx);
+    assert.equal((await send('k2')).rows[0].s.status, 'suppressed');
   }));
 
 test('a callback is rescheduled in the business local time, by admins only', async () =>
