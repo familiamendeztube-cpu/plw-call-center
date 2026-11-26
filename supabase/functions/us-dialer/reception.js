@@ -4,16 +4,18 @@
 // settings, post-call webhook), with its own bilingual script and the 9 fields PLW's post-call
 // webhook reads (supabase/functions/elevenlabs-webhook/rules.js FIELD_IDS).
 import { providerRequest } from './provider.js';
+import { US_LLM, US_VOICE_EN, US_VOICE_ES, US_VOICE_MODEL } from './usScript.js';
 
 /** The Costa Rica receptionist: PLW_AGENT_ID in elevenlabs-webhook/rules.js. */
 export const CR_RECEPTION_AGENT_ID = 'agent_8601m6hbjwamevz887627c1qp0sq';
 export const RECEPTION_SETTINGS_KEY = 'us_reception_agent';
-export const RECEPTION_VERSION = 'recepcion-us-2026-11-26a';
+export const RECEPTION_VERSION = 'recepcion-us-2026-11-26b';
 export const RECEPTION_NAME = 'PLW USA — Recepción';
 export const RECEPTION_TIMEZONE = 'America/Los_Angeles';
 
+// Spanish first, like Anna (owner, 2026-11-26); English callers are switched to Siren.
 export const RECEPTION_FIRST_MESSAGE =
-  'Thank you for calling Professional Latino Workers. This is Anna, a virtual assistant. Si prefiere español, dígamelo. How can I help you?';
+  'Gracias por llamar a Professional Latino Workers. Le atiende Anna, asistente virtual. If you prefer English, just let me know. ¿En qué le puedo ayudar?';
 
 const field = (description, type = 'string') => ({ type, description });
 
@@ -59,8 +61,8 @@ const pick = (source, keys) =>
 
 /**
  * The receptionist's ElevenLabs config. From the Costa Rica receptionist it keeps what is proven
- * on calls (voice and model, speech recognition, turn taking, background noise, call limits, the
- * LLM) and its post-call webhook override when it has one; everything it says is new.
+ * on calls (speech settings, speech recognition, turn taking, background noise, call limits) and
+ * its post-call webhook override when it has one. Voices, voice model and LLM are Anna's US ones.
  */
 export function usReceptionConfig(crAgent) {
   const cr = crAgent?.conversation_config ?? {};
@@ -70,12 +72,14 @@ export function usReceptionConfig(crAgent) {
     name: RECEPTION_NAME,
     tags: ['plw-us', 'recepcion'],
     conversation_config: {
-      ...pick(cr, ['tts', 'asr', 'turn', 'vad', 'conversation']),
+      ...pick(cr, ['asr', 'turn', 'vad', 'conversation']),
+      tts: { ...cr.tts, voice_id: US_VOICE_ES, model_id: US_VOICE_MODEL },
       agent: {
-        language: 'en',
+        language: 'es',
         first_message: RECEPTION_FIRST_MESSAGE,
         prompt: {
-          ...pick(crPrompt, ['llm', 'temperature', 'max_tokens']),
+          ...pick(crPrompt, ['temperature', 'max_tokens']),
+          llm: US_LLM,
           prompt: `${receptionPrompt()}\nVersión: ${RECEPTION_VERSION}.`,
           timezone: RECEPTION_TIMEZONE,
           tool_ids: [],
@@ -92,7 +96,7 @@ export function usReceptionConfig(crAgent) {
           },
         },
       },
-      language_presets: { es: { overrides: { agent: {} } } },
+      language_presets: { en: { overrides: { agent: {}, tts: { voice_id: US_VOICE_EN } } } },
     },
     platform_settings: {
       data_collection: RECEPTION_FIELDS,

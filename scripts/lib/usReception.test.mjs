@@ -23,23 +23,28 @@ const CR_AGENT = {
   platform_settings: { workspace_overrides: { webhooks: { post_call_webhook_id: 'wh_plw', events: ['transcript'] } } },
 };
 
-test('the US receptionist collects exactly what PLW reads, with the Costa Rica voice and webhook', () => {
+test('the US receptionist collects exactly what PLW reads, with Anna\'s US voices and the Costa Rica webhook', () => {
   assert.equal(CR_RECEPTION_AGENT_ID, PLW_AGENT_ID, 'copies the receptionist the webhook already trusts');
   assert.deepEqual(Object.keys(RECEPTION_FIELDS).sort(), [...FIELD_IDS].sort());
   assert.equal(RECEPTION_FIELDS.callback_consent.type, 'boolean');
 
   const config = usReceptionConfig(CR_AGENT);
   const agent = config.conversation_config.agent;
-  assert.deepEqual(config.conversation_config.tts, CR_AGENT.conversation_config.tts);
+  // Same as Anna: Spanish by default with Melissa, English with Siren, GPT-6 Luna, Eleven v4 Turbo.
+  assert.deepEqual(config.conversation_config.tts, { voice_id: 'kjHz50TasdqbpbfK4uaN', model_id: 'eleven_v4_turbo' });
+  assert.equal(agent.language, 'es');
+  assert.deepEqual(config.conversation_config.language_presets, {
+    en: { overrides: { agent: {}, tts: { voice_id: 'eXpIbVcVbLo8ZJQDlDnl' } } },
+  });
+  assert.equal(agent.prompt.llm, 'gpt-6-luna');
+  assert.equal(agent.prompt.temperature, 0.3, 'speech tuning still comes from Costa Rica');
   assert.deepEqual(config.conversation_config.turn, { turn_timeout: 7 });
   assert.deepEqual(config.platform_settings.workspace_overrides.webhooks, { post_call_webhook_id: 'wh_plw', events: ['transcript'] });
-  assert.equal(agent.prompt.llm, 'gemini-2.0-flash');
   assert.equal(agent.prompt.timezone, 'America/Los_Angeles');
-  assert.match(agent.first_message, /Professional Latino Workers.*virtual assistant/);
+  assert.match(agent.first_message, /^Gracias por llamar a Professional Latino Workers.*English/);
   assert.match(agent.prompt.prompt, /ningún agente pudo atender/);
   assert.doesNotMatch(agent.prompt.prompt, /Costa Rica/);
   assert.deepEqual(Object.keys(agent.prompt.built_in_tools).sort(), ['end_call', 'language_detection']);
-  assert.ok(config.conversation_config.language_presets.es, 'English and Spanish');
 });
 
 test('the receptionist is created once and updated in place after that', async () => {

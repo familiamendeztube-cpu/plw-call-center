@@ -116,6 +116,7 @@ async function usVoices(db: ReturnType<typeof createClient>, apiKey: string) {
     const c = (await providerRequest(apiKey, `/agents/${encodeURIComponent(id)}`)).data?.conversation_config ?? {};
     agents[label] = {
       language: c.agent?.language ?? null,
+      llm: c.agent?.prompt?.llm ?? null,
       presets: Object.fromEntries(Object.entries(c.language_presets ?? {}).map(([lang, p]: [string, any]) => [lang, p?.overrides?.tts ?? null])),
       tts: { voice_id: c.tts?.voice_id ?? null, model_id: c.tts?.model_id ?? null, supported_voices: c.tts?.supported_voices ?? null },
     };
