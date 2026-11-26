@@ -23,8 +23,36 @@ export interface RecentCall {
 }
 
 const SAME_CALL_WINDOW_MS = 2 * 60_000;
-/** The last 8 digits: one Costa Rica number however it is written (+506, dashes, spaces). */
-export const lastDigits = (number: string) => number.replace(/\D/g, '').slice(-8);
+
+/**
+ * One phone number however it is written, to match calls and customers: Costa Rica keeps its
+ * 8 digits (+506 dropped), the US its 10 (+1 dropped). Never the last 8 digits of a US number:
+ * 305-555-1234 and 405-555-1234 share them.
+ */
+export function phoneKey(number: string): string {
+  const digits = number.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('506')) return digits.slice(3);
+  if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1);
+  return digits;
+}
+
+export type CallerOrigin = 'us' | 'cr';
+
+export const ORIGIN_LABELS: Record<CallerOrigin, string> = { us: 'EE. UU.', cr: 'Costa Rica' };
+
+/** Where a number is from, by its shape: 8 digits (or 506 + 8) is Costa Rica, 10 (or 1 + 10) the US. */
+export function callerOrigin(number: string): CallerOrigin | null {
+  const digits = number.replace(/\D/g, '');
+  if (/^(506)?[2-8]\d{7}$/.test(digits)) return 'cr';
+  if (/^1?[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return 'us';
+  return null;
+}
+
+/** "EE. UU." / "Costa Rica", or '' when the number has neither shape (an extension, a name). */
+export const originLabel = (number: string) => {
+  const origin = callerOrigin(number);
+  return origin ? ORIGIN_LABELS[origin] : '';
+};
 
 /**
  * Calls the server has saved, plus calls that ended in this tab and aren't saved yet.
@@ -40,7 +68,7 @@ export function mergeRecentCalls(
     (call) =>
       !saved.some(
         (record) =>
-          lastDigits(record.remoteNumber) === lastDigits(call.remoteNumber) &&
+          phoneKey(record.remoteNumber) === phoneKey(call.remoteNumber) &&
           Math.abs(Date.parse(record.endedAt) - Date.parse(call.endedAt)) < SAME_CALL_WINDOW_MS
       )
   );
@@ -58,9 +86,12 @@ export const CALL_STATE_LABELS: Record<CallState, string> = {
   ended: 'Finalizada',
 };
 
-// Eight digits starting with 2-8, with or without 506. Asterisk enforces the same
-// rule. This copy only lets the agent see why a number can't be dialed.
+// Eight digits starting with 2-8, with or without 506 (Costa Rica lists and the AI dialers).
 const COSTA_RICA_NUMBER = /^(?:\+?506)?([2-8]\d{7})$/;
+// Agents call only the US (owner, 2026-11-26): 10 digits with or without 1, area and exchange
+// starting 2-9, no N11 area codes, no 900/976 premium numbers. The phone server
+// (infra/asterisk/telnyx) enforces the same rule; this copy lets the agent see why.
+const US_NUMBER = /^1?((?!900|976|[2-9]11)[2-9]\d{2}[2-9]\d{6})$/;
 const MAX_DIAL_LENGTH = 20;
 
 const DENTAL_CALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -77,6 +108,12 @@ export function toDialNumber(input: string): string {
 
 export function toCostaRicaNumber(input: string): string | null {
   return COSTA_RICA_NUMBER.exec(input.replace(/[\s()-]/g, ''))?.[1] ?? null;
+}
+
+/** The number an agent can call, as +1 and 10 digits, or null when it isn't a US number. */
+export function toUsNumber(input: string): string | null {
+  const national = US_NUMBER.exec(input.replace(/[\s().+-]/g, ''))?.[1];
+  return national ? `+1${national}` : null;
 }
 
 export function formatCallDuration(totalSeconds: number): string {

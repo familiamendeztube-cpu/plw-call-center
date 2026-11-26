@@ -3,14 +3,18 @@
 #   - Anna's US calls (ElevenLabs, login plw-us-dialer) go out through Telnyx with the US
 #     number as caller ID. Only +1 numbers; 900/976 premium numbers are refused.
 #   - Her transfers ring Alejandro's browser phone, then the call center queue.
-#   - Calls to the US number (a business calling back) ring Alejandro, then the queue.
+#   - Agents' browser phones call US numbers (+1 and 10 digits) through Telnyx, US number as
+#     caller ID. Added next to their existing Costa Rica lines in from-agents; the app only
+#     offers US numbers (owner, 2026-11-26: every outbound call goes to the US).
+#   - Calls to the US number go to the same queue as Costa Rica calls, named "EE. UU.".
 #   plw-telnyx install          Adds the setup. Asks for the Telnyx SIP login and the US number.
 #   plw-telnyx password         Prints only ElevenLabs' login password, for a pipe.
 #   plw-telnyx rollback FILE    Puts a backup back.
-# Nothing existing is edited: Vocex, 6199, 6198, the queue, the agents and the dental/tourism
-# route stay as they are. Everything lives in pjsip_telnyx.conf and extensions_telnyx.conf,
-# included at the end of the main files. Needs plw-dental installed first (it provides the
-# login-based recognition ElevenLabs needs).
+# Nothing existing is edited: Vocex, 6199, 6198, the queue, the agents' lines and the
+# dental/tourism route stay as they are. Everything lives in pjsip_telnyx.conf and
+# extensions_telnyx.conf, included at the end of the main files (Asterisk merges the extra
+# from-agents lines into the existing context). Needs plw-dental installed first (it provides
+# the login-based recognition ElevenLabs needs).
 set -euo pipefail
 umask 027
 
@@ -50,6 +54,10 @@ check_ready() {
     die "The UDP transport is missing. Nothing changed."
   grep -qxF "[$AGENT]" "$CONF_DIR/pjsip_agents.conf" ||
     die "Agent login $AGENT is missing. Nothing changed."
+  grep -q '^\[from-agents\]' "$CONF_DIR/extensions.conf" ||
+    die "The agents' dialplan (from-agents) is missing. Nothing changed."
+  ! ast 'dialplan show from-agents' | has '_\+1' ||
+    die "from-agents already has +1 lines. Remove them by hand first. Nothing changed."
   ast 'queue show plw-inbound' | has '^plw-inbound has' ||
     die "The call center queue plw-inbound is missing. Nothing changed."
 }
@@ -160,14 +168,26 @@ exten => _+X.,1,Hangup(21)
 exten => $AGENT,1,Gosub(plw-us-ring,s,1($AGENT))
  same => n,Hangup()
 
-; A business calling the US number back: Alejandro first, then the queue.
+; Calls to the US number: the same queue as Costa Rica calls, so every active agent can take
+; them. The name "EE. UU." shows on the phone; the app also labels the number's country.
 [from-telnyx]
-exten => _[+0-9a-zA-Z].,1,Set(__PLW_US_CUSTOMER=\${CALLERID(num)})
- same => n,Gosub(plw-us-ring,s,1($AGENT))
+exten => _[+0-9a-zA-Z].,1,Goto(s,1)
+exten => s,1,Set(CALLERID(name)=EE. UU.)
+ same => n,Queue(plw-inbound,,,,60)
  same => n,Hangup()
-exten => s,1,Set(__PLW_US_CUSTOMER=\${CALLERID(num)})
- same => n,Gosub(plw-us-ring,s,1($AGENT))
+
+; Agents calling the US from the browser phone; the app sends +1 and 10 digits. These lines
+; join the existing from-agents context, whose Costa Rica lines are not changed.
+[from-agents]
+exten => _+1NXXNXXXXXX,1,Goto(plw-agents-us,\${EXTEN:2},1)
+
+[plw-agents-us]
+exten => _900NXXXXXX,1,Hangup(21)
+exten => _976NXXXXXX,1,Hangup(21)
+exten => _NXXNXXXXXX,1,Set(CALLERID(num)=$number)
+ same => n,Dial(PJSIP/+1\${EXTEN}@telnyx,60)
  same => n,Hangup()
+exten => _X.,1,Hangup(21)
 
 ; The agent sees the business's number. If Alejandro is busy or doesn't answer in 25 s, the
 ; call center queue tries everyone for 30 s.
@@ -197,6 +217,9 @@ verify() {
   ast 'pjsip show endpoint telnyx' | has 'Endpoint: +telnyx' || { echo 'Check failed: endpoint telnyx'; return 1; }
   ast 'dialplan show 2135550100@from-elevenlabs-us' | has 'telnyx' || { echo 'Check failed: dialing a US business'; return 1; }
   ast "dialplan show $AGENT@plw-us-transfer" | has 'plw-us-ring' || { echo 'Check failed: transfer to Alejandro'; return 1; }
+  ast 'dialplan show +12135550100@from-agents' | has 'plw-agents-us' || { echo 'Check failed: agents calling the US'; return 1; }
+  ast 'dialplan show 2135550100@plw-agents-us' | has 'telnyx' || { echo 'Check failed: agents calling the US'; return 1; }
+  ast 'dialplan show from-agents' | has 'XXXXXXX' || { echo 'Check failed: the existing agent lines'; return 1; }
   local tries
   for tries in 1 2 3 4 5 6; do
     telnyx_registered && return 0
@@ -255,7 +278,8 @@ install_telnyx() {
 
   cat <<EOF
 
-Installed. Vocex, 6199, 6198, the queue, the agents and the dental/tourism route were not touched.
+Installed. Agents can call US numbers, and calls to $number go to the queue.
+Vocex, 6199, 6198, the queue, the agents' lines and the dental/tourism route were not touched.
 In ElevenLabs > Phone Numbers > Import number > SIP trunk, add $number:
   Label:            PLW EE. UU. (Telnyx)
   Address:          $HOST  (port 5061 if asked)

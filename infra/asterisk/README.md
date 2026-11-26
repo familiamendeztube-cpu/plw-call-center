@@ -174,7 +174,7 @@ plw-agents rotate agent-1
 
 ## US line (Telnyx)
 
-Anna's US calls and the US texts use the Telnyx number. Calls go ElevenLabs → this server → Telnyx, so her transfers still ring Alejandro's browser phone. `telnyx/plw-telnyx.sh` adds this next to Vocex without editing anything that exists. It needs `plw-dental` installed first.
+Every outbound call goes to the US (owner, 2026-11-26); Costa Rica calls still come in. The Telnyx number carries Anna's US calls, the agents' calls from the browser phone, and the US texts. Anna's calls go ElevenLabs → this server → Telnyx, so her transfers still ring Alejandro's browser phone. Calls to the US number join the same queue as Costa Rica calls; the app labels every caller **EE. UU.** or **Costa Rica**. The app only lets agents dial US numbers; their old Costa Rica lines on this server are left in place. `telnyx/plw-telnyx.sh` adds this next to Vocex without editing anything that exists. It needs `plw-dental` installed first.
 
 | Secret | Where it lives | Who can get it |
 | --- | --- | --- |

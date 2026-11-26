@@ -24,7 +24,7 @@ import type { Followup } from '@/features/followups/models/followup';
 import { useConversations } from '@/features/inbox/hooks/useConversations';
 import { useAgentProspects } from '@/features/leads/context/agentProspectsContext';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
-import { toCostaRicaNumber } from '@/features/telephony/models/call';
+import { toUsNumber } from '@/features/telephony/models/call';
 import {
   buildTodayItems,
   TODAY_KIND_LABELS,
@@ -196,7 +196,7 @@ function TodayRow({
 }) {
   const navigate = useNavigate();
   const { changeDialNumber } = useTelephony();
-  const dialable = toCostaRicaNumber(item.phone ?? '');
+  const dialable = toUsNumber(item.phone ?? '');
 
   return (
     <li className="flex flex-wrap items-start gap-3 rounded-xl border border-neutral-200/80 bg-white px-4 py-3.5 shadow-sm">

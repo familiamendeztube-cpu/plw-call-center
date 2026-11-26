@@ -1,4 +1,4 @@
-import { lastDigits } from '@/features/telephony/models/call';
+import { phoneKey } from '@/features/telephony/models/call';
 
 /** One leg of a call as the phone server recorded it (asterisk_calls). */
 export interface PhoneRecord {
@@ -35,11 +35,11 @@ export function missedCalls(records: PhoneRecord[]): MissedCall[] {
     const [first] = legs;
     if (first.direction !== 'inbound' || legs.some((leg) => leg.disposition === 'ANSWERED'))
       continue;
-    const digits = lastDigits(first.number);
+    const digits = phoneKey(first.number);
     const later = records
       .filter(
         (record) =>
-          lastDigits(record.number) === digits &&
+          phoneKey(record.number) === digits &&
           record.startedAt > first.startedAt &&
           (record.direction === 'outbound' || record.disposition === 'ANSWERED')
       )

@@ -141,7 +141,7 @@ test('out of window, offline agent, cap and missing agent config refuse to claim
     assert.equal((await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data, null); // unverified config
   }));
 
-test('the dialer starts paused, and clearing an error never resumes it; only Iniciar does', async () =>
+test('the Costa Rica dialer stays paused: clearing an error never resumes it and Iniciar is refused', async () =>
   fixture(async (tx) => {
     const campaignId = await tourismCampaign(tx);
     await lead(tx, campaignId, 0, '22221100');
@@ -161,18 +161,14 @@ test('the dialer starts paused, and clearing an error never resumes it; only Ini
     // What Configurar/Reconfigurar and the heartbeat write: the pause survives.
     await tx.query("UPDATE tourism_dialer_runtime SET last_error='', last_tick_at=now() WHERE id=1");
     assert.equal((await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data, null);
-    // Start needs a verified voice and a fresh heartbeat.
-    await tx.query('UPDATE tourism_dialer_runtime SET last_tick_at=now() - interval \'1 hour\' WHERE id=1');
-    await as(tx, 0);
-    await denied(tx, "SELECT control_tourism_dialer('start')", [], /antes de activar/);
-    await tx.exec('RESET ROLE');
+    // Every outbound call goes to the US (2026-11-26): Iniciar is refused even with everything ready.
     await tx.query('UPDATE tourism_dialer_runtime SET last_tick_at=now() WHERE id=1');
     await as(tx, 1);
     await denied(tx, "SELECT control_tourism_dialer('start')", [], /Solo administración/);
     await as(tx, 0);
-    await tx.query("SELECT control_tourism_dialer('start')");
+    await denied(tx, "SELECT control_tourism_dialer('start')", [], /solo a EE. UU./);
     await as(tx);
-    assert.equal((await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data.lead.phone, '22221100');
+    assert.equal((await tx.query('SELECT claim_tourism_call($1) AS data', [at])).rows[0].data, null);
     await as(tx, 0);
     await tx.query("SELECT control_tourism_dialer('pause')");
     assert.equal((await tx.query('SELECT paused FROM tourism_dialer_runtime')).rows[0].paused, true);
@@ -272,40 +268,13 @@ test('an interested tourism call becomes one customer for Alejandro with a pendi
 // Regression for the live "Solo administración." test-call failure: the reservation RPC
 // verifies is_admin() from the caller's JWT, so it must execute as the signed-in admin
 // (authenticated), not as service_role, which carries no user.
-test('reserve_tourism_test works for a signed-in admin and denies agents and service role', async () =>
+test('Costa Rica test calls are refused: outbound calls go to the US only', async () =>
   fixture(async (tx) => {
     await tx.exec(READY);
-    const requestId = id(900);
-    // Admin (index 0 of the fixture) reserves through the authenticated role + JWT.
-    await as(tx, 0);
-    const claim = (
-      await tx.query('SELECT reserve_tourism_test($1,$2) AS data', [requestId, '70040079'])
-    ).rows[0].data;
-    assert.equal(claim.claimed, true);
-    assert.equal(claim.call.phone, '70040079');
-    assert.equal(claim.call.is_test, true);
-    // Idempotent by request id: the same reservation returns the call without re-claiming.
-    const again = (
-      await tx.query('SELECT reserve_tourism_test($1,$2) AS data', [requestId, '70040079'])
-    ).rows[0].data;
-    assert.equal(again.claimed, false);
-    assert.equal(again.call.id, claim.call.id);
-    // A non-admin authenticated session is denied by the function's own admin check.
     await as(tx, 1);
-    await denied(
-      tx,
-      'SELECT reserve_tourism_test($1,$2)',
-      [id(901), '70040080'],
-      /Solo administración/
-    );
-    // Reusing a request id with a different phone is rejected.
+    await denied(tx, 'SELECT reserve_tourism_test($1,$2)', [id(901), '70040080'], /Solo administración/);
     await as(tx, 0);
-    await denied(
-      tx,
-      'SELECT reserve_tourism_test($1,$2)',
-      [requestId, '70040080'],
-      /Solicitud ya utilizada/
-    );
+    await denied(tx, 'SELECT reserve_tourism_test($1,$2)', [id(900), '70040079'], /solo a EE. UU./);
   }));
 
 // --- Promised callbacks, 403 auto-pause and milestones (2026-11-23) ---

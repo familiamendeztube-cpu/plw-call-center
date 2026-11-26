@@ -7,6 +7,7 @@ import { missedCalls } from '@/features/admin/models/missedCalls';
 import { loadPhoneRecords } from '@/features/admin/services/phoneRecords';
 import { findCustomerByPhone } from '@/features/customers/models/customerEntries';
 import type { Prospect } from '@/features/leads/models/prospect';
+import { originLabel } from '@/features/telephony/models/call';
 
 const DAYS = 7;
 
@@ -78,6 +79,7 @@ function MissedList({
               </p>
               <p className="text-xs text-neutral-500">
                 {customer ? `${call.number} · ` : ''}
+                {originLabel(call.number) ? `${originLabel(call.number)} · ` : ''}
                 {formatDateTime(call.at)}
                 {owner ? ` · Cliente de ${owner}` : ''}
               </p>

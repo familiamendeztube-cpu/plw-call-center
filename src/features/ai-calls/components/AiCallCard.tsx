@@ -13,7 +13,7 @@ import { Panel } from '@/components/ui/Panel';
 import { cx } from '@/components/ui/cx';
 import { useAuth } from '@/features/auth/context/useAuth';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
-import { toCostaRicaNumber } from '@/features/telephony/models/call';
+import { toUsNumber } from '@/features/telephony/models/call';
 import {
   loadAiCallAudio,
   setAiCallStatus,
@@ -139,7 +139,7 @@ export function AiCallCard({ call, agentNames, canDial, onChanged }: AiCallCardP
     isAdmin ? `ID de ElevenLabs: ${call.conversationId}` : null,
   ].filter(Boolean);
   const number = contactNumber(call);
-  const dialable = toCostaRicaNumber(number ?? '');
+  const dialable = toUsNumber(number ?? '');
   const ownerId = call.prospect?.ownerId ?? null;
 
   async function changeStatus(status: AiCallStatus) {

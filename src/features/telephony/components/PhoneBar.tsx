@@ -13,7 +13,7 @@ import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { CALL_STATE_LABELS, callButtons } from '@/features/telephony/models/call';
 import { CallTimer } from '@/features/telephony/components/CallTimer';
 import { ConnectionStatus } from '@/features/telephony/components/ConnectionStatus';
-import { DialInput } from '@/features/telephony/components/PhoneScreen';
+import { CallerOriginTag, DialInput } from '@/features/telephony/components/PhoneScreen';
 import { DIAL_REQUIRES_ACTIVE, useCanDial } from '@/features/presence/hooks/useCanDial';
 import { cx } from '@/components/ui/cx';
 import { IconSwap } from '@/components/ui/IconSwap';
@@ -100,6 +100,7 @@ export function PhoneBar({ onOpenPhone }: PhoneBarProps) {
               <CallTimer startedAt={call?.startedAt ?? null} running={call?.state === 'active'} />
             </span>
             <DialInput className="h-full min-w-0 flex-1 text-lg placeholder:text-sm placeholder:text-white/55" />
+            {can.live && call ? <CallerOriginTag number={call.remoteNumber} /> : null}
           </label>
         </div>
         <div className="ml-auto flex items-center gap-2">

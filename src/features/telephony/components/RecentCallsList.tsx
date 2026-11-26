@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowDownLeft, ArrowUpRight, Phone, PhoneMissed } from 'lucide-react';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
-import { formatCallDuration, toCostaRicaNumber } from '@/features/telephony/models/call';
+import { formatCallDuration, originLabel, toUsNumber } from '@/features/telephony/models/call';
 import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
 import { useOptionalAgentProspects } from '@/features/leads/context/agentProspectsContext';
 import { formatTime } from '@/app/dates';
@@ -27,7 +27,7 @@ export function RecentCallsList() {
       {recentCalls.map((call) => {
         const Icon = call.direction === 'outbound' ? ArrowUpRight : ArrowDownLeft;
         const customer = prospects?.findByPhone(call.remoteNumber) ?? null;
-        const dialable = toCostaRicaNumber(call.remoteNumber);
+        const dialable = toUsNumber(call.remoteNumber);
         return (
           <li key={call.id} className="flex items-center gap-3 py-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-plw-ivory text-plw-navy">
@@ -48,6 +48,7 @@ export function RecentCallsList() {
               )}
               <span className="block text-xs text-neutral-500">
                 {customer ? `${call.remoteNumber} · ` : ''}
+                {originLabel(call.remoteNumber) ? `${originLabel(call.remoteNumber)} · ` : ''}
                 {formatTime(call.endedAt)} · {formatCallDuration(call.durationSeconds)}
               </span>
             </span>

@@ -3,7 +3,7 @@ import type { IncomingEvent, OutgoingEvent, RTCSession } from 'jssip/lib/RTCSess
 import type { IncomingRTCSessionEvent, OutgoingRTCSessionEvent } from 'jssip/lib/UA';
 import {
   dentalCallIdFromHeader,
-  toCostaRicaNumber,
+  toUsNumber,
   type CallSnapshot,
 } from '@/features/telephony/models/call';
 import type { ConnectorResult } from '@/integrations/connectorResult';
@@ -47,7 +47,7 @@ const NO_CALL = 'No hay ninguna llamada en curso.';
 const CALL_GONE = 'La llamada ya terminó.';
 const CALL_IN_PROGRESS = 'Ya hay una llamada en curso.';
 const NOT_REGISTERED = 'La línea no está registrada todavía.';
-const ONLY_COSTA_RICA = 'Por ahora solo se puede llamar a números de Costa Rica de 8 dígitos.';
+const ONLY_US = 'Solo se puede llamar a números de EE. UU.: 10 dígitos con el código de área.';
 const NOT_AVAILABLE = 'Esta función todavía no está disponible.';
 const CONNECTION_LOST = 'No se pudo conectar con el servidor telefónico. Reintentando...';
 const LOGIN_REJECTED = 'El servidor rechazó la cuenta de teléfono. Contacta al administrador.';
@@ -364,8 +364,8 @@ export function createSipTelephonyConnector(): TelephonyConnector {
     },
 
     async dial(number) {
-      const target = toCostaRicaNumber(number);
-      if (!target) return fail(ONLY_COSTA_RICA);
+      const target = toUsNumber(number);
+      if (!target) return fail(ONLY_US);
       return withMicrophone((stream) => {
         if (!ua || status !== 'registered') return fail(NOT_REGISTERED);
         // A call can arrive while the browser asks for the microphone.

@@ -1,6 +1,6 @@
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { PhoneRecord } from '@/features/admin/models/missedCalls';
-import { lastDigits } from '@/features/telephony/models/call';
+import { phoneKey } from '@/features/telephony/models/call';
 
 interface PhoneRecordRow {
   linked_id: string;
@@ -21,7 +21,7 @@ export async function loadPhoneRecords(days: number, number?: string): Promise<P
     .gte('started_at', since)
     .order('started_at', { ascending: false })
     .limit(5000);
-  if (number) query = query.like('number', `%${lastDigits(number)}`);
+  if (number) query = query.like('number', `%${phoneKey(number)}`);
   const { data, error } = await query;
   if (error) throw new Error('No se pudieron cargar las llamadas del servidor telefónico.');
   return ((data ?? []) as PhoneRecordRow[]).map((row) => ({

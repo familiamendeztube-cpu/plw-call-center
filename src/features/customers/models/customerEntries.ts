@@ -1,12 +1,12 @@
 import type { Conversation } from '@/features/inbox/models/conversation';
 import type { Prospect } from '@/features/leads/models/prospect';
-import { lastDigits } from '@/features/telephony/models/call';
+import { phoneKey } from '@/features/telephony/models/call';
 
-/** The customer with this phone number, matched on the last 8 digits. */
+/** The customer with this phone number: 8 digits for Costa Rica, 10 for the US (phoneKey). */
 export function findCustomerByPhone(prospects: Prospect[], number: string): Prospect | null {
-  const digits = lastDigits(number);
+  const digits = phoneKey(number);
   if (digits.length < 8) return null;
-  return prospects.find((prospect) => lastDigits(prospect.phone) === digits) ?? null;
+  return prospects.find((prospect) => phoneKey(prospect.phone) === digits) ?? null;
 }
 
 export interface CustomerEntry {

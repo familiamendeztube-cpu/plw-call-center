@@ -17,7 +17,7 @@ import {
 } from '@/features/customers/models/customerLinks';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import { useAppServices } from '@/app/ServicesContext';
-import { toCostaRicaNumber } from '@/features/telephony/models/call';
+import { callerOrigin, toUsNumber } from '@/features/telephony/models/call';
 import type { SalesMaterial } from '@/features/sales-materials/models/material';
 import type { CustomerEntry } from '@/features/customers/models/customerEntries';
 import type { AgentId } from '@/features/auth/models/agent';
@@ -66,7 +66,7 @@ export function CustomerWorkspace({
   const { changeDialNumber } = useTelephony();
   const { leads } = useAppServices();
   const { prospect, conversation } = entry;
-  const dialable = toCostaRicaNumber(prospect.phone);
+  const dialable = toUsNumber(prospect.phone);
   const fromCall = prospect.source === 'ai_call';
   const fromWhatsApp = prospect.source === 'whatsapp';
   // An email or call customer who later wrote on WhatsApp gets a WhatsApp tab too.
@@ -145,6 +145,8 @@ export function CustomerWorkspace({
                 <Phone size={14} aria-hidden="true" />
                 Marcar en el teléfono
               </Button>
+            ) : callerOrigin(prospect.phone) === 'cr' ? (
+              <span className="px-2 text-xs text-neutral-500">Número de Costa Rica: las llamadas salientes son solo a EE. UU. Use WhatsApp.</span>
             ) : null}
             {agentId ? (
               <Button variant="ghost" size="sm" onClick={() => setScheduling('')}>

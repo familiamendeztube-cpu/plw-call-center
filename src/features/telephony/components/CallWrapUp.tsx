@@ -18,7 +18,8 @@ import { useTelephony } from '@/features/telephony/context/telephonyContext';
 import {
   formatCallDuration,
   isCallLive,
-  toCostaRicaNumber,
+  originLabel,
+  toUsNumber,
   type CallDirection,
 } from '@/features/telephony/models/call';
 
@@ -85,7 +86,7 @@ export function CallWrapUp() {
   if (!ended || (call && isCallLive(call.state))) return null;
 
   const customer = findByPhone(ended.number);
-  const dialable = toCostaRicaNumber(ended.number);
+  const dialable = toUsNumber(ended.number);
   const close = () => setEnded(null);
 
   /** `origin`: the button pressed, for the sparks; the panel itself closes on success. */
@@ -119,6 +120,7 @@ export function CallWrapUp() {
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-plw-navy">
             {ended.direction === 'outbound' ? 'Llamada saliente' : 'Llamada entrante'} ·{' '}
+            {originLabel(ended.number) ? `${originLabel(ended.number)} · ` : ''}
             {formatCallDuration(ended.durationSeconds)}
           </p>
           <p className="truncate text-base font-semibold text-plw-ink">
