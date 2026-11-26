@@ -129,3 +129,11 @@ test('a Kike Code preview gets its own 3 conversations, counted per token, serve
     await tx.rollback();
   });
 });
+
+test('the website-sample assistant speaks to US businesses on Pacific time', async () => {
+  const { demoAgentConfig, demoPrompt } = await import('../../supabase/functions/plw-secretary-converse/demoAgent.ts');
+  const config = demoAgentConfig('voice');
+  assert.equal(config.conversation_config.agent.prompt.timezone, 'America/Los_Angeles');
+  assert.match(demoPrompt(), /negocios hispanos en Estados Unidos/);
+  assert.doesNotMatch(demoPrompt(), /Costa Rica/);
+});

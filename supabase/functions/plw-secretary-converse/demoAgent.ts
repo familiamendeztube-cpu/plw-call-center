@@ -3,7 +3,7 @@
 // scripts/lib/secretaryDemo.test.mjs); index.ts does the network calls.
 
 /** Bump to re-PATCH the live agent on the next demo start. */
-export const DEMO_AGENT_VERSION = 'secretaria-demo-2026-11-26a';
+export const DEMO_AGENT_VERSION = 'secretaria-demo-2026-11-26b';
 export const DEMO_SETTINGS_KEY = 'secretary_demo_agent';
 export const DEMO_LIMITS = { conversations: 3, questions: 10, minutes: 5 } as const;
 export const PLW_CONTACT = '6725 Sunset Blvd, Los Angeles, CA 90028';
@@ -112,7 +112,7 @@ Datos: {{facts}}
 Preguntas frecuentes: {{faqs}}
 
 CÓMO ATIENDES
-- Español natural de Costa Rica, de usted, amable y breve: una o dos frases y una sola pregunta por turno.
+- Español latino neutro, como lo hablan los negocios hispanos en Estados Unidos, de usted, amable y breve: una o dos frases y una sola pregunta por turno.
 - Usa solo los datos de arriba. Si algo no está ("No indicado"), dilo con naturalidad y ofrece que el equipo de {{business_name}} lo confirme. Nunca inventes precios, horarios, disponibilidad ni direcciones.
 - Puedes mostrar cómo tomarías una reserva, cita o pedido de ejemplo, aclarando que en la demostración no se registra nada real.
 - Si te preguntan, eres una inteligencia artificial de demostración creada por PLW.
@@ -132,7 +132,8 @@ export function demoAgentConfig(voiceId: string) {
         first_message: DEMO_FIRST_MESSAGE,
         prompt: {
           prompt: demoPrompt(),
-          timezone: 'America/Costa_Rica',
+          // PLW works on US Pacific time (the app's clock); samples are for US businesses now.
+          timezone: 'America/Los_Angeles',
           tool_ids: [],
           knowledge_base: [],
           built_in_tools: {

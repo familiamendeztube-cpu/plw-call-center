@@ -141,3 +141,45 @@ export async function ensureUsReception(db, apiKey, fetchImpl = fetch) {
     model_id: config.conversation_config.tts?.model_id ?? null,
   };
 }
+
+/**
+ * Which ElevenLabs agent the US number sends calls to. The phone server hands it the calls no
+ * agent picked up, so this is the agent US callers hear. Read-only.
+ */
+export async function usNumberAgent(db, apiKey, fetchImpl = fetch) {
+  const { data: runtime } = await db.from('us_dialer_runtime').select('phone_number_id').eq('id', 1).maybeSingle();
+  const id = runtime?.phone_number_id;
+  if (!id) return { ok: false, error: 'El marcador de EE. UU. no tiene número configurado.' };
+  const number = await providerRequest(apiKey, `/phone-numbers/${encodeURIComponent(id)}`, undefined, fetchImpl);
+  if (!number.ok) return { ok: false, error: `ElevenLabs no devolvió el número (HTTP ${number.status}).` };
+  const { data: row } = await db.from('settings').select('value').eq('key', RECEPTION_SETTINGS_KEY).maybeSingle();
+  const receptionId = typeof row?.value?.agent_id === 'string' ? row.value.agent_id : null;
+  const assigned = number.data?.assigned_agent;
+  return {
+    ok: true,
+    phone_number_id: id,
+    phone_number: number.data?.phone_number ?? null,
+    label: number.data?.label ?? null,
+    assigned_agent: assigned ? { agent_id: assigned.agent_id ?? null, agent_name: assigned.agent_name ?? null } : null,
+    reception_agent_id: receptionId,
+    is_reception: Boolean(receptionId) && assigned?.agent_id === receptionId,
+  };
+}
+
+/** Puts PLW USA — Recepción on the US number and reads it back. Only the agent changes. */
+export async function assignUsReception(db, apiKey, fetchImpl = fetch) {
+  const before = await usNumberAgent(db, apiKey, fetchImpl);
+  if (!before.ok) return before;
+  if (!before.reception_agent_id) return { ...before, ok: false, error: 'Falta crear PLW USA — Recepción.' };
+  if (before.is_reception) return { ...before, changed: false };
+  const patched = await providerRequest(
+    apiKey,
+    `/phone-numbers/${encodeURIComponent(before.phone_number_id)}`,
+    { agent_id: before.reception_agent_id },
+    fetchImpl,
+    'PATCH'
+  );
+  if (!patched.ok)
+    return { ok: false, error: `ElevenLabs no aceptó el cambio (HTTP ${patched.status}).`, previous: before.assigned_agent };
+  return { ...(await usNumberAgent(db, apiKey, fetchImpl)), changed: true, previous: before.assigned_agent };
+}

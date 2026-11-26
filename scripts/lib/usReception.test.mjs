@@ -68,3 +68,35 @@ test('the receptionist is created once and updated in place after that', async (
     'PATCH /agents/agent_us_reception',
   ]);
 });
+
+test('the US number gets PLW USA — Recepción: only the agent changes, and it is read back', async () => {
+  const { assignUsReception } = await import('../../supabase/functions/us-dialer/reception.js');
+  let assigned = { agent_id: 'agent_demo', agent_name: 'PLW USA — Demo' };
+  const patches = [];
+  const db = {
+    from: (table) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () =>
+            table === 'settings'
+              ? { data: { value: { agent_id: 'agent_reception' } } }
+              : { data: { phone_number_id: 'phnum_us' } },
+        }),
+      }),
+    }),
+  };
+  const fetchImpl = async (url, init) => {
+    if (init.method === 'PATCH') {
+      patches.push(JSON.parse(init.body));
+      assigned = { agent_id: 'agent_reception', agent_name: 'PLW USA — Recepción' };
+    }
+    return { ok: true, status: 200, json: async () => ({ phone_number: '+17547991065', assigned_agent: assigned }) };
+  };
+  const result = await assignUsReception(db, 'key', fetchImpl);
+  assert.deepEqual(patches, [{ agent_id: 'agent_reception' }], 'nothing but the agent is sent');
+  assert.equal(result.changed, true);
+  assert.equal(result.is_reception, true);
+  assert.deepEqual(result.previous, { agent_id: 'agent_demo', agent_name: 'PLW USA — Demo' });
+  assert.equal((await assignUsReception(db, 'key', fetchImpl)).changed, false, 'already set: no second change');
+  assert.equal(patches.length, 1);
+});

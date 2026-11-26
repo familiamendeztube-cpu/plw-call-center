@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authorizeAdmin } from './auth.ts';
 import { runUsTick, dispatchUsCall, syncUsCalls, reconcileUsStuckCalls } from './runner.js';
-import { ensureUsReception } from './reception.js';
+import { assignUsReception, ensureUsReception, usNumberAgent } from './reception.js';
 import {
   findPhoneNumberId,
   normalizeUsPhone,
@@ -41,6 +41,8 @@ Deno.serve(async (req) => {
       const body = await req.json().catch(() => null);
       // Creates or updates PLW USA — Recepción. Only the server holds the runner key (in Vault).
       if (body?.action === 'reception') return json(await ensureUsReception(db, apiKey));
+      if (body?.action === 'number_agent') return json(await usNumberAgent(db, apiKey));
+      if (body?.action === 'assign_reception') return json(await assignUsReception(db, apiKey));
       if (body?.action === 'configure') return await configureUs(db, apiKey, body.callerNumber);
       await runUsTick(db, apiKey);
       return json({ ok: true });
