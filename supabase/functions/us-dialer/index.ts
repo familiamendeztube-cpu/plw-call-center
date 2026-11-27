@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
       const body = await req.json().catch(() => null);
       // Creates or updates PLW USA — Recepción. Only the server holds the runner key (in Vault).
       if (body?.action === 'reception') return json(await ensureUsReception(db, apiKey));
+      if (body?.action === 'inspect') return json(await inspectUs(db, apiKey));
       if (body?.action === 'number_agent') return json(await usNumberAgent(db, apiKey));
       if (body?.action === 'assign_reception') return json(await assignUsReception(db, apiKey));
       if (body?.action === 'configure') return await configureUs(db, apiKey, body.callerNumber);
@@ -105,6 +106,33 @@ Deno.serve(async (req) => {
     return json({ error: 'No se pudo confirmar la operación. Revise el registro antes de repetir llamadas.' }, 500);
   }
 });
+
+/** Read-only: prompt version, first message and tool names of Anna and PLW USA — Recepción. */
+async function inspectUs(db: ReturnType<typeof createClient>, apiKey: string) {
+  const { data: runtime } = await db.from('us_dialer_runtime').select('provider_agent_id').eq('id', 1).maybeSingle();
+  const { data: row } = await db.from('settings').select('value').eq('key', 'us_reception_agent').maybeSingle();
+  const read = async (label: string, id: unknown) => {
+    if (typeof id !== 'string') return { [label]: { error: 'sin agente' } };
+    const r = await providerRequest(apiKey, `/agents/${encodeURIComponent(id)}`);
+    if (!r.ok) return { [label]: { error: `HTTP ${r.status}` } };
+    const c = r.data?.conversation_config ?? {};
+    const tools = Object.entries(c.agent?.prompt?.built_in_tools ?? {})
+      .filter(([, value]) => value && typeof value === 'object')
+      .map(([name]) => name);
+    const version = String(c.agent?.prompt?.prompt ?? '').match(/Versión:\s*(\S+)/)?.[1] ?? null;
+    return {
+      [label]: {
+        agent_id: id,
+        name: r.data?.name ?? null,
+        version,
+        language: c.agent?.language ?? null,
+        first_message: c.agent?.first_message ?? null,
+        tools,
+      },
+    };
+  };
+  return { ...await read('anna', runtime?.provider_agent_id), ...await read('reception', row?.value?.agent_id) };
+}
 
 /** Read-only: languages and voices of Anna and PLW USA — Recepción, and the Melissa/Siren voice ids. */
 async function usVoices(db: ReturnType<typeof createClient>, apiKey: string) {
@@ -185,10 +213,13 @@ async function configureUs(
     route
   );
   if (failures.length && !failures.includes('provider_read')) {
+    const patchBody = usAgentConfig('Alejandro', route);
+    // ElevenLabs merges built_in_tools on PATCH: a tool is only removed by sending it as null.
+    (patchBody.conversation_config.agent.prompt.built_in_tools as Record<string, unknown>).transfer_to_number = null;
     const patched = await providerRequest(
       apiKey,
       `/agents/${encodeURIComponent(providerId)}`,
-      usAgentConfig('Alejandro', route),
+      patchBody,
       fetch,
       'PATCH'
     );

@@ -118,16 +118,12 @@ test('Anna runs up to max_lines calls at once (5 live), and no more', async () =
     assert.ok((await tx.query('SELECT claim_us_call($1) AS c', [at])).rows[0].c, 'a line frees up, the next call starts');
   }));
 
-test('nothing is claimed without the US number or with Alejandro offline', async () =>
+test('nothing is claimed without the US number', async () =>
   fixture(async (tx, campaign) => {
     await tx.exec(READY);
     await lead(tx, campaign, 1, '+13055550101', 'America/New_York');
     await tx.exec('UPDATE us_dialer_runtime SET caller_e164=NULL');
     assert.equal(await claimAt(tx, '2026-12-01T17:00:00Z'), null);
-    await tx.exec(READY);
-    await tx.exec("UPDATE staff_presence SET last_heartbeat_at='2026-12-01T16:00:00Z' WHERE staff_id='agent-2'");
-    await as(tx);
-    assert.equal((await tx.query("SELECT claim_us_call('2026-12-01T17:00:00Z') AS c")).rows[0].c, null);
   }));
 
 test('an admin test call is reserved once per request and then dialed', async () =>
@@ -297,7 +293,7 @@ test('two US businesses sharing their last 8 digits are two customers; one numbe
     assert.deepEqual(keys, { a: '3055551234', b: '88881234', c: '12' });
   }));
 
-test("a transfer or an agreed callback becomes Alejandro's customer, with a follow-up at the business's time", async () =>
+test("an interested business or an agreed callback becomes Alejandro's customer, with a follow-up at the business's time", async () =>
   fixture(async (tx, campaign) => {
     await lead(tx, campaign, 1, '+13055550101', 'America/Los_Angeles');
     await lead(tx, campaign, 2, '+13055550102', 'America/New_York');
@@ -307,24 +303,36 @@ test("a transfer or an agreed callback becomes Alejandro's customer, with a foll
          VALUES($1,$2,$3,'agent-2',$4,'us_agent',$5,'completed',$6,'human',$7,'Resumen',now())`,
         [id(900 + n), id(500 + leadN), campaign, `+1305555010${leadN}`, `conv_${n}`, outcome, details]
       );
-    await call(1, 1, 'TRANSFERRED_TO_SPECIALIST', {});
+    await call(1, 1, 'INTERESTED_FOLLOW_UP', {});
     // The owner was out; the receptionist agreed a time: still Alejandro's, with the follow-up.
+    // The agreed slot sits inside the next 24 hours of the call in the business's own zone.
+    const tomorrow = (await tx.query("SELECT to_char((now() + interval '20 hours') AT TIME ZONE 'America/New_York','YYYY-MM-DD') AS d, to_char((now() + interval '20 hours') AT TIME ZONE 'America/New_York','HH24:MI') AS h")).rows[0];
     await call(2, 2, 'DECISION_MAKER_UNAVAILABLE', {
-      callback_confirmed: 'true', callback_date: '2026-12-02', callback_clock: '10:30', contact_name: 'Rosa',
+      callback_confirmed: 'true', callback_date: tomorrow.d, callback_clock: tomorrow.h, contact_name: 'Rosa',
     });
     await as(tx);
-    assert.ok((await tx.query('SELECT us_call_to_customer($1) AS r', [id(901)])).rows[0].r, 'transferred call');
+    assert.ok((await tx.query('SELECT us_call_to_customer($1) AS r', [id(901)])).rows[0].r, 'interested business');
     assert.ok((await tx.query('SELECT us_call_to_customer($1) AS r', [id(902)])).rows[0].r, 'agreed callback');
     await tx.query('SELECT us_call_to_customer($1)', [id(902)]); // a second sync adds nothing
+    // A slot beyond 24 hours is never booked, even with explicit agreement.
+    const later = (await tx.query("SELECT to_char((now() + interval '40 hours') AT TIME ZONE 'America/New_York','YYYY-MM-DD') AS d, to_char((now() + interval '40 hours') AT TIME ZONE 'America/New_York','HH24:MI') AS h")).rows[0];
+    await call(3, 1, 'CALLBACK_REQUESTED', {
+      callback_confirmed: 'true', callback_date: later.d, callback_clock: later.h,
+    });
+    await tx.query('SELECT us_call_to_customer($1)', [id(903)]);
     await tx.exec('RESET ROLE');
     const followups = (
       await tx.query(
-        "SELECT f.agent_id, f.kind, to_char(f.due_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI') AS due, f.title FROM followups f JOIN prospects p ON p.id = f.prospect_id WHERE p.idempotency_key LIKE 'us:%'"
+        "SELECT f.agent_id, f.kind, to_char(f.due_at AT TIME ZONE 'America/New_York','YYYY-MM-DD HH24:MI') AS due, f.title FROM followups f JOIN prospects p ON p.id = f.prospect_id WHERE p.idempotency_key LIKE 'us:%'"
       )
     ).rows;
     assert.equal(followups.length, 1);
     assert.equal(followups[0].agent_id, 'agent-2');
     assert.equal(followups[0].kind, 'callback');
-    assert.equal(followups[0].due, '2026-12-02 15:30', '10:30 in New York');
-    assert.match(followups[0].title, /10:30 hora local \(America\/New_York\)/);
+    assert.equal(followups[0].due, `${tomorrow.d} ${tomorrow.h}`, 'the agreed slot in New York time');
+    assert.match(followups[0].title, new RegExp(`${tomorrow.h} hora local \\(America\\/New_York\\)`));
+    const countBeyond = (
+      await tx.query("SELECT count(*)::int AS n FROM followups f JOIN prospects p ON p.id = f.prospect_id WHERE p.idempotency_key LIKE 'us:%' AND f.due_at > now() + interval '24 hours'")
+    ).rows[0].n;
+    assert.equal(countBeyond, 0, 'nothing booked beyond 24 hours');
   }));
