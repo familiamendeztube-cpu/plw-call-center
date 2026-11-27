@@ -14,7 +14,7 @@ import {
   PLW_US_ADDRESS,
 } from '../../supabase/functions/us-dialer/usScript.js';
 
-const ROUTE = { provider_agent_id: 'us_agent', transfer_uri: '+17547991065' };
+const ROUTE = { provider_agent_id: 'us_agent' };
 const RUNTIME = {
   ...ROUTE,
   scheduler_ready: true,
@@ -52,34 +52,36 @@ function fakeDb(rows) {
 const agentJson = (config) => ({ ok: true, status: 200, json: async () => config });
 
 // Empty automatic first message: the person always speaks first, same rule as tourism.
-test('the US first message is empty and the opening states who Anna is and where she calls from', () => {
+test('the US first message is empty and the opening asks who answers while the owner works', () => {
   assert.equal(US_FIRST_MESSAGE, '');
   assert.equal(
     usAgentConfig('Alejandro', ROUTE).conversation_config.agent.first_message,
     ''
   );
   const prompt = usPrompt();
-  // Anna says she is an AI in the first sentence, in Spanish and in English.
-  assert.match(prompt, /soy Anna, asistente virtual con inteligencia artificial de Professional Latino Workers; les llamo desde Los Ángeles/);
-  assert.match(prompt, /this is Anna, an AI virtual assistant with Professional Latino Workers/);
+  // The new outbound opening: PLW, Los Angeles, and the single working question.
+  assert.match(prompt, /soy Anna, de Professional Latino Workers en Los Ángeles\. ¿Quién le contesta el teléfono/);
   assert.ok(prompt.includes(PLW_US_ADDRESS), 'the LA office address is in the prompt');
   assert.match(prompt, /ESTADOS UNIDOS/);
 });
 
-// Language rule: never assume from the menu or surname; English if answered in English,
-// one bilingual offer when ambiguous, instant switch on request, context kept.
+// Language rule: never assume from the menu or surname; Spanish by default after a human,
+// natural English switch without restarting, one bilingual offer when ambiguous, context kept.
 test('the US prompt handles the English menu and the Spanish human without assuming a language', () => {
   const prompt = usPrompt();
   assert.match(prompt, /NO asume el idioma de la persona por el menú/);
-  assert.match(prompt, /Si la persona contesta en inglés, hable en inglés/);
+  assert.match(prompt, /el español es el idioma por defecto/);
+  assert.match(prompt, /siga en inglés de forma natural, sin reiniciar/);
   assert.match(prompt, /ofrezca UNA sola vez los dos idiomas/);
-  assert.match(prompt, /no repita la presentación ni el motivo de la llamada/);
   assert.match(prompt, /entiéndalas y marque la opción correcta con el teclado/);
   assert.match(prompt, /Espere en silencio mientras suena música o grabaciones/);
   assert.match(prompt, /responda en inglés con una o dos palabras/);
   assert.match(prompt, /no presente nada: cuelgue sin pitch/);
-  // Switching to Spanish and back keeps context.
-  assert.ok(prompt.indexOf('cambie con ella y siga el tema') < prompt.indexOf('Nunca invente precios'));
+  // The multilingual demo uses only provable voices and never promises every language.
+  assert.match(prompt, /Gracias por llamar, ¿en qué le puedo ayudar\?/);
+  assert.match(prompt, /Thanks for calling\. How can I help you\?/);
+  assert.match(prompt, /您好，请问有什么可以帮您？/);
+  assert.match(prompt, /No prometa "todos los idiomas"/);
 });
 
 test('the US verifier self-check passes and catches drift', () => {
@@ -89,8 +91,8 @@ test('the US verifier self-check passes and catches drift', () => {
   for (const [failure, drift] of [
     ['first_message', (c) => (c.conversation_config.agent.first_message = 'Hola')],
     ['timezone', (c) => (c.conversation_config.agent.prompt.timezone = 'America/Costa_Rica')],
-    ['skip_turn', (c) => delete c.conversation_config.agent.prompt.built_in_tools.skip_turn],
-    ['keypad', (c) => delete c.conversation_config.agent.prompt.built_in_tools.play_keypad_touch_tone],
+    ['skip_turn', (c) => (c.conversation_config.agent.prompt.built_in_tools.skip_turn = undefined)],
+    ['keypad', (c) => (c.conversation_config.agent.prompt.built_in_tools.play_keypad_touch_tone = undefined)],
     ['expressive_mode', (c) => (c.conversation_config.tts.expressive_mode = true)],
     // Owner's setup: Melissa in Spanish (default), Siren in English, GPT-6 Luna, Eleven v4 Turbo.
     ['voice_model', (c) => (c.conversation_config.tts.model_id = 'eleven_v3_conversational')],
@@ -103,13 +105,10 @@ test('the US verifier self-check passes and catches drift', () => {
     drift(config);
     assert.deepEqual(usConfigFailures(config, ROUTE), [failure]);
   }
-  // Anna transfers to the team line by phone number; a different number is drift.
-  const transfer = healthy.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers[0];
-  assert.deepEqual(transfer.transfer_destination, { type: 'phone', phone_number: ROUTE.transfer_uri });
-  assert.equal(transfer.transfer_type, 'sip_refer');
+  // No live transfers since 2026-11-27: a transfer tool on the agent is drift.
   const config = structuredClone(healthy);
-  config.conversation_config.agent.prompt.built_in_tools.transfer_to_number.params.transfers[0].transfer_destination.phone_number = '+13055550000';
-  assert.deepEqual(usConfigFailures(config, ROUTE), ['transfer_destination']);
+  config.conversation_config.agent.prompt.built_in_tools.transfer_to_number = { type: 'system', name: 'transfer_to_number' };
+  assert.deepEqual(usConfigFailures(config, ROUTE).sort(), ['extra_builtin_tool', 'transfer_removed']);
 });
 
 // US phones are dialed as full E.164; no slice(-8) anywhere; DNC is checked before dialing.
@@ -156,6 +155,7 @@ test('a US call dials the full E.164 number, passes the LA office and skips bloc
   assert.equal(noLine.updates.at(-1).values.state, 'cancelled');
   assert.equal(sent[0].conversation_initiation_client_data.dynamic_variables.plw_office, PLW_US_ADDRESS);
   assert.equal(sent[0].conversation_initiation_client_data.dynamic_variables.plw_script_version, US_SCRIPT_VERSION);
+  assert.equal(sent[0].conversation_initiation_client_data.dynamic_variables.plw_transfer_uri, undefined, 'no transfer route in the US flow');
   assert.match(sent[0].conversation_initiation_client_data.dynamic_variables.business_now, /de 20\d\d/, 'Anna gets the business date');
   const source = await (await import('node:fs/promises')).readFile(
     new URL('../../supabase/functions/us-dialer/runner.js', import.meta.url), 'utf8'
@@ -217,6 +217,32 @@ test('a finished US call syncs results and hands the agreed callback to Alejandr
   const outcome = db.updates.find((u) => u.table === 'us_calls' && u.values.outcome);
   assert.equal(outcome?.values.ended_reason, 'human');
   assert.ok(!order.includes('prospects'), 'no direct prospects read: the service role has no grant');
+});
+
+// Owner rules 2026-11-27: fixed price spoken, trade examples, callback-only closing,
+// honest AI disclosure, no live transfers.
+test('the US prompt sells with a trade example, the fixed price and a 24-hour PLW callback', () => {
+  const prompt = usPrompt();
+  // One trade example per call, chosen by business type, short turns.
+  assert.match(prompt, /Plomería: "Mientras usted arregla una fuga/);
+  assert.match(prompt, /Taller: "Cuando usted está debajo de un carro/);
+  assert.match(prompt, /Pintura: "Mientras pinta/);
+  assert.match(prompt, /elija UNO según la actividad/);
+  // Fixed price: 200 USD monthly, site design included, cancel anytime; no invented offers.
+  assert.match(prompt, /200 dólares al mes, precio fijo/);
+  assert.match(prompt, /valor estimado por PLW de 2,000 a 5,000 dólares/);
+  assert.match(prompt, /cancelación cuando quiera/);
+  assert.match(prompt, /No hay promociones temporales/);
+  // The only closing: a PLW callback inside 24 hours, explicit interest and consent.
+  assert.match(prompt, /DEVOLUCIÓN DE LLAMADA \(único cierre; nunca transfiera/);
+  assert.match(prompt, /dentro de las próximas 24 horas/);
+  assert.match(prompt, /No ofrezca conectar a nadie ahora mismo/);
+  // Honest AI: never passes as human, discloses at the natural close.
+  assert.match(prompt, /Nunca se haga pasar por humana/);
+  assert.match(prompt, /Por cierto, soy una asistente de inteligencia artificial/);
+  assert.match(prompt, /Yo contesto por usted, tomo los datos y le aviso por mensaje de texto/);
+  // Confirmed appointment times only.
+  assert.match(prompt, /solo dé lugar y hora como confirmados cuando de verdad lo estén/);
 });
 
 // An unconfirmed callback suggestion never books a slot.

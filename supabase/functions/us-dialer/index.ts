@@ -160,10 +160,11 @@ async function configureUs(
         error: `El número ${usNumber} no aparece en ElevenLabs. Impórtelo en ElevenLabs (Phone Numbers) y presione Configurar de nuevo.`,
       }, 409);
   }
-  // Anna's voices are fixed in usScript.js (Melissa in Spanish, Siren in English). Anna transfers to the US team line: it rings Alejandro first, then PLW USA — Recepción.
+  // Anna's voices are fixed in usScript.js (Melissa in Spanish, Siren in English). Since
+  // 2026-11-27 Anna never transfers: no route is stored, and the agent config has no
+  // transfer_to_number tool.
   if (!usNumber) return json({ error: 'Escriba el número de EE. UU. y presione Configurar.' }, 409);
   const route = {
-    transfer_uri: usNumber,
     provider_agent_id: runtime.data.provider_agent_id,
   };
   let providerId = runtime.data.provider_agent_id;
@@ -208,7 +209,7 @@ async function configureUs(
     .from('us_dialer_runtime')
     .update({
       config_verified_at: new Date().toISOString(),
-      transfer_uri: route.transfer_uri,
+      transfer_uri: null,
       last_error: keepPause(''),
       ...(usNumber ? { caller_e164: usNumber, phone_number_id: phoneNumberId } : {}),
     })

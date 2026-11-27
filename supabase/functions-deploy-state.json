@@ -1,77 +1,9 @@
 {
   "projectId": "72631818",
   "functions": {
-    "admin-actions": {
-      "hasChanged": false,
-      "hash": "b87c2dbc3e287107e34659a97ab2623a421f615db5aa354ed5d36ee8f053a1d7"
-    },
-    "ai-call-audio": {
-      "hasChanged": false,
-      "hash": "e923b6a8a77fa4f7c351c72d527c2281c6fad8160667b18914567b550200e74f"
-    },
-    "ai-outbound-test-call": {
-      "hasChanged": false,
-      "hash": "335f185510334a7eef0ff12d3addd79c73951458858d12d96ad049af58e17032"
-    },
-    "asterisk-bridge": {
-      "hasChanged": false,
-      "hash": "ba41f3c1fa1f1661a9fc4942eb65bb518eac75553c47863e783176302e81daba"
-    },
-    "chatwoot-webhook": {
-      "hasChanged": false,
-      "hash": "804103d211aaf8e6ac05b51fea844812303ee7d39630509cfa23f15a6a550d64"
-    },
-    "dental-dialer": {
-      "hasChanged": false,
-      "hash": "92934cc4cc6544b8107afc8ca6152be22fe7a204005d8566907c705f7a7138c2"
-    },
-    "elevenlabs-webhook": {
-      "hasChanged": false,
-      "hash": "804d2faa1bccd9d6a721f1801d5a2b56b32929a600ee75533d66c708d287dc4b"
-    },
-    "google-workspace": {
-      "hasChanged": false,
-      "hash": "eb22e6360c07c9565d0ae43804399c18b2fa0f1cd6e6fbdceb80f6c03cc99ba2"
-    },
-    "owner-setup": {
-      "hasChanged": false,
-      "hash": "465042a9e96717ba6d33d4c9a5c5f50eb8d7dd7b74736cd285225758910d871f"
-    },
-    "plw-hotel-demo": {
-      "hasChanged": false,
-      "hash": "66a1905f117424c1fa2727fb010e9ce7153eb53ddb634c4c1e4a2984befd52e6"
-    },
-    "plw-secretary-converse": {
-      "hasChanged": false,
-      "hash": "00f4b28a55ae6f6898f78348a4dc4a174e83df09a7152d8a0e25dda551c7bdc8"
-    },
-    "plw-site-images": {
-      "hasChanged": false,
-      "hash": "d744b393cc909b0c49e429c56e664c1018fe5e37e202fa4ca35f5ba59595df12"
-    },
-    "plw-tourism-preview": {
-      "hasChanged": false,
-      "hash": "0b024da7637aa4358d05ef812dfeade5e778be78a638243bd0853ff5984d14c8"
-    },
-    "plw-tourism-voice": {
-      "hasChanged": false,
-      "hash": "327d2b9e37bda201044347a1587ad59d04515c409f24f27326c329c9c5f81ff4"
-    },
-    "staff-auth": {
-      "hasChanged": false,
-      "hash": "5befcff18ee7d1d071d72bc94629a877094523ea38811e87f7ccc54671030b19"
-    },
-    "telephony": {
-      "hasChanged": false,
-      "hash": "f4a9548bfb34c7bd1f231fea9e68f2ccd787eb7d12a0de103ae945d80b3f770e"
-    },
-    "tourism-dialer": {
-      "hasChanged": false,
-      "hash": "cba743899ca42ccd9acf705eb97d6bb6e564d6c73dd42c413106b2b74ec517a5"
-    },
-    "whatsapp": {
-      "hasChanged": false,
-      "hash": "07be34126010cc7f64eb0eeb150cd3636a8c48f16471493f9a8d83b943302c6b"
-    }
+    "chatwoot-webhook": { "hasChanged": true },
+    "plw-hotel-demo": { "hasChanged": true },
+    "plw-secretary-converse": { "hasChanged": true },
+    "us-dialer": { "hasChanged": true }
   }
 }

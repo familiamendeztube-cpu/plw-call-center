@@ -1,6 +1,7 @@
 // US campaign ElevenLabs agent config. Copies the verified tourism agent shape (no shared
-// imports between edge functions) with the bilingual US prompt, US timezone and a distinct
-// transfer SIP header, so tourism/dental alerts and stats never fire for US calls.
+// imports between edge functions) with the bilingual US prompt, US timezone. Since 2026-11-27
+// there is NO transfer_to_number on the US agent: the only next step after interest is a
+// PLW callback agreed inside 24 hours, so no live-agent availability is ever needed.
 import {
   US_FIRST_MESSAGE,
   US_VOICE_MODEL,
@@ -121,7 +122,8 @@ const KEYPAD_TOOL = {
     'Marca una opción de un menú automático en inglés o español: ventas, reservaciones, operadora o recepción, según lo que pida el menú.',
   params: { system_tool_type: 'play_keypad_touch_tone' },
 };
-const BUILT_IN_TOOLS = ['end_call', 'transfer_to_number', 'voicemail_detection', 'language_detection', 'skip_turn', 'play_keypad_touch_tone'];
+// No transfer_to_number: the US flow never hands the call to a live agent.
+const BUILT_IN_TOOLS = ['end_call', 'voicemail_detection', 'language_detection', 'skip_turn', 'play_keypad_touch_tone'];
 
 const BASIC_TURN = { turn_eagerness: 'patient' };
 const IGNORED_REPLIES = [
@@ -167,19 +169,18 @@ const OUTCOME_FIELD = {
   plw_outcome: {
     type: 'string',
     description:
-      'Exactly one code for how the call ended: TRANSFERRED_TO_SPECIALIST, APPOINTMENT_CONFIRMED, ' +
-      'INTERESTED_FOLLOW_UP, EMAIL_INFO_REQUESTED, CALLBACK_REQUESTED, DEMO_SCHEDULED, RECEPTIONIST_CONTACT, ' +
+      'Exactly one code for how the call ended: APPOINTMENT_CONFIRMED, ' +
+      'INTERESTED_FOLLOW_UP, EMAIL_INFO_REQUESTED, CALLBACK_REQUESTED, RECEPTIONIST_CONTACT, ' +
       'DECISION_MAKER_UNAVAILABLE, NOT_INTERESTED, DO_NOT_CALL, WRONG_NUMBER, NO_ANSWER, ' +
-      'VOICEMAIL, IVR_NO_HUMAN, TECHNICAL_FAILURE. Use TRANSFERRED_TO_SPECIALIST when the call was ' +
-      'transferred to Alejandro. Use CALLBACK_REQUESTED when a call with Alejandro was agreed for a later ' +
-      'day or time. Use DEMO_SCHEDULED only when the person confirmed ' +
+      'VOICEMAIL, IVR_NO_HUMAN, TECHNICAL_FAILURE. Use CALLBACK_REQUESTED only when a PLW callback ' +
+      'inside the next 24 hours was explicitly agreed by the person. Use DEMO_SCHEDULED only when the person confirmed ' +
       'both day and time for the demo. Use DO_NOT_CALL whenever the person asked not to be called again. ' +
       'IVR_NO_HUMAN only when the call stayed inside a phone menu with no human. A recording is never NOT_INTERESTED.',
   },
 };
 
 export const US_OUTCOMES = [
-  'TRANSFERRED_TO_SPECIALIST', 'APPOINTMENT_CONFIRMED', 'INTERESTED_FOLLOW_UP', 'EMAIL_INFO_REQUESTED', 'CALLBACK_REQUESTED',
+  'APPOINTMENT_CONFIRMED', 'INTERESTED_FOLLOW_UP', 'EMAIL_INFO_REQUESTED', 'CALLBACK_REQUESTED',
   'DEMO_SCHEDULED', 'RECEPTIONIST_CONTACT', 'DECISION_MAKER_UNAVAILABLE', 'NOT_INTERESTED',
   'DO_NOT_CALL', 'WRONG_NUMBER', 'NO_ANSWER', 'VOICEMAIL', 'IVR_NO_HUMAN', 'TECHNICAL_FAILURE',
 ];
@@ -209,24 +210,6 @@ export function usAgentConfig(staffName, route, { basicTurn = false } = {}) {
             language_detection: LANGUAGE_TOOL,
             skip_turn: SKIP_TURN_TOOL,
             play_keypad_touch_tone: KEYPAD_TOOL,
-            transfer_to_number: {
-              type: 'system',
-              name: 'transfer_to_number',
-              params: {
-                system_tool_type: 'transfer_to_number',
-                transfers: [
-                  // The team line (+1 754-799-1065): Telnyx sends it to the phone server, which
-                  // rings Alejandro and, if he can't answer, PLW USA — Recepción takes a callback.
-                  // Anna's calls go straight from ElevenLabs to Telnyx, so a SIP address on our
-                  // server can't be reached by a transfer; a phone number can.
-                  {
-                    transfer_destination: { type: 'phone', phone_number: route.transfer_uri },
-                    transfer_type: 'sip_refer',
-                    condition: `La persona acepta hablar ahora mismo con ${staffName}.`,
-                  },
-                ],
-              },
-            },
           },
         },
       },
@@ -359,11 +342,6 @@ export function usConfigFailures(config, route) {
     Object.values(presets).some((preset) => text(preset?.overrides?.agent?.first_message) !== '')
   )
     failures.push('language_presets');
-  const t = built.transfer_to_number?.params?.transfers;
-  if (!Array.isArray(t) || t.length !== 1) failures.push('transfer_count');
-  else {
-    if (t[0].transfer_type !== 'sip_refer') failures.push('transfer_type');
-    if (t[0].transfer_destination?.phone_number !== route.transfer_uri) failures.push('transfer_destination');
-  }
+  if (built.transfer_to_number) failures.push('transfer_removed');
   return failures;
 }

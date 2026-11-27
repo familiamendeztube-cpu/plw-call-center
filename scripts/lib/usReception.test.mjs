@@ -41,8 +41,12 @@ test('the US receptionist collects exactly what PLW reads, with Anna\'s US voice
   assert.deepEqual(config.conversation_config.turn, { turn_timeout: 7 });
   assert.deepEqual(config.platform_settings.workspace_overrides.webhooks, { post_call_webhook_id: 'wh_plw', events: ['transcript'] });
   assert.equal(agent.prompt.timezone, 'America/Los_Angeles');
-  assert.match(agent.first_message, /^Gracias por llamar a Professional Latino Workers.*English/);
+  // Owner's entry line (2026-11-27): why they call comes first, no language announcement.
+  assert.equal(agent.first_message, 'Gracias por llamar a Professional Latino Workers. Soy Anna. ¿En qué le puedo ayudar?');
   assert.match(agent.prompt.prompt, /ningún agente pudo atender/);
+  // Inbound priority: the reason for the call before any data collection; no live transfers.
+  assert.match(agent.prompt.prompt, /Su prioridad es POR QUÉ llama/);
+  assert.match(agent.prompt.prompt, /Nunca transfieras la llamada/);
   assert.doesNotMatch(agent.prompt.prompt, /Costa Rica/);
   assert.deepEqual(Object.keys(agent.prompt.built_in_tools).sort(), ['end_call', 'language_detection']);
 });

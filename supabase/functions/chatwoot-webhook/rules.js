@@ -1,5 +1,26 @@
 const MAX_AGE_SECONDS = 30 * 60; // Same window as the ElevenLabs webhook: a backed-up queue still lands.
 const MAX_CLOCK_SKEW_SECONDS = 5 * 60;
+const MAX_BODY_BYTES = 5 * 1024 * 1024;
+
+/** Reads at most `max` bytes; returns null when the body is larger. */
+export async function readLimited(req, max = MAX_BODY_BYTES) {
+  if (Number(req.headers.get('content-length') ?? 0) > max) return null;
+  if (!req.body) return '';
+  const reader = req.body.getReader();
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new Blob(chunks).text();
+}
 
 function hexBytes(hex) {
   return Uint8Array.from(hex.match(/../g), (pair) => parseInt(pair, 16));

@@ -1,6 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { readLimited } from '../elevenlabs-webhook/rules.js';
-import { messageFromEvent, verifySignature } from './rules.js';
+import { messageFromEvent, readLimited, verifySignature } from './rules.js';
 
 // Chatwoot calls this for every message in the account. Only customer messages in the WhatsApp
 // inbox reach the database. Logs carry reason codes only: never bodies, names or phone numbers.

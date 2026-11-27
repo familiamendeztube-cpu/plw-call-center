@@ -6,7 +6,7 @@
 // - send (admin): the sample-link text to a dialer lead (us_sms_send), same rule.
 // Secrets: TELNYX_API_KEY and TELNYX_PUBLIC_KEY, only in the function's environment.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { authorizeStaff } from '../telephony/handlers.js';
+import { authorizeStaff } from './auth.js';
 import { handleTelnyxEvent, sendTelnyxSms, verifyTelnyxSignature } from './telnyx.js';
 
 const cors = {

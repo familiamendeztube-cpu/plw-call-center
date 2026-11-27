@@ -1,6 +1,7 @@
 // US dispatcher runner: same proven mechanics as the tourism runner (dispatch, sync,
 // reconcile) against us_* tables, with E.164 destination numbers, IANA/DST-aware callback
-// scheduling and the US outcome mapping. Never touches tourism or dental rows.
+// scheduling and the US outcome mapping. Never touches tourism or dental rows. Since
+// 2026-11-27 the US agent has no transfer: the dispatcher needs no route, only the number.
 import { businessNow, providerReason, usAsrKeywords, usCallResults, usConfigFailures, isSip403Error } from './provider.js';
 import { US_SCRIPT_VERSION, PLW_US_ADDRESS } from './usScript.js';
 
@@ -44,11 +45,11 @@ export async function dispatchUsCall(db, apiKey, claim, fetchImpl = fetch) {
   }
   let result;
   // The Telnyx number as imported in ElevenLabs (Configurar saves it). Never the Costa Rica line.
-  if (!runtime?.phone_number_id || !runtime?.transfer_uri) {
+  if (!runtime?.phone_number_id) {
     await checked(
       db
         .from('us_calls')
-        .update({ state: 'cancelled', error: 'Falta el número de EE. UU. en ElevenLabs o la ruta de transferencia.', finished_at: new Date().toISOString() })
+        .update({ state: 'cancelled', error: 'Falta el número de EE. UU. en ElevenLabs.', finished_at: new Date().toISOString() })
         .eq('id', call.id)
         .eq('state', 'reserved')
     );
@@ -72,7 +73,6 @@ export async function dispatchUsCall(db, apiKey, claim, fetchImpl = fetch) {
             business_now: businessNow(lead.timezone),
             plw_office: PLW_US_ADDRESS,
             plw_us_call_id: call.id,
-            plw_transfer_uri: runtime.transfer_uri,
             plw_script_version: US_SCRIPT_VERSION,
           },
           conversation_config_override: { asr: { keywords: usAsrKeywords(lead.business_name) } },

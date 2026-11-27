@@ -30,8 +30,7 @@ export interface UsRuntime {
   provider_agent_id: string | null;
   config_verified_at: string | null;
   transfer_uri: string | null;
-  caller_e164: string | null;
-  dialed_today: number;
+  caller_e164: string | null;  dialed_today: number;
   daily_cap: number;
   max_lines: number;
   allowed_from: string;
@@ -81,7 +80,6 @@ const STATE_LABELS: Record<string, string> = {
 };
 
 const OUTCOME_LABELS: Record<string, string> = {
-  TRANSFERRED_TO_SPECIALIST: 'Transferida a Alejandro',
   APPOINTMENT_CONFIRMED: 'Cita confirmada',
   INTERESTED_FOLLOW_UP: 'Interesado',
   EMAIL_INFO_REQUESTED: 'Pidió correo',
@@ -321,7 +319,7 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
     }
   };
 
-  const verified = Boolean(runtime?.config_verified_at && runtime?.provider_agent_id && runtime?.transfer_uri);
+  const verified = Boolean(runtime?.config_verified_at && runtime?.provider_agent_id);
   const paused = runtime?.paused !== false;
   const status = !verified ? 'Sin configurar' : paused ? 'Pausado' : 'Marcando';
   const queueLeads = leads.filter((lead) => lead.dest === 'us');
@@ -334,9 +332,9 @@ export function UsDialerCard({ runtime, runtimeError, calls, leads, callbacks, s
           <h2 className="text-lg font-semibold text-plw-ink">Marcador EE. UU. · Negocios en español</h2>
           <p className="mt-1 text-sm text-neutral-600">
             Anna llama de lunes a viernes, {runtime?.allowed_from ?? '08:00'}–{runtime?.allowed_to ?? '16:00'} hora local de
-            cada negocio (zona horaria propia, con horario de verano). Si no se conoce la zona, solo llama cuando ese horario
-            se cumple a la vez en Nueva York y en Los Ángeles. Máximo {runtime?.daily_cap ?? 100} llamadas por día, hasta {runtime?.max_lines ?? 1}
-            a la vez. Si le interesa, Anna transfiere a Alejandro o le agenda una llamada. Número de EE. UU.: {runtime?.caller_e164 ?? 'pendiente: escríbalo y presione Configurar'}.
+            cada negocio (zona horaria propia, con horario de verano). Máximo {runtime?.daily_cap ?? 100} llamadas por día,
+            hasta {runtime?.max_lines ?? 1} a la vez. Sin transferencias en vivo: si hay interés, Anna agenda una llamada del
+            equipo de PLW dentro de las próximas 24 horas. Número de EE. UU.: {runtime?.caller_e164 ?? 'pendiente: escríbalo y presione Configurar'}.
           </p>
         </div>
         <Badge tone={status === 'Marcando' ? 'success' : status === 'Pausado' ? 'warning' : 'neutral'}>
