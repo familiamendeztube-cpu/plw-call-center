@@ -118,6 +118,38 @@ test('Anna runs up to max_lines calls at once (5 live), and no more', async () =
     assert.ok((await tx.query('SELECT claim_us_call($1) AS c', [at])).rows[0].c, 'a line frees up, the next call starts');
   }));
 
+test('a lead with no conversation gets one more try on a later day; fresh leads go first', async () =>
+  fixture(async (tx, campaign) => {
+    await tx.exec(READY);
+    for (let n = 1; n <= 7; n++) await lead(tx, campaign, n, `+130555501${n}0`, 'America/New_York');
+    // As a claim does: the call, and the lead's last_call_at.
+    const earlier = async (n, state, outcome, at, error = '') => {
+      await tx.query(
+        `INSERT INTO us_calls(lead_id,campaign_id,staff_id,phone,provider_agent_id,state,outcome,error,created_at)
+         VALUES($1,$2,'agent-2',$3,'us_agent',$4,$5,$6,$7)`,
+        [id(500 + n), campaign, `+130555501${n}0`, state, outcome, error, at]
+      );
+      await tx.query('UPDATE us_leads SET last_call_at=$2 WHERE id=$1', [id(500 + n), at]);
+    };
+    // Monday in New York: voicemail, a hang-up during the opening (no outcome), a real "no",
+    // a number that does not exist, and a lead already tried twice. Lead 6 was never called.
+    const monday = '2026-11-30T15:00:00Z';
+    await earlier(1, 'completed', 'VOICEMAIL', monday);
+    await earlier(2, 'completed', null, monday);
+    await earlier(3, 'completed', 'NOT_INTERESTED', monday);
+    await earlier(4, 'failed', null, monday, 'dial failed with 404 Not Found (SIP 404)');
+    await earlier(5, 'failed', null, '2026-11-27T15:00:00Z');
+    await earlier(5, 'completed', 'VOICEMAIL', monday);
+    // Lead 7 went to voicemail this morning (Tuesday 08:30 New York): not again today.
+    await earlier(7, 'completed', 'VOICEMAIL', '2026-12-01T13:30:00Z');
+
+    const tuesday = (minute) => `2026-12-01T15:0${minute}:00Z`; // 10:0x in New York
+    assert.equal((await claimAt(tx, tuesday(0))).lead.id, id(506), 'a fresh lead goes first');
+    assert.equal((await claimAt(tx, tuesday(1))).lead.id, id(501), 'voicemail: one more try');
+    assert.equal((await claimAt(tx, tuesday(2))).lead.id, id(502), 'hung up before any reply: one more try');
+    assert.equal(await claimAt(tx, tuesday(3)), null, 'a real no, a dead number, two tries and today: final');
+  }));
+
 test('nothing is claimed without the US number', async () =>
   fixture(async (tx, campaign) => {
     await tx.exec(READY);

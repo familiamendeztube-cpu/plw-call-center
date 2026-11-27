@@ -52,15 +52,21 @@ function fakeDb(rows) {
 const agentJson = (config) => ({ ok: true, status: 200, json: async () => config });
 
 // Empty automatic first message: the person always speaks first, same rule as tourism.
-test('the US first message is empty and the opening asks who answers while the owner works', () => {
+test('the US first message is empty and the opening is short, human and asks permission first', () => {
   assert.equal(US_FIRST_MESSAGE, '');
   assert.equal(
     usAgentConfig('Alejandro', ROUTE).conversation_config.agent.first_message,
     ''
   );
   const prompt = usPrompt();
-  // The new outbound opening: PLW, Los Angeles, and the single working question.
-  assert.match(prompt, /soy Anna, de Professional Latino Workers en Los Ángeles\. ¿Quién le contesta el teléfono/);
+  // After the first live morning (everyone hung up on the old opening): the business's name, who
+  // calls, permission; the working question only after a yes; no city, no "IA" in the first line.
+  assert.ok(
+    prompt.includes('"Buenos días, ¿hablo con {{business_name}}? Le habla Anna, asistente virtual de Professional Latino Workers. ¿Tiene un minutito?"')
+  );
+  assert.match(prompt, /Si le dice que sí o la deja seguir, haga UNA pregunta: "¿Quién le contesta el teléfono/);
+  assert.match(prompt, /no diga de qué ciudad llama, no diga "inteligencia artificial"/);
+  assert.match(prompt, /nunca diga "¿En qué le puedo ayudar\?"/);
   assert.ok(prompt.includes(PLW_US_ADDRESS), 'the LA office address is in the prompt');
   assert.match(prompt, /ESTADOS UNIDOS/);
 });
@@ -72,7 +78,9 @@ test('the US prompt handles the English menu and the Spanish human without assum
   assert.match(prompt, /NO asume el idioma de la persona por el menú/);
   assert.match(prompt, /el español es el idioma por defecto/);
   assert.match(prompt, /siga en inglés de forma natural, sin reiniciar/);
-  assert.match(prompt, /ofrezca UNA sola vez los dos idiomas/);
+  // "Aló" or "Bueno" is Spanish: she never asks which language (it lost the first live calls).
+  assert.match(prompt, /"Aló", "Bueno", "Hola", "Diga", "¿Sí\?" o cualquier saludo en español: es español/);
+  assert.match(prompt, /NUNCA pregunte "¿Habla español o inglés\?"/);
   assert.match(prompt, /entiéndalas y marque la opción correcta con el teclado/);
   assert.match(prompt, /Espere en silencio mientras suena música o grabaciones/);
   assert.match(prompt, /responda en inglés con una o dos palabras/);
