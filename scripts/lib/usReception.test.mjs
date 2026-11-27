@@ -4,6 +4,7 @@ import {
   CR_RECEPTION_AGENT_ID,
   RECEPTION_FIELDS,
   ensureUsReception,
+  receptionPrompt,
   usReceptionConfig,
 } from '../../supabase/functions/us-dialer/reception.js';
 import { FIELD_IDS, PLW_AGENT_ID } from '../../supabase/functions/elevenlabs-webhook/rules.js';
@@ -49,6 +50,15 @@ test('the US receptionist collects exactly what PLW reads, with Anna\'s US voice
   assert.match(agent.prompt.prompt, /Nunca transfieras la llamada/);
   assert.doesNotMatch(agent.prompt.prompt, /Costa Rica/);
   assert.deepEqual(Object.keys(agent.prompt.built_in_tools).sort(), ['end_call', 'language_detection']);
+  // Owner rules 2026-11-27b: proactive sale on interest, no WhatsApp, exact AI closing,
+  // real date/time confirmations, Mandarin as a sample phrase only.
+  const rp = receptionPrompt();
+  assert.match(rp, /venda de forma proactiva en turnos cortos/);
+  assert.ok(!/WhatsApp/i.test(rp), 'no WhatsApp in the US reception flow');
+  assert.match(rp, /Así puedo contestar por su negocio/);
+  assert.match(rp, /nunca con un "hoy o mañana" suelto/);
+  assert.match(rp, /No prometas "todos los idiomas" ni soporte completo en mandarín/);
+  assert.equal(RECEPTION_FIELDS.preferred_contact.description.includes('whatsapp'), false);
 });
 
 test('the receptionist is created once and updated in place after that', async () => {

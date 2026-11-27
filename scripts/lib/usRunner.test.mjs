@@ -243,6 +243,15 @@ test('the US prompt sells with a trade example, the fixed price and a 24-hour PL
   assert.match(prompt, /Yo contesto por usted, tomo los datos y le aviso por mensaje de texto/);
   // Confirmed appointment times only.
   assert.match(prompt, /solo dé lugar y hora como confirmados cuando de verdad lo estén/);
+  // Owner rules 2026-11-27b: proactive selling on interest, no WhatsApp in the US market,
+  // the exact AI-disclosure closing line, real date/time confirmations, no promised sends.
+  assert.match(prompt, /venda de forma PROACTIVA en turnos cortos/);
+  assert.ok(!/WhatsApp/i.test(prompt), 'no WhatsApp in the US sales flow');
+  assert.match(prompt, /Así puedo contestar por su negocio/);
+  assert.match(prompt, /nunca con un "hoy o mañana" suelto/);
+  assert.match(prompt, /no prometa enviar nada ni diga que algo ya fue enviado/i);
+  assert.match(prompt, /frase de muestra en mandarín/);
+  assert.match(prompt, /No prometa "todos los idiomas" ni soporte completo en mandarín/);
 });
 
 // An unconfirmed callback suggestion never books a slot.
