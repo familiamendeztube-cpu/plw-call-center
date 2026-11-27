@@ -2,8 +2,12 @@ import type { Message } from '@/features/inbox/models/message';
 
 /** PLW's US number: customers text it, and agents' replies come from it. */
 export const PLW_US_SMS_NUMBER = '(754) 799-1065';
-/** Telnyx's limit for one text (longer texts arrive as several joined parts). */
-export const MAX_SMS = 1600;
+/**
+ * Longest text an agent may send. Telnyx sends at most 10 parts, and a text with á, í, ó or ú
+ * (almost every Spanish one) goes in parts of 67 characters: 670 in all, minus the ~74 of the
+ * STOP line the server adds to the first text. Emoji count as 2, as they do for the carrier.
+ */
+export const MAX_SMS = 590;
 
 /** One row of sms_messages, as the agent may read it. */
 export interface SmsRow {

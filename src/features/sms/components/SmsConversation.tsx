@@ -147,7 +147,9 @@ function SmsComposer({
   const [error, setError] = useState<string | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const fieldId = `sms-reply-${prospectId}`;
-  const ready = text.trim().length > 0 && text.trim().length <= MAX_SMS;
+  const length = text.trim().length;
+  const tooLong = length > MAX_SMS;
+  const ready = length > 0 && !tooLong;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -186,7 +188,7 @@ function SmsComposer({
           value={text}
           onChange={(event) => setText(event.target.value)}
           rows={1}
-          maxLength={MAX_SMS}
+          aria-describedby={`${fieldId}-count`}
           placeholder="Escriba un SMS"
           className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm leading-relaxed text-plw-ink placeholder:text-neutral-400 focus:border-plw-gold focus:outline-none focus:ring-2 focus:ring-plw-gold/30"
         />
@@ -195,8 +197,13 @@ function SmsComposer({
           {sending ? 'Enviando...' : 'Enviar'}
         </Button>
       </div>
-      <p className="text-right text-xs text-neutral-500">
-        Sale del número de PLW {PLW_US_SMS_NUMBER}. El primer SMS termina con cómo darse de baja.
+      <p id={`${fieldId}-count`} className="text-right text-xs text-neutral-500">
+        <span className={tooLong ? 'font-semibold text-danger-700' : 'tabular-nums'}>
+          {tooLong
+            ? `${length} de ${MAX_SMS} caracteres: acórtelo o envíelo en dos mensajes.`
+            : `${length}/${MAX_SMS}`}
+        </span>{' '}
+        · Sale del número de PLW {PLW_US_SMS_NUMBER}. El primer SMS termina con cómo darse de baja.
       </p>
       {error ? (
         <p role="alert" className="text-xs text-danger-700">
