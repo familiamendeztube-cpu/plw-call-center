@@ -369,3 +369,56 @@ test("an interested business or an agreed callback becomes Alejandro's customer,
     ).rows[0].n;
     assert.equal(countBeyond, 0, 'nothing booked beyond 24 hours');
   }));
+
+test('a business Anna called that calls back: agents see it ringing, the one who answers gets the customer, Anna never redials it', async () =>
+  fixture(async (tx, campaign) => {
+    await tx.exec(READY);
+    await lead(tx, campaign, 1, '+19545495176', 'America/New_York', { type: 'Plomería' });
+    await tx.query(
+      `INSERT INTO us_calls(lead_id,campaign_id,staff_id,phone,provider_agent_id,state,created_at)
+       VALUES($1,$2,'agent-2','+19545495176','us_agent','failed','2026-11-30T15:00:00Z')`,
+      [id(501), campaign]
+    );
+    await tx.query('UPDATE us_leads SET last_call_at=$2 WHERE id=$1', [id(501), '2026-11-30T15:00:00Z']);
+    const caller = async (who, phone, answered) => {
+      await as(tx, who);
+      const row = (await tx.query('SELECT us_caller($1,$2) AS c', [phone, answered])).rows[0].c;
+      await tx.exec('RESET ROLE');
+      return row;
+    };
+    const customers = async () =>
+      (await tx.query("SELECT id, owner_id FROM prospects WHERE phone='+19545495176'")).rows;
+
+    // Ringing, as the agent's phone shows the number: the business and Anna's call, no customer yet.
+    const ringing = await caller(AGENT, '9545495176', false);
+    assert.equal(ringing.business_name, 'Negocio 1');
+    assert.equal(ringing.business_type, 'Plomería');
+    assert.equal(ringing.outcome, null);
+    assert.ok(ringing.anna_called_at);
+    assert.equal(ringing.prospect_id, null);
+    assert.equal((await customers()).length, 0);
+    assert.equal(await caller(AGENT, '3055550199', false), null, 'not a lead: nothing');
+
+    // Answered: Alejandro's customer, once.
+    const first = await caller(AGENT, '+1 (954) 549-5176', true);
+    const again = await caller(AGENT, '9545495176', true);
+    assert.ok(first.prospect_id);
+    assert.equal(again.prospect_id, first.prospect_id);
+    assert.deepEqual(await customers(), [{ id: first.prospect_id, owner_id: 'agent-2' }]);
+
+    // Another agent answering later sees the business, not Alejandro's customer.
+    await tx.query('INSERT INTO auth.users(id) VALUES($1)', [id(102)]);
+    await tx.query('INSERT INTO auth.sessions(id,user_id) VALUES($1,$2)', [id(202), id(102)]);
+    await tx.query("UPDATE staff_profiles SET auth_user_id=$1,is_enabled=true WHERE id='agent-1'", [id(102)]);
+    const other = await caller(2, '9545495176', true);
+    assert.equal(other.business_name, 'Negocio 1');
+    assert.equal(other.prospect_id, null);
+    assert.equal((await customers()).length, 1);
+
+    await as(tx, ADMIN);
+    await denied(tx, 'SELECT us_caller($1,$2)', ['9545495176', false], /No autorizado/);
+    await tx.exec('RESET ROLE');
+
+    // Its only call failed, so it would get a second try today; it is a customer now: never.
+    assert.equal(await claimAt(tx, '2026-12-01T15:00:00Z'), null);
+  }));

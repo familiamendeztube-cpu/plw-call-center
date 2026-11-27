@@ -2,8 +2,11 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/context/useAuth';
 import { useTelephony } from '@/features/telephony/context/telephonyContext';
-import { CUSTOMER_PARAM } from '@/features/customers/models/customerLinks';
+import { formatDateTime } from '@/app/dates';
+import { CUSTOMER_PARAM, CUSTOMER_TAB_PARAM } from '@/features/customers/models/customerLinks';
 import { useOptionalAgentProspects } from '@/features/leads/context/agentProspectsContext';
+import { US_OUTCOME_LABELS } from '@/features/ai-outbound/services/usCampaign';
+import { useUsCaller, type UsCaller } from '@/features/telephony/hooks/useUsCaller';
 import { useIncomingDentalCall } from '../hooks/useIncomingDentalCall';
 import {
   dentalContext,
@@ -26,6 +29,9 @@ export function DentalIncomingAlert() {
   // Any caller who is already one of the agent's customers, not only Anna's transfers.
   const prospects = useOptionalAgentProspects();
   const customer = call ? (prospects?.findByPhone(call.remoteNumber) ?? null) : null;
+  // A US business Anna called: who it is and what she got, even before it is a customer.
+  const usCaller = useUsCaller(call);
+  const usCustomerId = usCaller?.prospect_id ?? customer?.id;
 
   if (isIncomingRinging(call)) {
     return (
@@ -55,6 +61,7 @@ export function DentalIncomingAlert() {
             </Link>
           </div>
         ) : null}
+        {usCaller ? <UsCallerDetails caller={usCaller} showName={!customer} /> : null}
         <DentalDetails context={context} />
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="success" size="lg" onClick={() => void answerCall()}>
@@ -96,7 +103,60 @@ export function DentalIncomingAlert() {
     );
   }
 
+  if (showCompactContext(call) && usCaller) {
+    return (
+      <aside
+        aria-label="Negocio en esta llamada"
+        className="fixed inset-x-4 bottom-4 z-40 mx-auto grid max-h-[40dvh] max-w-sm gap-2 overflow-y-auto overscroll-contain rounded-xl border border-plw-navy/20 bg-white p-4 shadow-xl sm:left-auto sm:right-4 sm:mx-0"
+      >
+        <p className="text-xs font-semibold uppercase tracking-wide text-plw-navy">
+          Negocio en esta llamada
+        </p>
+        <UsCallerDetails caller={usCaller} showName />
+        {usCustomerId ? (
+          <>
+            <p className="text-xs text-neutral-600">
+              ¿Quiere la información por mensaje? Pídale permiso y márquelo en la pestaña SMS.
+            </p>
+            <Link
+              to={`/clientes?${CUSTOMER_PARAM}=${usCustomerId}&${CUSTOMER_TAB_PARAM}=sms`}
+              className="text-sm font-semibold text-plw-navy underline underline-offset-4"
+            >
+              Abrir cliente
+            </Link>
+          </>
+        ) : null}
+      </aside>
+    );
+  }
+
   return null;
+}
+
+/** The business Anna called and how her last call with it went (her summary is in English). */
+function UsCallerDetails({ caller, showName }: { caller: UsCaller; showName: boolean }) {
+  const about = [caller.contact_name, caller.business_type].filter(Boolean).join(' · ');
+  return (
+    <div className="grid gap-2">
+      {showName ? (
+        <div>
+          <p className="text-2xl font-semibold text-plw-navy">{caller.business_name}</p>
+          {about ? <p className="text-sm text-neutral-700">{about}</p> : null}
+        </div>
+      ) : null}
+      {caller.anna_called_at ? (
+        <div className="grid gap-1 rounded-lg bg-plw-ivory p-3 text-sm">
+          <p className="font-semibold">Anna lo llamó el {formatDateTime(caller.anna_called_at)}</p>
+          <p>
+            {caller.outcome
+              ? (US_OUTCOME_LABELS[caller.outcome] ?? caller.outcome)
+              : 'No llegaron a conversar.'}
+          </p>
+          {caller.summary ? <p className="whitespace-pre-wrap">{caller.summary}</p> : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function DentalDetails({

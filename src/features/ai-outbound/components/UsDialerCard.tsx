@@ -17,6 +17,7 @@ import {
   resolveUsCallback,
   rescheduleUsCallback,
   saveUsSmsConsent,
+  US_OUTCOME_LABELS as OUTCOME_LABELS,
   type UsLead,
 } from '@/features/ai-outbound/services/usCampaign';
 
@@ -77,23 +78,6 @@ const STATE_LABELS: Record<string, string> = {
   completed: 'Terminada',
   failed: 'Fallida',
   cancelled: 'Cancelada',
-};
-
-const OUTCOME_LABELS: Record<string, string> = {
-  APPOINTMENT_CONFIRMED: 'Cita confirmada',
-  INTERESTED_FOLLOW_UP: 'Interesado',
-  EMAIL_INFO_REQUESTED: 'Pidió correo',
-  CALLBACK_REQUESTED: 'Volver a llamar',
-  DEMO_SCHEDULED: 'Demo agendada',
-  RECEPTIONIST_CONTACT: 'Recepción',
-  DECISION_MAKER_UNAVAILABLE: 'Encargado no disponible',
-  NOT_INTERESTED: 'No interesado',
-  DO_NOT_CALL: 'No llamar',
-  WRONG_NUMBER: 'Número equivocado',
-  NO_ANSWER: 'No contestó',
-  VOICEMAIL: 'Buzón de voz',
-  IVR_NO_HUMAN: 'Solo menú automático',
-  TECHNICAL_FAILURE: 'Falla técnica',
 };
 
 const DEST_LABELS: Record<UsLead['dest'], string> = {

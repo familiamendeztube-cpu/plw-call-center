@@ -130,6 +130,8 @@ const BROWSER_CALLABLE_FUNCTIONS = [
   'mark_sms_read',
   'record_sms_consent',
   'register_sms_reply',
+  // The US business on an inbound call, agents only: scripts/lib/usDialer.test.mjs.
+  'us_caller',
   'pending_tourism_emails',
   'verify_tourism_email',
   'public_agent_directory',

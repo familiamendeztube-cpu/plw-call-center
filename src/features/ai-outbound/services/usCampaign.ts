@@ -2,6 +2,24 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 
 const US_CAMPAIGN_NAME = 'EE. UU. · Negocios en español';
 
+/** How each of Anna's call outcomes reads in Spanish. */
+export const US_OUTCOME_LABELS: Record<string, string> = {
+  APPOINTMENT_CONFIRMED: 'Cita confirmada',
+  INTERESTED_FOLLOW_UP: 'Interesado',
+  EMAIL_INFO_REQUESTED: 'Pidió correo',
+  CALLBACK_REQUESTED: 'Volver a llamar',
+  DEMO_SCHEDULED: 'Demo agendada',
+  RECEPTIONIST_CONTACT: 'Recepción',
+  DECISION_MAKER_UNAVAILABLE: 'Encargado no disponible',
+  NOT_INTERESTED: 'No interesado',
+  DO_NOT_CALL: 'No llamar',
+  WRONG_NUMBER: 'Número equivocado',
+  NO_ANSWER: 'No contestó',
+  VOICEMAIL: 'Buzón de voz',
+  IVR_NO_HUMAN: 'Solo menú automático',
+  TECHNICAL_FAILURE: 'Falla técnica',
+};
+
 export interface UsLead {
   id: string;
   raw_phone: string;
